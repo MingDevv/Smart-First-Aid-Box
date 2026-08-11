@@ -10,7 +10,7 @@
             font-size: 14px;
             color: var(--text-muted);
             margin-top: 10px;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
             text-align: center;
         }
 
@@ -23,7 +23,7 @@
         .action-card {
             display: flex;
             align-items: center;
-            padding: 24px 20px;
+            padding: 22px 20px;
             background-color: #FFFFFF;
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
@@ -68,8 +68,131 @@
             line-height: 1.4;
         }
 
-        .back-btn-wrapper {
-            margin-bottom: 20px;
+        /* Student Profile Card Bar */
+        .student-profile-bar {
+            background: linear-gradient(135deg, var(--primary) 0%, #1E40AF 100%);
+            color: white;
+            padding: 14px 18px;
+            border-radius: var(--radius-md);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .student-info-name {
+            font-weight: 700;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .student-info-meta {
+            font-size: 12px;
+            opacity: 0.85;
+            margin-top: 2px;
+        }
+
+        .change-student-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            font-family: var(--font-prompt), sans-serif;
+        }
+
+        .change-student-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .allergy-alert {
+            background-color: var(--accent-light);
+            border: 1px solid rgba(217, 119, 6, 0.25);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #78350F;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Numpad Login Modal Screen */
+        .student-login-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-box {
+            background: #FFFFFF;
+            border-radius: var(--radius-md);
+            width: 100%;
+            max-width: 340px;
+            padding: 24px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .id-display {
+            font-family: var(--font-prompt), sans-serif;
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: 6px;
+            color: var(--primary);
+            background: #F8FAFC;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            margin: 16px 0;
+            min-height: 58px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .numpad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .num-btn {
+            background-color: #F8FAFC;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-radius: var(--radius-sm);
+            height: 48px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s ease;
+            font-family: var(--font-prompt), sans-serif;
+        }
+
+        .num-btn:active {
+            background-color: var(--primary-light);
+            transform: scale(0.95);
         }
 
         /* SOS Emergency Button */
@@ -79,76 +202,94 @@
             justify-content: center;
             gap: 10px;
             width: 100%;
-            padding: 18px 24px;
+            padding: 16px 24px;
             background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%);
             color: #FFFFFF;
             border: 2px solid #FCA5A5;
             border-radius: var(--radius-md);
             font-family: var(--font-prompt), sans-serif;
-            font-size: 17px;
+            font-size: 16px;
             font-weight: 700;
             cursor: pointer;
             box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);
             transition: all 0.2s ease;
-            animation: sosPulse 2s ease-in-out infinite;
-            margin-top: 8px;
+            margin-top: 14px;
         }
 
-        .sos-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.45);
-        }
-
-        .sos-btn:active {
-            transform: translateY(0);
-        }
-
-        .sos-btn.sending {
-            opacity: 0.7;
-            pointer-events: none;
-            animation: none;
-        }
-
-        @keyframes sosPulse {
-            0%, 100% { box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35); }
-            50% { box-shadow: 0 4px 24px rgba(220, 38, 38, 0.55); }
-        }
-
-        /* About link at bottom */
         .about-link {
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
-            margin-top: 20px;
+            margin-top: 16px;
             padding: 12px;
             font-size: 13px;
             color: var(--text-muted);
-            cursor: pointer;
             border: 1px dashed var(--border-color);
             border-radius: var(--radius-sm);
-            transition: all 0.15s ease;
-            text-decoration: none;
-        }
-
-        .about-link:hover {
-            color: var(--primary);
-            border-color: var(--primary);
-            background-color: var(--primary-light);
             text-decoration: none;
         }
     </style>
 </head>
 <body>
+    <!-- Student Login Modal -->
+    <div class="student-login-modal" id="student-login-modal" style="display:none;">
+        <div class="login-box animate-slide-up">
+            <span style="font-size: 32px;">🪪</span>
+            <h2 style="font-size: 18px; color: var(--primary); margin-top: 4px;">เข้าสู่ระบบนักเรียน</h2>
+            <p style="font-size: 12px; color: var(--text-muted);">กรุณากรอกรหัสนักเรียน 5 หลัก (เช่น 12345 หรือ 11111)</p>
+            
+            <div class="id-display" id="id-display-text">-----</div>
+
+            <div class="numpad-grid">
+                <button class="num-btn" onclick="pressNum('1')">1</button>
+                <button class="num-btn" onclick="pressNum('2')">2</button>
+                <button class="num-btn" onclick="pressNum('3')">3</button>
+                
+                <button class="num-btn" onclick="pressNum('4')">4</button>
+                <button class="num-btn" onclick="pressNum('5')">5</button>
+                <button class="num-btn" onclick="pressNum('6')">6</button>
+                
+                <button class="num-btn" onclick="pressNum('7')">7</button>
+                <button class="num-btn" onclick="pressNum('8')">8</button>
+                <button class="num-btn" onclick="pressNum('9')">9</button>
+                
+                <button class="num-btn" style="font-size:12px; color:var(--danger);" onclick="clearNum()">ลบ</button>
+                <button class="num-btn" onclick="pressNum('0')">0</button>
+                <button class="num-btn" style="font-size:12px; color:var(--primary);" onclick="quickGuestLogin()">ทั่วไป</button>
+            </div>
+
+            <button class="btn btn-primary" onclick="submitStudentLogin()">เข้าสู่ระบบ</button>
+        </div>
+    </div>
+
     <header class="app-header">
         <button class="header-back" onclick="location.href='../index.html'">← หน้าหลัก</button>
         <div class="header-title">🏥 บริการปฐมพยาบาลนักเรียน</div>
-        <div style="width: 60px;"></div> <!-- Spacer -->
+        <div style="width: 60px;"></div>
     </header>
 
     <div class="container animate-slide-up">
+        <!-- Student Profile Card Bar -->
+        <div class="student-profile-bar" id="student-profile-bar">
+            <div>
+                <div class="student-info-name">
+                    <span>👤</span>
+                    <span id="student-name-label">กำลังโหลดข้อมูล...</span>
+                </div>
+                <div class="student-info-meta" id="student-class-label">รหัสนักเรียน: -</div>
+            </div>
+            <button class="change-student-btn" onclick="openLoginModal()">เปลี่ยนคน 🔄</button>
+        </div>
+
+        <!-- Drug Allergy Alert -->
+        <div class="allergy-alert" id="allergy-alert-box" style="display:none;">
+            <span style="font-size: 18px;">⚠️</span>
+            <div><strong>แจ้งเตือนประวัติแพ้ยา:</strong> <span id="allergy-list-text"></span> (โปรดหลีกเลี่ยงยาดังกล่าว)</div>
+        </div>
+
         <p class="portal-desc">
-            กรุณาเลือกรายการที่ต้องการทำเพื่อรับคำแนะนำในการดูแลรักษาเบื้องต้นอย่างถูกต้อง
+            กรุณาเลือกรายการที่ต้องการทำเพื่อรับคำแนะนำในการทำแผลเบื้องต้น
         </p>
 
         <div class="action-list">
@@ -160,7 +301,7 @@
                         <span>สแกนแผลด้วยระบบ AI</span>
                         <span style="background-color: var(--secondary-light); color: var(--secondary); font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold;">แนะนำ</span>
                     </div>
-                    <div class="action-desc">ถ่ายรูปบาดแผลของคุณด้วยกล้องถ่ายรูป หรืออัปโหลดไฟล์ภาพ เพื่อให้ระบบ AI ทำการประเมินและวิเคราะห์ระดับอาการบาดแผลอัตโนมัติ</div>
+                    <div class="action-desc">ถ่ายรูปบาดแผลของคุณด้วยกล้อง หรืออัปโหลดไฟล์ภาพ เพื่อให้ AI ช่วยจำแนกอาการ</div>
                 </div>
             </div>
 
@@ -169,7 +310,7 @@
                 <div class="action-icon-wrapper">🩹</div>
                 <div class="action-content">
                     <div class="action-title">เริ่มการปฐมพยาบาล (เลือกแผลเอง)</div>
-                    <div class="action-desc">เลือกชนิดของบาดแผลเพื่อดูขั้นตอนการทำแผลอย่างถูกต้อง และปลดล็อกช่องเก็บอุปกรณ์ยา</div>
+                    <div class="action-desc">เลือกบาดแผล (มีดบาด/ถลอก หรือ แมลงกัดต่อย) เพื่อดูขั้นตอนและเปิดช่องเก็บยา</div>
                 </div>
             </div>
 
@@ -178,7 +319,7 @@
                 <div class="action-icon-wrapper">📋</div>
                 <div class="action-content">
                     <div class="action-title">ตรวจสอบประวัติการใช้ตู้ยา</div>
-                    <div class="action-desc">ตรวจสอบบันทึกรายละเอียดเหตุการณ์และการใช้ยาที่ผ่านมาภายในเครื่อง</div>
+                    <div class="action-desc">ตรวจสอบบันทึกรายละเอียดเหตุการณ์และการใช้ยาที่ผ่านมา</div>
                 </div>
             </div>
         </div>
@@ -198,56 +339,113 @@
         </footer>
     </div>
 
-    <!-- Scripts for SOS -->
+    <!-- Scripts -->
     <script src="../js/storage.js"></script>
     <script src="../js/notification.js"></script>
     <script src="../js/api-bridge.js"></script>
     <script>
-        async function triggerSOS() {
-            const btn = document.getElementById('sos-btn');
+        let enteredId = "";
 
-            // Confirmation
-            if (!confirm('⚠️ คุณต้องการส่งสัญญาณขอความช่วยเหลือฉุกเฉินหรือไม่?\n\nระบบจะส่งข้อความแจ้งเตือนครูพยาบาลทันทีและเปิดเสียงไซเรน')) {
+        document.addEventListener("DOMContentLoaded", () => {
+            checkStudentAuth();
+        });
+
+        function checkStudentAuth() {
+            const student = StorageService.getCurrentStudent();
+            if (!student) {
+                openLoginModal();
+            } else {
+                updateStudentProfileUI(student);
+            }
+        }
+
+        function openLoginModal() {
+            enteredId = "";
+            updateDisplay();
+            document.getElementById('student-login-modal').style.display = 'flex';
+        }
+
+        function pressNum(num) {
+            if (enteredId.length < 5) {
+                enteredId += num;
+                updateDisplay();
+            }
+        }
+
+        function clearNum() {
+            enteredId = "";
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            const display = document.getElementById('id-display-text');
+            display.innerText = enteredId.padEnd(5, '-');
+        }
+
+        function submitStudentLogin() {
+            if (enteredId.length < 5) {
+                NotificationService.showToast("กรุณากรอกรหัสนักเรียน 5 หลักให้ครบ", "warning");
+                return;
+            }
+            const result = StorageService.loginStudent(enteredId);
+            document.getElementById('student-login-modal').style.display = 'none';
+            updateStudentProfileUI(result.student);
+            NotificationService.showToast(`ยินดีต้อนรับ: ${result.student.name}`, "success");
+        }
+
+        function quickGuestLogin() {
+            const result = StorageService.loginStudent("99999");
+            document.getElementById('student-login-modal').style.display = 'none';
+            updateStudentProfileUI(result.student);
+        }
+
+        function updateStudentProfileUI(student) {
+            document.getElementById('student-name-label').innerText = student.name;
+            document.getElementById('student-class-label').innerText = `รหัสนักเรียน: ${student.studentId} | ชั้น: ${student.class}`;
+
+            const allergyBox = document.getElementById('allergy-alert-box');
+            const allergyText = document.getElementById('allergy-list-text');
+
+            if (student.allergies && student.allergies.length > 0) {
+                allergyText.innerText = student.allergies.join(', ');
+                allergyBox.style.display = 'flex';
+            } else {
+                allergyBox.style.display = 'none';
+            }
+        }
+
+        async function triggerSOS() {
+            const student = StorageService.getCurrentStudent();
+            const studentName = student ? `${student.name} (${student.class})` : 'นักเรียนทั่วไป';
+
+            if (!confirm(`⚠️ คุณ (${studentName}) ต้องการส่งสัญญาณขอความช่วยเหลือฉุกเฉินหรือไม่?`)) {
                 return;
             }
 
-            btn.classList.add('sending');
-            btn.innerHTML = '⏳ กำลังส่งสัญญาณขอความช่วยเหลือ...';
+            const btn = document.getElementById('sos-btn');
+            btn.innerHTML = '⏳ กำลังส่งสัญญาณ...';
 
             try {
-                // 1. Trigger Buzzer / Siren
                 await ApiBridge.triggerBuzzer('on');
-
-                // 2. Send LINE Emergency Notification
                 const timeString = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-                const dateString = new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
-                const lineMessage = `\n🚨🚨 [SOS ฉุกเฉิน!] 🚨🚨\n📍 มีนักเรียนขอความช่วยเหลือฉุกเฉินจากตู้ Smart First Aid Box!\n📅 วันที่: ${dateString}\n🕐 เวลา: ${timeString} น.\n⚡ กรุณาเข้าตรวจสอบทันที!`;
+                const lineMessage = `\n🚨 [SOS ฉุกเฉิน!]\n📍 ผู้ขอความช่วยเหลือ: ${studentName}\n🕐 เวลา: ${timeString} น.\n⚡ กรุณาเข้าตรวจสอบทันที!`;
 
-                const lineResult = await NotificationService.sendLineNotification(lineMessage);
+                await NotificationService.sendLineNotification(lineMessage);
+                NotificationService.showToast('📢 ส่งสัญญาณ SOS ถึงครูพยาบาลเรียบร้อย!', 'success');
 
-                if (lineResult.mode === 'simulation') {
-                    NotificationService.showToast('📢 ส่งสัญญาณ SOS จำลองสำเร็จ!', 'warning');
-                } else {
-                    NotificationService.showToast('📢 ส่งสัญญาณ SOS ถึงครูพยาบาลแล้ว!', 'success');
-                }
-
-                // 3. Log to history
                 StorageService.addHistoryEntry({
                     woundType: 'sos_emergency',
                     woundNameTh: '🆘 ขอความช่วยเหลือฉุกเฉิน',
-                    method: 'ปุ่ม SOS ฉุกเฉิน',
+                    method: 'ปุ่ม SOS',
                     itemsUsed: []
                 });
-
-            } catch (err) {
-                NotificationService.showToast('ส่งสัญญาณ SOS ขัดข้อง กรุณาขอความช่วยเหลือด้วยตนเอง', 'danger');
+            } catch (e) {
+                NotificationService.showToast('ส่งสัญญาณ SOS ขัดข้อง', 'danger');
             }
 
-            // Reset button after delay
             setTimeout(() => {
-                btn.classList.remove('sending');
                 btn.innerHTML = '🆘 ขอความช่วยเหลือฉุกเฉิน (SOS)';
-            }, 5000);
+            }, 4000);
         }
     </script>
 </body>

@@ -134,6 +134,17 @@
                 </div>
 
                 <div class="form-group">
+                    <label class="form-label" style="color: #94A3B8;">Supabase Project URL:</label>
+                    <input type="text" id="cfg-supabase-url" class="form-input" style="background:#1E293B; border-color:#334155; color:white;" placeholder="https://xyz.supabase.co">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" style="color: #94A3B8;">Supabase Anon Key:</label>
+                    <input type="password" id="cfg-supabase-key" class="form-input" style="background:#1E293B; border-color:#334155; color:white;" placeholder="eyJh... (Anon Public Key)">
+                    <button type="button" class="toggle-btn" onclick="toggleInputVisibility('cfg-supabase-key')">แสดง/ซ่อน Key</button>
+                </div>
+
+                <div class="form-group">
                     <label class="form-label" style="color: #94A3B8;">รหัส PIN เข้าใช้ Dashboard (4 หลัก):</label>
                     <input type="text" id="cfg-pin" class="form-input" style="background:#1E293B; border-color:#334155; color:white;" maxlength="4" placeholder="1234">
                 </div>
@@ -338,7 +349,9 @@
             const settings = StorageService.getSettings();
             document.getElementById("cfg-gemini-key").value = settings.geminiApiKey || "";
             document.getElementById("cfg-line-token").value = settings.lineToken || "";
-            document.getElementById("cfg-esp-url").value = settings.esp8266Url || "http://192.168.1.100";
+            document.getElementById("cfg-esp-url").value = settings.esp32Url || settings.esp8266Url || "http://192.168.1.100";
+            document.getElementById("cfg-supabase-url").value = settings.supabaseUrl || "";
+            document.getElementById("cfg-supabase-key").value = settings.supabaseAnonKey || "";
             document.getElementById("cfg-pin").value = settings.dashboardPin || "1234";
         }
 
@@ -346,7 +359,9 @@
             event.preventDefault();
             const geminiApiKey = document.getElementById("cfg-gemini-key").value.trim();
             const lineToken = document.getElementById("cfg-line-token").value.trim();
-            const esp8266Url = document.getElementById("cfg-esp-url").value.trim();
+            const esp32Url = document.getElementById("cfg-esp-url").value.trim();
+            const supabaseUrl = document.getElementById("cfg-supabase-url").value.trim();
+            const supabaseAnonKey = document.getElementById("cfg-supabase-key").value.trim();
             const dashboardPin = document.getElementById("cfg-pin").value.trim();
 
             if (dashboardPin.length !== 4 || isNaN(Number(dashboardPin))) {
@@ -357,7 +372,9 @@
             StorageService.saveSettings({
                 geminiApiKey,
                 lineToken,
-                esp8266Url,
+                esp32Url,
+                supabaseUrl,
+                supabaseAnonKey,
                 dashboardPin
             });
 

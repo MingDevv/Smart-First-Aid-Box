@@ -2,7 +2,9 @@
 const STORAGE_KEYS = {
     HISTORY: 'smart_first_aid_history',
     MEDICINE: 'smart_first_aid_medicine',
-    SETTINGS: 'smart_first_aid_settings'
+    SETTINGS: 'smart_first_aid_settings',
+    STUDENTS: 'smart_first_aid_students',
+    CURRENT_STUDENT: 'smart_first_aid_current_student'
 };
 
 const DEFAULT_MEDICINES = [
@@ -16,13 +18,60 @@ const DEFAULT_MEDICINES = [
     { id: 8, name: "ยาคารามายด์ (Calamine Lotion)", qty: 3, unit: "ขวด", exp: "2027-04-18", minQty: 1 }
 ];
 
+const DEFAULT_STUDENTS = [
+    { studentId: "12345", name: "นายหมิง พัฒนาการ", class: "ม.4/1", allergies: ["ยาเบตาดีน"] },
+    { studentId: "12346", name: "นางสาวเปตอง ปฐมพยาบาล", class: "ม.5/2", allergies: [] },
+    { studentId: "12347", name: "นายเมย์ ออกแบบระบบ", class: "ม.6/1", allergies: ["แอลกอฮอล์"] },
+    { studentId: "11111", name: "นายสมชาย ใจดี", class: "ม.4/2", allergies: [] },
+    { studentId: "99999", name: "นักเรียนทั่วไป (ไม่ระบุตัวตน)", class: "ทั่วไป", allergies: [] }
+];
+
 const DEFAULT_SETTINGS = {
     lineToken: '',
     dashboardPin: '1234',
-    esp32Url: 'http://192.168.1.100' // Mock/Default URL for ESP32 micro:bit controller
+    esp32Url: 'http://192.168.1.100',
+    supabaseUrl: '',
+    supabaseAnonKey: ''
 };
 
 const StorageService = {
+    // Student Methods
+    getStudents() {
+        const data = localStorage.getItem(STORAGE_KEYS.STUDENTS);
+        if (!data) {
+            localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(DEFAULT_STUDENTS));
+            return DEFAULT_STUDENTS;
+        }
+        return JSON.parse(data);
+    },
+
+    getCurrentStudent() {
+        const data = sessionStorage.getItem(STORAGE_KEYS.CURRENT_STUDENT);
+        return data ? JSON.parse(data) : null;
+    },
+
+    loginStudent(studentId) {
+        const students = this.getStudents();
+        const student = students.find(s => s.studentId === String(studentId).trim());
+        if (student) {
+            sessionStorage.setItem(STORAGE_KEYS.CURRENT_STUDENT, JSON.stringify(student));
+            return { success: true, student };
+        }
+        // If not found, create a generic entry for this ID
+        const genericStudent = {
+            studentId: String(studentId),
+            name: `นักเรียน รหัส ${studentId}`,
+            class: "ทั่วไป",
+            allergies: []
+        };
+        sessionStorage.setItem(STORAGE_KEYS.CURRENT_STUDENT, JSON.stringify(genericStudent));
+        return { success: true, student: genericStudent };
+    },
+
+    logoutStudent() {
+        sessionStorage.removeItem(STORAGE_KEYS.CURRENT_STUDENT);
+    },
+
     // History Methods
     getHistory() {
         const data = localStorage.getItem(STORAGE_KEYS.HISTORY);
@@ -31,22 +80,63 @@ const StorageService = {
 
     addHistoryEntry(entry) {
         const history = this.getHistory();
+        const currentStudent = this.getCurrentStudent();
+
         const newEntry = {
             id: 'H-' + Date.now(),
             timestamp: new Date().toISOString(),
+            studentId: currentStudent ? currentStudent.studentId : '12345',
+            studentName: currentStudent ? currentStudent.name : 'นักเรียนทั่วไป',
+            studentClass: currentStudent ? currentStudent.class : '-',
+            allergies: currentStudent ? currentStudent.allergies : [],
             ...entry
         };
-        history.unshift(newEntry); // Newest first
+        history.unshift(newEntry);
         localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history));
 
-        // Deduct quantities in inventory if items were used
+        // Deduct quantities in inventory
         if (entry.itemsUsed && Array.isArray(entry.itemsUsed)) {
             entry.itemsUsed.forEach(itemName => {
                 this.deductMedicineStock(itemName, 1);
             });
         }
 
+        // Try syncing to Supabase if configured
+        this.syncToSupabase(newEntry);
+
         return newEntry;
+    },
+
+    async syncToSupabase(entry) {
+        const settings = this.getSettings();
+        if (!settings.supabaseUrl || !settings.supabaseAnonKey) {
+            return;
+        }
+
+        try {
+            const endpoint = `${settings.supabaseUrl}/rest/v1/treatment_history`;
+            await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': settings.supabaseAnonKey,
+                    'Authorization': `Bearer ${settings.supabaseAnonKey}`,
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify({
+                    student_id: entry.studentId,
+                    student_name: entry.studentName,
+                    student_class: entry.studentClass,
+                    wound_name: entry.woundNameTh,
+                    method: entry.method,
+                    items_used: Array.isArray(entry.itemsUsed) ? entry.itemsUsed.join(', ') : entry.itemsUsed,
+                    created_at: entry.timestamp
+                })
+            });
+            console.log('[Supabase] Successfully synced history entry!');
+        } catch (err) {
+            console.warn('[Supabase] Sync skipped or failed:', err);
+        }
     },
 
     clearHistory() {
@@ -113,7 +203,6 @@ const StorageService = {
             localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(DEFAULT_SETTINGS));
             return DEFAULT_SETTINGS;
         }
-        // Merge in case defaults got new properties
         return { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
     },
 
@@ -126,3 +215,4 @@ const StorageService = {
 // Initialize if empty
 StorageService.getMedicines();
 StorageService.getSettings();
+StorageService.getStudents();
