@@ -19,7 +19,7 @@ const DEFAULT_MEDICINES = [
 const DEFAULT_SETTINGS = {
     lineToken: '',
     dashboardPin: '1234',
-    esp8266Url: 'http://192.168.1.100' // Mock/Default URL for micro:bit controller ESP8266
+    esp32Url: 'http://192.168.1.100' // Mock/Default URL for ESP32 micro:bit controller
 };
 
 const StorageService = {

@@ -181,7 +181,7 @@ Innovating for a Better Future
 AI วิเคราะห์ข้อมูล
 Cloud Server
 ▼
-ESP8266 (Wi-Fi)
+ESP32 (Wi-Fi)
 ▼
 micro:bit
 │

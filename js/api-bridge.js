@@ -1,23 +1,24 @@
 // JS/API-BRIDGE.JS
 const ApiBridge = {
-    // Check if the hardware (ESP8266 controller connected to micro:bit) is online
+    // Check if the hardware (ESP32 controller connected to micro:bit) is online
     async getHardwareStatus() {
-        let settings = { esp8266Url: '' };
+        let settings = { esp32Url: '' };
         if (window.StorageService) {
             settings = window.StorageService.getSettings();
         }
 
-        if (!settings.esp8266Url || settings.esp8266Url.includes('192.168.1.100')) {
+        const url = settings.esp32Url || settings.esp8266Url || '';
+
+        if (!url || url.includes('192.168.1.100')) {
             // Default or empty URL, treat as simulation
             return { connected: false, mode: 'simulation' };
         }
 
         try {
-            // Test connection using a quick fetch with timeout
             const controller = new AbortController();
-            const id = setTimeout(() => controller.abort(), 1500); // 1.5s timeout
+            const id = setTimeout(() => controller.abort(), 1500);
             
-            const response = await fetch(`${settings.esp8266Url}/status`, { 
+            const response = await fetch(`${url}/status`, { 
                 signal: controller.signal 
             });
             clearTimeout(id);
@@ -27,42 +28,41 @@ const ApiBridge = {
             }
             return { connected: false, mode: 'simulation' };
         } catch (e) {
-            console.log('[ApiBridge] Cannot connect to micro:bit controller, falling back to simulation.');
+            console.log('[ApiBridge] Cannot connect to ESP32 controller, falling back to simulation.');
             return { connected: false, mode: 'simulation' };
         }
     },
 
-    // Trigger physical box drawer/compartment opening
+    // Trigger physical box compartment opening (Compartment 1: Cut/Abrasion, Compartment 2: Insect Bite)
     async openCompartment(woundId) {
-        let settings = { esp8266Url: '' };
+        let settings = { esp32Url: '' };
         if (window.StorageService) {
             settings = window.StorageService.getSettings();
         }
 
-        // Mapping woundId to micro:bit compartment numbers (servo motors 1-6)
+        const url = settings.esp32Url || settings.esp8266Url || '';
+
+        // Mapping woundId to ESP32 / micro:bit compartment numbers (1 or 2)
         const woundCompartmentMap = {
+            "cut_abrasion": 1,
             "abrasion": 1,
-            "cut": 2,
-            "bruise": 3,
-            "burn": 4,
-            "sprain": 5,
-            "insect": 6
+            "cut": 1,
+            "insect": 2
         };
 
         const compartmentNum = woundCompartmentMap[woundId] || 1;
 
-        if (!settings.esp8266Url || settings.esp8266Url.includes('192.168.1.100')) {
+        if (!url || url.includes('192.168.1.100')) {
             console.log(`[ApiBridge Simulation] Opening Compartment #${compartmentNum} for Wound: ${woundId}`);
-            // Return simulation success after a small delay
             await new Promise(resolve => setTimeout(resolve, 800));
             return { success: true, mode: 'simulation', compartment: compartmentNum };
         }
 
         try {
             const controller = new AbortController();
-            const id = setTimeout(() => controller.abort(), 2000); // 2s timeout
+            const id = setTimeout(() => controller.abort(), 2000);
             
-            const response = await fetch(`${settings.esp8266Url}/open?drawer=${compartmentNum}`, {
+            const response = await fetch(`${url}/open?drawer=${compartmentNum}`, {
                 method: 'GET',
                 signal: controller.signal
             });
@@ -73,22 +73,23 @@ const ApiBridge = {
             }
             throw new Error('Response not OK');
         } catch (err) {
-            console.warn(`[ApiBridge] Hardware link failed. Simulating opening drawer #${compartmentNum}`);
+            console.warn(`[ApiBridge] ESP32 link failed. Simulating opening drawer #${compartmentNum}`);
             return { success: true, mode: 'simulation', compartment: compartmentNum };
         }
     },
 
-    // Trigger Buzzer Siren for SOS emergencies or testing
+    // Trigger Buzzer Siren for SOS emergencies
     async triggerBuzzer(state) {
-        let settings = { esp8266Url: '' };
+        let settings = { esp32Url: '' };
         if (window.StorageService) {
             settings = window.StorageService.getSettings();
         }
 
+        const url = settings.esp32Url || settings.esp8266Url || '';
         const stateParam = state === 'on' ? '1' : '0';
 
-        if (!settings.esp8266Url || settings.esp8266Url.includes('192.168.1.100')) {
-            console.log(`[ApiBridge Simulation] Buzzer Siren turned: ${state.toUpperCase()}`);
+        if (!url || url.includes('192.168.1.100')) {
+            console.log(`[ApiBridge Simulation] ESP32 Buzzer Siren turned: ${state.toUpperCase()}`);
             return { success: true, mode: 'simulation' };
         }
 
@@ -96,7 +97,7 @@ const ApiBridge = {
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), 2000);
             
-            const response = await fetch(`${settings.esp8266Url}/buzzer?state=${stateParam}`, {
+            const response = await fetch(`${url}/buzzer?state=${stateParam}`, {
                 method: 'GET',
                 signal: controller.signal
             });
@@ -107,7 +108,7 @@ const ApiBridge = {
             }
             throw new Error('Response not OK');
         } catch (err) {
-            console.warn(`[ApiBridge] Hardware link failed. Simulating buzzer: ${state.toUpperCase()}`);
+            console.warn(`[ApiBridge] ESP32 link failed. Simulating buzzer: ${state.toUpperCase()}`);
             return { success: true, mode: 'simulation' };
         }
     }
