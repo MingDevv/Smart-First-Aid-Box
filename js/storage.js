@@ -57,7 +57,6 @@ const StorageService = {
             sessionStorage.setItem(STORAGE_KEYS.CURRENT_STUDENT, JSON.stringify(student));
             return { success: true, student };
         }
-        // If not found, create a generic entry for this ID
         const genericStudent = {
             studentId: String(studentId),
             name: `นักเรียน รหัส ${studentId}`,
@@ -101,7 +100,7 @@ const StorageService = {
             });
         }
 
-        // Try syncing to Supabase if configured
+        // Sync to Supabase
         this.syncToSupabase(newEntry);
 
         return newEntry;
@@ -109,33 +108,54 @@ const StorageService = {
 
     async syncToSupabase(entry) {
         const settings = this.getSettings();
-        if (!settings.supabaseUrl || !settings.supabaseAnonKey) {
+        let baseUrl = (settings.supabaseUrl || '').trim();
+        let anonKey = (settings.supabaseAnonKey || '').trim();
+
+        if (!baseUrl || !anonKey) {
+            console.log('[Supabase] URL or Anon Key not configured in settings. Sync skipped.');
             return;
         }
 
+        // Clean trailing slashes from URL
+        baseUrl = baseUrl.replace(/\/+$/, '');
+
+        const endpoint = `${baseUrl}/rest/v1/treatment_history`;
+        const payload = {
+            student_id: entry.studentId,
+            student_name: entry.studentName,
+            student_class: entry.studentClass,
+            wound_name: entry.woundNameTh,
+            method: entry.method,
+            items_used: Array.isArray(entry.itemsUsed) ? entry.itemsUsed.join(', ') : entry.itemsUsed,
+            created_at: entry.timestamp
+        };
+
         try {
-            const endpoint = `${settings.supabaseUrl}/rest/v1/treatment_history`;
-            await fetch(endpoint, {
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'apikey': settings.supabaseAnonKey,
-                    'Authorization': `Bearer ${settings.supabaseAnonKey}`,
+                    'apikey': anonKey,
+                    'Authorization': `Bearer ${anonKey}`,
                     'Prefer': 'return=minimal'
                 },
-                body: JSON.stringify({
-                    student_id: entry.studentId,
-                    student_name: entry.studentName,
-                    student_class: entry.studentClass,
-                    wound_name: entry.woundNameTh,
-                    method: entry.method,
-                    items_used: Array.isArray(entry.itemsUsed) ? entry.itemsUsed.join(', ') : entry.itemsUsed,
-                    created_at: entry.timestamp
-                })
+                body: JSON.stringify(payload)
             });
-            console.log('[Supabase] Successfully synced history entry!');
+
+            if (response.ok) {
+                console.log('[Supabase] Successfully inserted record into Supabase!');
+                if (window.NotificationService) {
+                    window.NotificationService.showToast('☁️ บันทึกลง Supabase สำเร็จ!', 'success');
+                }
+            } else {
+                const errText = await response.text();
+                console.error('[Supabase Error]', response.status, errText);
+                if (window.NotificationService) {
+                    window.NotificationService.showToast(`Supabase Error (${response.status}): ${errText.substring(0, 50)}`, 'danger');
+                }
+            }
         } catch (err) {
-            console.warn('[Supabase] Sync skipped or failed:', err);
+            console.error('[Supabase Fetch Exception]', err);
         }
     },
 
