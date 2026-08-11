@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>จัดการตู้ยาและการตั้งค่า - Smart First Aid Box</title>
+    <link rel="stylesheet" href="../css/global.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        .stock-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stock-control-btn {
+            background: #334155;
+            border: 1px solid #475569;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s ease;
+        }
+
+        .stock-control-btn:active {
+            background: #475569;
+            transform: scale(0.9);
+        }
+
+        .config-card {
+            background: #1E293B;
+            border: 1px solid #334155;
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        /* Simple Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: #1E293B;
+            border: 1px solid #334155;
+            border-radius: var(--radius-md);
+            width: 100%;
+            max-width: 400px;
+            padding: 24px;
+            position: relative;
+        }
+        
+        .toggle-btn {
+            background: none;
+            border: none;
+            color: #38BDF8;
+            cursor: pointer;
+            font-size: 12px;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="dashboard-body">
+
+    <header class="dashboard-header">
+        <div class="dashboard-title">
+            <span>🏥 Smart First Aid | ครูพยาบาล</span>
+        </div>
+        <button class="btn btn-outline" style="width: auto; padding: 6px 14px; font-size: 12px; border-radius: var(--radius-sm); border-color: #334155; color: #94A3B8;" onclick="logout()">
+            🚪 ออกจากระบบ
+        </button>
+    </header>
+
+    <div class="container animate-fade-in" style="background: transparent;">
+        <!-- Navigation Tabs -->
+        <div class="dashboard-nav">
+            <div class="nav-item" onclick="location.href='index.html'">ภาพรวม</div>
+            <div class="nav-item" onclick="location.href='statistics.html'">สถิติ/รายงาน</div>
+            <div class="nav-item active" onclick="location.href='medicine-management.html'">สต็อกตู้ยา</div>
+        </div>
+
+        <!-- Inventory List Section -->
+        <div class="db-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <h3 style="font-size: 16px;">📦 รายการสต็อกยาและเวชภัณฑ์</h3>
+                <button class="btn btn-primary" style="width:auto; padding: 8px 16px; font-size:12px; border-radius:var(--radius-sm);" onclick="openAddModal()">
+                    ➕ เพิ่มยาใหม่
+                </button>
+            </div>
+            
+            <div class="med-list" id="medicine-list-container">
+                <!-- Dynamic -->
+            </div>
+        </div>
+
+        <!-- Configurations Section -->
+        <div class="db-card">
+            <h3 style="font-size: 16px; margin-bottom: 14px;">⚙️ ตั้งค่าความเชื่อมโยงระบบ (System Config)</h3>
+            
+            <form id="config-form" onsubmit="saveSystemConfig(event)">
+                <div class="form-group">
+                    <label class="form-label" style="color: #94A3B8;">Google Gemini API Key:</label>
+                    <input type="password" id="cfg-gemini-key" class="form-input" style="background:#1E293B; border-color:#334155; color:white;" placeholder="AI Studio Key (วิเคราะห์รูปแผล)">
+                    <button type="button" class="toggle-btn" onclick="toggleInputVisibility('cfg-gemini-key')">แสดง/ซ่อน Key</button>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" style="color: #94A3B8;">LINE Notify Token:</label>
+                    <input type="password" id="cfg-line-token" class="form-input" style="background:#1E293B; border-color:#334155; color:white;" placeholder="Line Notify Token (แจ้งเตือนครู)">
+                    <button type="button" class="toggle-btn" onclick="toggleInputVisibility('cfg-line-token')">แสดง/ซ่อน Token</button>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" style="color: #94A3B8;">IP/URL ควบคุมกล่องพยาบาล (ESP8266):</label>
+                    <input type="text" id="cfg-esp-url" class="form-input" style="background:#1E293B; border-color:#334155; color:white;" placeholder="เช่น http://192.168.1.100">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" style="color: #94A3B8;">รหัส PIN เข้าใช้ Dashboard (4 หลัก):</label>
+                    <input type="text" id="cfg-pin" class="form-input" style="background:#1E293B; border-color:#334155; color:white;" maxlength="4" placeholder="1234">
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="margin-top: 10px;">💾 บันทึกการตั้งค่าระบบ</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add/Edit Medicine Modal -->
+    <div class="modal" id="med-modal">
+        <div class="modal-content animate-slide-up">
+            <h3 style="margin-bottom: 16px;" id="modal-title">เพิ่มรายการยาพยาบาล</h3>
+            <input type="hidden" id="med-id">
+
+            <div class="form-group">
+                <label class="form-label" style="color: #94A3B8;">ชื่อเวชภัณฑ์:</label>
+                <input type="text" id="med-name" class="form-input" style="background:#0B0F19; border-color:#334155; color:white;" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" style="color: #94A3B8;">จำนวนสต็อก:</label>
+                <input type="number" id="med-qty" class="form-input" style="background:#0B0F19; border-color:#334155; color:white;" min="0" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" style="color: #94A3B8;">หน่วยนับ:</label>
+                <input type="text" id="med-unit" class="form-input" style="background:#0B0F19; border-color:#334155; color:white;" placeholder="เช่น ชิ้น, ขวด, ซอง" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" style="color: #94A3B8;">วันหมดอายุ (EXP):</label>
+                <input type="date" id="med-exp" class="form-input" style="background:#0B0F19; border-color:#334155; color:white;" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" style="color: #94A3B8;">สต็อกขั้นต่ำที่ต้องแจ้งเตือน:</label>
+                <input type="number" id="med-min" class="form-input" style="background:#0B0F19; border-color:#334155; color:white;" min="1" required>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top: 20px;">
+                <button class="btn btn-outline" style="border-color:#334155; color:white;" onclick="closeModal()">ยกเลิก</button>
+                <button class="btn btn-primary" onclick="submitMedForm()">ตกลง</button>
+            </div>
+            
+            <button id="delete-med-btn" class="btn btn-danger" style="margin-top: 12px; font-size:12px; padding:8px;" onclick="deleteCurrentMed()">🗑️ ลบรายการนี้</button>
+        </div>
+    </div>
+
+    <footer class="app-footer" style="color: #64748B;">
+        <p>© 2026 CRMS6 - Smart First Aid Box Project</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../js/storage.js"></script>
+    <script src="../js/notification.js"></script>
+    <script>
+        // Check Authentication status
+        if (sessionStorage.getItem('dashboard_auth') !== 'true') {
+            location.href = 'index.html';
+        }
+
+        function logout() {
+            sessionStorage.removeItem('dashboard_auth');
+            location.href = 'index.html';
+        }
+
+        const medContainer = document.getElementById("medicine-list-container");
+        const modal = document.getElementById("med-modal");
+
+        // Load Stock Data
+        function renderMedicines() {
+            medContainer.innerHTML = "";
+            const medicines = StorageService.getMedicines();
+            const now = new Date();
+
+            medicines.forEach(med => {
+                const isLow = med.qty <= med.minQty;
+                
+                // Expiry checks
+                const expDate = new Date(med.exp);
+                const isExpired = expDate <= now;
+                const threeMonths = 90 * 24 * 60 * 60 * 1000;
+                const isNearExpiry = !isExpired && (expDate - now) < threeMonths;
+
+                let statusBadgeHtml = "";
+                if (isExpired) {
+                    statusBadgeHtml = `<span class="status-badge status-expired">หมดอายุ</span>`;
+                } else if (isNearExpiry) {
+                    statusBadgeHtml = `<span class="status-badge status-warning">ใกล้หมดอายุ</span>`;
+                }
+
+                const item = document.createElement("div");
+                item.className = "med-item";
+                
+                const thaiDate = new Date(med.exp).toLocaleDateString('th-TH', {year:'numeric', month:'short', day:'numeric'});
+
+                item.innerHTML = `
+                    <div class="med-info" onclick="openEditModal(${JSON.stringify(med).replace(/"/g, '&quot;')})">
+                        <div class="med-name">
+                            <span>${med.name}</span>
+                            ${statusBadgeHtml}
+                        </div>
+                        <div class="med-expiry">📅 หมดอายุ: ${thaiDate}</div>
+                    </div>
+                    <div class="stock-control">
+                        <button class="stock-control-btn" onclick="updateQty(${med.id}, -1)">-</button>
+                        <div class="med-stock">
+                            <span class="med-qty ${isLow ? 'low-stock' : ''}">${med.qty}</span>
+                            <span style="font-size:11px; color:#94A3B8;">${med.unit}</span>
+                        </div>
+                        <button class="stock-control-btn" onclick="updateQty(${med.id}, 1)">+</button>
+                    </div>
+                `;
+                medContainer.appendChild(item);
+            });
+        }
+
+        // Quick update quantity
+        function updateQty(id, change) {
+            const medicines = StorageService.getMedicines();
+            const med = medicines.find(m => m.id === id);
+            if (med) {
+                const newQty = Math.max(0, med.qty + change);
+                StorageService.updateMedicine(id, { qty: newQty });
+                renderMedicines();
+            }
+        }
+
+        // Modal Operations
+        function openAddModal() {
+            document.getElementById("modal-title").innerText = "เพิ่มรายการยาพยาบาล";
+            document.getElementById("med-id").value = "";
+            document.getElementById("med-name").value = "";
+            document.getElementById("med-qty").value = "";
+            document.getElementById("med-unit").value = "";
+            document.getElementById("med-exp").value = "";
+            document.getElementById("med-min").value = "5";
+            document.getElementById("delete-med-btn").style.display = "none";
+            modal.style.display = "flex";
+        }
+
+        function openEditModal(med) {
+            document.getElementById("modal-title").innerText = "แก้ไขรายการยาพยาบาล";
+            document.getElementById("med-id").value = med.id;
+            document.getElementById("med-name").value = med.name;
+            document.getElementById("med-qty").value = med.qty;
+            document.getElementById("med-unit").value = med.unit;
+            document.getElementById("med-exp").value = med.exp;
+            document.getElementById("med-min").value = med.minQty;
+            document.getElementById("delete-med-btn").style.display = "block";
+            modal.style.display = "flex";
+        }
+
+        function closeModal() {
+            modal.style.display = "none";
+        }
+
+        // Add/Update Submit
+        function submitMedForm() {
+            const id = document.getElementById("med-id").value;
+            const name = document.getElementById("med-name").value;
+            const qty = Number(document.getElementById("med-qty").value);
+            const unit = document.getElementById("med-unit").value;
+            const exp = document.getElementById("med-exp").value;
+            const minQty = Number(document.getElementById("med-min").value);
+
+            if (!name || isNaN(qty) || !unit || !exp || isNaN(minQty)) {
+                NotificationService.showToast("กรุณากรอกข้อมูลให้ครบถ้วน", "danger");
+                return;
+            }
+
+            const data = { name, qty, unit, exp, minQty };
+
+            if (id) {
+                // Update
+                StorageService.updateMedicine(id, data);
+                NotificationService.showToast("อัปเดตข้อมูลสำเร็จ!", "success");
+            } else {
+                // Add
+                StorageService.addMedicine(data);
+                NotificationService.showToast("เพิ่มเวชภัณฑ์ยาใหม่สำเร็จ!", "success");
+            }
+
+            closeModal();
+            renderMedicines();
+        }
+
+        // Delete item
+        function deleteCurrentMed() {
+            const id = document.getElementById("med-id").value;
+            if (id && confirm("คุณแน่ใจว่าต้องการลบรายการเวชภัณฑ์นี้ออกจากตู้ยา?")) {
+                StorageService.deleteMedicine(id);
+                NotificationService.showToast("ลบเวชภัณฑ์เรียบร้อยแล้ว", "success");
+                closeModal();
+                renderMedicines();
+            }
+        }
+
+        // Config form saving
+        function loadSystemConfig() {
+            const settings = StorageService.getSettings();
+            document.getElementById("cfg-gemini-key").value = settings.geminiApiKey || "";
+            document.getElementById("cfg-line-token").value = settings.lineToken || "";
+            document.getElementById("cfg-esp-url").value = settings.esp8266Url || "http://192.168.1.100";
+            document.getElementById("cfg-pin").value = settings.dashboardPin || "1234";
+        }
+
+        function saveSystemConfig(event) {
+            event.preventDefault();
+            const geminiApiKey = document.getElementById("cfg-gemini-key").value.trim();
+            const lineToken = document.getElementById("cfg-line-token").value.trim();
+            const esp8266Url = document.getElementById("cfg-esp-url").value.trim();
+            const dashboardPin = document.getElementById("cfg-pin").value.trim();
+
+            if (dashboardPin.length !== 4 || isNaN(Number(dashboardPin))) {
+                NotificationService.showToast("รหัส PIN แดชบอร์ดต้องเป็นตัวเลข 4 หลัก", "danger");
+                return;
+            }
+
+            StorageService.saveSettings({
+                geminiApiKey,
+                lineToken,
+                esp8266Url,
+                dashboardPin
+            });
+
+            NotificationService.showToast("บันทึกการตั้งค่าระบบเรียบร้อยแล้ว", "success");
+        }
+
+        // Toggle inputs password/text
+        function toggleInputVisibility(id) {
+            const elem = document.getElementById(id);
+            if (elem.type === "password") {
+                elem.type = "text";
+            } else {
+                elem.type = "password";
+            }
+        }
+
+        // On Load
+        document.addEventListener("DOMContentLoaded", () => {
+            renderMedicines();
+            loadSystemConfig();
+        });
+    </script>
+</body>
+</html>

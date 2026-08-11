@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สถิติและรายงาน - Smart First Aid Box</title>
+    <link rel="stylesheet" href="../css/global.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+
+        table.db-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            text-align: left;
+        }
+
+        table.db-table th {
+            background-color: #F1F5F9;
+            color: var(--primary);
+            padding: 12px;
+            font-weight: 700;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        table.db-table td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        table.db-table tr:hover {
+            background-color: #F8FAFC;
+        }
+        
+        .school-header-bar {
+            text-align: center;
+            padding: 10px 0;
+            background-color: var(--primary);
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            font-family: var(--font-prompt), sans-serif;
+        }
+    </style>
+</head>
+<body class="dashboard-body">
+
+    <div class="school-header-bar">
+        ระบบบริหารจัดการกล่องปฐมพยาบาลอัจฉริยะ — โรงเรียนเทศบาล 6 นครเชียงราย
+    </div>
+
+    <header class="dashboard-header">
+        <div class="dashboard-title">
+            <span>📊 ระบบจัดการคลังยา (สำหรับครูพยาบาล)</span>
+        </div>
+        <button class="btn btn-outline" style="width: auto; padding: 6px 14px; font-size: 12px; border-radius: var(--radius-sm); border-color: #CBD5E1; color: var(--text-muted);" onclick="logout()">
+            🚪 ออกจากระบบ
+        </button>
+    </header>
+
+    <div class="container animate-fade-in" style="background-color: transparent;">
+        <!-- Navigation Tabs -->
+        <div class="dashboard-nav">
+            <div class="nav-item" onclick="location.href='index.html'">ภาพรวมระบบ</div>
+            <div class="nav-item active" onclick="location.href='statistics.html'">สถิติและรายงาน</div>
+            <div class="nav-item" onclick="location.href='medicine-management.html'">จัดการสต็อกยา</div>
+        </div>
+
+        <!-- Charts Card -->
+        <div class="db-card">
+            <h3 style="font-size: 15px; margin-bottom: 10px; color: var(--primary);">📊 อัตราการเกิดอุบัติเหตุแยกตามอาการแผล</h3>
+            <div class="chart-container">
+                <canvas id="woundTypeChart"></canvas>
+            </div>
+        </div>
+
+        <div class="db-card">
+            <h3 style="font-size: 15px; margin-bottom: 10px; color: var(--primary);">📈 ปริมาณการทำแผลรักษาแยกตามวัน</h3>
+            <div class="chart-container">
+                <canvas id="timelineChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Full Event Logs Database Table -->
+        <div class="db-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3 style="font-size: 15px; color: var(--primary);">📋 ตารางบันทึกประวัติการรักษารวมทั้งหมด</h3>
+                <button class="btn btn-outline" style="width: auto; padding: 6px 14px; font-size: 12px; border-radius: var(--radius-sm); border-color: #334155; color: #94A3B8;" onclick="exportCSV()">
+                    📥 Export CSV
+                </button>
+            </div>
+            <div class="table-wrapper">
+                <table class="db-table">
+                    <thead>
+                        <tr>
+                            <th>วันเวลา</th>
+                            <th>ประเภทบาดแผล</th>
+                            <th>วิธีการป้อน</th>
+                            <th>เวชภัณฑ์ยาที่เบิก</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-table-body">
+                        <!-- Dynamic -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <footer class="app-footer">
+        <p>© 2026 CRMS6 - Smart First Aid Box Project</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="../js/storage.js"></script>
+    <script>
+        // Check Authentication status
+        if (sessionStorage.getItem('dashboard_auth') !== 'true') {
+            location.href = 'index.html';
+        }
+
+        function logout() {
+            sessionStorage.removeItem('dashboard_auth');
+            location.href = 'index.html';
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const history = StorageService.getHistory();
+            
+            // Build logs database table
+            const tableBody = document.getElementById("logs-table-body");
+            tableBody.innerHTML = "";
+
+            if (history.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding: 24px; font-size:13px;">ไม่มีบันทึกข้อมูลประวัติการรักษา</td></tr>`;
+            } else {
+                history.forEach(log => {
+                    const row = document.createElement("tr");
+                    const date = new Date(log.timestamp).toLocaleDateString('th-TH', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+                    
+                    row.innerHTML = `
+                        <td>${date} น.</td>
+                        <td style="font-weight:700; color:var(--primary);">${log.woundNameTh}</td>
+                        <td>${log.method}</td>
+                        <td style="color:var(--text-muted);">${log.itemsUsed.join(", ")}</td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            }
+
+            // --- Chart 1: Wound Type Distribution ---
+            const woundCounts = {};
+            history.forEach(log => {
+                const name = log.woundNameTh;
+                woundCounts[name] = (woundCounts[name] || 0) + 1;
+            });
+
+            const woundLabels = Object.keys(woundCounts);
+            const woundValues = Object.values(woundCounts);
+            
+            // If empty, supply placeholder data
+            const cleanLabels = woundLabels.length > 0 ? woundLabels : ["แผลถลอก", "มีดบาด", "ฟกช้ำ"];
+            const cleanValues = woundValues.length > 0 ? woundValues : [3, 1, 2];
+
+            const ctx1 = document.getElementById('woundTypeChart').getContext('2d');
+            new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: cleanLabels,
+                    datasets: [{
+                        data: cleanValues,
+                        backgroundColor: [
+                            '#1E3A8A', '#2563EB', '#D97706', '#DC2626', '#059669', '#64748B'
+                        ],
+                        borderWidth: 1,
+                        borderColor: '#FFFFFF'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: '#1E293B',
+                                font: { family: 'Prompt', size: 12 }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // --- Chart 2: Timeline Case Frequency ---
+            const dateCounts = {};
+            history.forEach(log => {
+                const dateStr = new Date(log.timestamp).toLocaleDateString('th-TH', {day:'numeric', month:'short'});
+                dateCounts[dateStr] = (dateCounts[dateStr] || 0) + 1;
+            });
+
+            const dateLabels = Object.keys(dateCounts).reverse();
+            const dateValues = Object.values(dateCounts).reverse();
+
+            const cleanDateLabels = dateLabels.length > 0 ? dateLabels : ["14 ก.ค.", "15 ก.ค.", "16 ก.ค."];
+            const cleanDateValues = dateValues.length > 0 ? dateValues : [2, 5, 3];
+
+            const ctx2 = document.getElementById('timelineChart').getContext('2d');
+            new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: cleanDateLabels,
+                    datasets: [{
+                        label: 'จำนวนเคสปฐมพยาบาล',
+                        data: cleanDateValues,
+                        borderColor: '#2563EB',
+                        backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            grid: { color: '#E2E8F0' },
+                            ticks: { color: '#64748B', precision: 0 }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#64748B' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        });
+
+        function exportCSV() {
+            const history = StorageService.getHistory();
+
+            if (history.length === 0) {
+                alert('ไม่มีข้อมูลประวัติการรักษาสำหรับส่งออก');
+                return;
+            }
+
+            // BOM for Thai characters in Excel
+            let csvContent = '\uFEFF';
+
+            // CSV Header
+            csvContent += 'ลำดับ,วันเวลา,ประเภทบาดแผล,วิธีการระบุ,เวชภัณฑ์ที่ใช้\n';
+
+            // CSV Rows
+            history.forEach((log, index) => {
+                const dateStr = new Date(log.timestamp).toLocaleString('th-TH', {
+                    day: 'numeric', month: 'short', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                });
+                const items = log.itemsUsed ? log.itemsUsed.join(' / ') : '-';
+                const method = log.method || '-';
+                const woundName = log.woundNameTh || '-';
+
+                // Escape commas in fields
+                csvContent += `${index + 1},"${dateStr}","${woundName}","${method}","${items}"\n`;
+            });
+
+            // Create download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const fileName = `smart-first-aid-report-${new Date().toISOString().split('T')[0]}.csv`;
+            link.setAttribute('href', url);
+            link.setAttribute('download', fileName);
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

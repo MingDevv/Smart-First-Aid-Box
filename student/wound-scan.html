@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สแกนบาดแผลด้วย AI - Smart First Aid Box</title>
+    <link rel="stylesheet" href="../css/global.css">
+    <style>
+        .scan-wrapper {
+            margin-top: 10px;
+        }
+
+        .tab-menu {
+            display: flex;
+            background-color: #FFFFFF;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 4px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            padding: 12px;
+            font-family: var(--font-prompt), sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab-btn.active {
+            background-color: var(--primary-light);
+            color: var(--primary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Camera / Upload Container */
+        .source-container {
+            background-color: #FFFFFF;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 20px;
+            min-height: 280px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #camera-view, #upload-view {
+            width: 100%;
+            display: none;
+        }
+
+        #camera-view.active, #upload-view.active {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        /* Video element style */
+        .video-feed {
+            width: 100%;
+            max-width: 380px;
+            height: 280px;
+            background-color: #0F172A;
+            border-radius: var(--radius-md);
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror camera feed */
+            border: 2px solid var(--border-color);
+            margin-bottom: 16px;
+        }
+
+        /* Drag-Drop Zone */
+        .upload-zone {
+            width: 100%;
+            max-width: 380px;
+            height: 200px;
+            border: 2px dashed #CBD5E1;
+            border-radius: var(--radius-md);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background-color: #F8FAFC;
+            padding: 20px;
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--primary);
+            background-color: var(--primary-light);
+        }
+
+        .upload-icon {
+            font-size: 40px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .upload-text {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        /* Image preview area */
+        .preview-container {
+            width: 100%;
+            max-width: 380px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            animation: fadeIn 0.25s ease-out forwards;
+        }
+
+        .preview-img {
+            width: 100%;
+            max-height: 280px;
+            border-radius: var(--radius-md);
+            object-fit: contain;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 16px;
+            background-color: #F8FAFC;
+        }
+
+        /* Loading / Scanning Overlay */
+        .scanning-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.9);
+            z-index: 10;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--secondary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        .scanning-bar {
+            width: 80%;
+            height: 4px;
+            background-color: var(--secondary-light);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 16px;
+            max-width: 240px;
+        }
+
+        .scanning-bar-fill {
+            height: 100%;
+            width: 30%;
+            background-color: var(--secondary);
+            border-radius: 2px;
+            animation: scan 1.5s ease-in-out infinite alternate;
+        }
+
+        .status-log {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+            font-family: var(--font-prompt), sans-serif;
+            text-align: center;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes scan {
+            0% { margin-left: 0%; width: 20%; }
+            100% { margin-left: 80%; width: 20%; }
+        }
+
+        /* AI Results */
+        .result-container {
+            display: none;
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .result-header-card {
+            background: linear-gradient(135deg, var(--primary) 0%, #1e40af 100%);
+            color: white;
+            border-radius: var(--radius-md);
+            padding: 24px 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .result-icon {
+            font-size: 42px;
+            margin-bottom: 10px;
+        }
+
+        .result-title {
+            color: white;
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .confidence-wrapper {
+            margin: 16px 0;
+            text-align: left;
+        }
+
+        .confidence-label-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .confidence-bar {
+            width: 100%;
+            height: 8px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10B981 0%, #059669 100%);
+            border-radius: 4px;
+            width: 0%;
+            transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .result-desc {
+            font-size: 13px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            text-align: justify;
+            line-height: 1.5;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .result-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <button class="header-back" onclick="goBack()">← หน้าแรก</button>
+        <div class="header-title">📷 สแกนแผลด้วย AI</div>
+        <div style="width: 24px;"></div> <!-- Spacer -->
+    </header>
+
+    <div class="container animate-slide-up">
+        
+        <!-- Input section -->
+        <div class="scan-wrapper" id="input-section">
+            <div class="tab-menu">
+                <button class="tab-btn active" id="tab-camera" onclick="switchTab('camera')">
+                    📸 ถ่ายรูปด้วยกล้อง
+                </button>
+                <button class="tab-btn" id="tab-upload" onclick="switchTab('upload')">
+                    📁 อัปโหลดภาพแผล
+                </button>
+            </div>
+
+            <!-- Active viewer/uploader panel -->
+            <div class="source-container">
+                <!-- Scanning/Processing overlay -->
+                <div class="scanning-overlay" id="scanning-overlay">
+                    <div class="spinner"></div>
+                    <div class="scanning-bar">
+                        <div class="scanning-bar-fill"></div>
+                    </div>
+                    <div class="status-log" id="status-log">ระบบกำลังเริ่มสแกนบาดแผล...</div>
+                </div>
+
+                <!-- CAMERA VIEW -->
+                <div id="camera-view" class="active">
+                    <video id="video-feed" class="video-feed" autoplay playsinline muted></video>
+                    <div style="display:flex; gap:12px; width:100%; max-width:380px;">
+                        <button class="btn btn-outline" style="flex:1;" onclick="toggleCamera(false)" id="btn-camera-off">ปิดกล้อง</button>
+                        <button class="btn btn-primary" style="flex:2;" onclick="capturePhoto()">📸 กดเพื่อถ่ายภาพ</button>
+                    </div>
+                </div>
+
+                <!-- UPLOAD VIEW -->
+                <div id="upload-view">
+                    <div class="upload-zone" id="upload-zone" onclick="triggerFileInput()">
+                        <div class="upload-icon">📂</div>
+                        <div class="upload-text"><strong>แตะที่นี่เพื่อเลือกไฟล์ภาพ</strong></div>
+                        <div class="upload-text" style="font-size:11px; margin-top:4px;">รองรับรูปภาพ JPG, JPEG, PNG จากมือถือหรือคอมพิวเตอร์</div>
+                        <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="handleFileSelect(event)">
+                    </div>
+                </div>
+
+                <!-- PREVIEW CAPTURED/UPLOADED IMAGE -->
+                <div class="preview-container" id="preview-container">
+                    <img id="preview-image" class="preview-img" src="" alt="Wound Preview">
+                    <div style="display:flex; gap:12px; width:100%;">
+                        <button class="btn btn-outline" style="flex:1;" onclick="resetCapture()">ถ่ายใหม่ / ยกเลิก</button>
+                        <button class="btn btn-secondary" style="flex:2; background-color:var(--success); border-color:var(--success);" onclick="analyzeWound()">🧠 วิเคราะห์ภาพแผล</button>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="btn btn-outline" style="margin-top:10px;" onclick="location.href='wound-select.html'">
+                🩹 เลือกประเภทแผลด้วยตนเอง (Manual Select)
+            </button>
+        </div>
+
+        <!-- Result section -->
+        <div class="result-container" id="result-section">
+            <div class="result-header-card">
+                <div class="result-icon" id="res-icon">🤕</div>
+                <div class="result-title" id="res-name-th">วิเคราะห์เสร็จสิ้น</div>
+                <div style="font-size:13px; opacity:0.8; margin-top:2px;" id="res-name-en">Analyzing Complete</div>
+
+                <div class="confidence-wrapper">
+                    <div class="confidence-label-row">
+                        <span>ความแม่นยำในการคาดเดา</span>
+                        <span id="res-confidence-label">0%</span>
+                    </div>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" id="res-confidence-bar"></div>
+                    </div>
+                </div>
+
+                <div class="result-desc" id="res-desc" style="margin-bottom: 16px;">
+                    คำอธิบายผลลัพธ์จาก AI...
+                </div>
+
+                <!-- AI Reasoning Container -->
+                <div id="reasoning-container" style="display: none; text-align: left; background-color: rgba(255, 255, 255, 0.15); border-radius: var(--radius-sm); padding: 14px; border: 1px solid rgba(255, 255, 255, 0.2); backdrop-filter: blur(5px); margin-top: 12px; box-shadow: inset 0 1px 1px rgba(255,255,255,0.1);">
+                    <div style="font-weight: 700; font-size: 13px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; color: #FFFFFF;">
+                        🧠 วิเคราะห์เชิงลึก (AI Reasoning):
+                    </div>
+                    <div id="res-reasoning" style="font-size: 12px; line-height: 1.6; opacity: 0.95; white-space: pre-line; color: #F1F5F9; font-family: var(--font-prompt), sans-serif;">
+                        ขั้นตอนและลักษณะแผลที่ระบบวิเคราะห์...
+                    </div>
+                </div>
+            </div>
+
+            <div class="result-actions">
+                <button class="btn btn-primary" id="btn-confirm-wound">
+                    ✅ ยืนยัน และดำเนินการปฐมพยาบาลต่อไป
+                </button>
+                <button class="btn btn-outline" onclick="backToInput()">
+                    🔄 วิเคราะห์รูปภาพแผลใหม่อีกครั้ง
+                </button>
+                <button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger-light); background-color:var(--danger-light);" onclick="location.href='wound-select.html'">
+                    🩹 ผลลัพธ์ไม่ถูกต้อง: ขอเลือกแผลเอง
+                </button>
+            </div>
+        </div>
+
+        <footer class="app-footer">
+            <p>© 2026 CRMS6 - Smart First Aid Box Project</p>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/wound-data.js"></script>
+    <script src="../js/storage.js"></script>
+    <script src="../js/notification.js"></script>
+    <script src="../js/ai-wound-analyzer.js"></script>
+    <script>
+        let currentTab = 'camera';
+        let stream = null;
+        let selectedBase64 = null;
+        let analyzedWoundId = null;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            // Start default tab (camera)
+            startCamera();
+        });
+
+        // Switch Tab UI between Camera and Upload
+        function switchTab(tab) {
+            currentTab = tab;
+            resetCapture();
+            
+            document.getElementById('tab-camera').classList.toggle('active', tab === 'camera');
+            document.getElementById('tab-upload').classList.toggle('active', tab === 'upload');
+            
+            document.getElementById('camera-view').classList.toggle('active', tab === 'camera');
+            document.getElementById('upload-view').classList.toggle('active', tab === 'upload');
+
+            if (tab === 'camera') {
+                startCamera();
+            } else {
+                stopCamera();
+            }
+        }
+
+        // Camera Management
+        async function startCamera() {
+            stopCamera();
+            
+            const video = document.getElementById('video-feed');
+            const cameraView = document.getElementById('camera-view');
+            
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment" }, // Rear camera preference
+                    audio: false
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Camera access error:", err);
+                NotificationService.showToast("ไม่สามารถเปิดใช้งานกล้องได้ กรุณาใช้โหมดอัปโหลดรูปภาพ", "warning");
+                switchTab('upload');
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+        }
+
+        function toggleCamera(shouldRun) {
+            if (shouldRun) {
+                startCamera();
+                document.getElementById('btn-camera-off').style.display = 'block';
+            } else {
+                stopCamera();
+                // Show camera offline placeholder/view in video background
+                NotificationService.showToast("ปิดกล้องชั่วคราว", "info");
+            }
+        }
+
+        // Capture Photo from Camera
+        function capturePhoto() {
+            const video = document.getElementById('video-feed');
+            if (!stream) {
+                NotificationService.showToast("กล้องไม่ได้เปิดทำงานอยู่", "danger");
+                return;
+            }
+
+            // Create off-screen canvas to draw image
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            
+            const ctx = canvas.getContext('2d');
+            // Draw video frame to canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Convert to base64
+            selectedBase64 = canvas.toDataURL('image/jpeg');
+
+            // Show preview
+            showPreview();
+            stopCamera();
+        }
+
+        // Upload Zone trigger
+        function triggerFileInput() {
+            document.getElementById('file-input').click();
+        }
+
+        // Handle file selected from file picker
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                NotificationService.showToast("กรุณาเลือกไฟล์รูปภาพเท่านั้น", "danger");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                selectedBase64 = e.target.result;
+                showPreview();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Drag and Drop support
+        const uploadZone = document.getElementById('upload-zone');
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (el) => {
+                    selectedBase64 = el.target.result;
+                    showPreview();
+                };
+                reader.readAsDataURL(file);
+            } else {
+                NotificationService.showToast("กรุณาอัปโหลดไฟล์รูปภาพที่ถูกต้อง", "danger");
+            }
+        });
+
+        // Show image preview card
+        function showPreview() {
+            document.getElementById('camera-view').style.display = 'none';
+            document.getElementById('upload-view').style.display = 'none';
+            
+            const container = document.getElementById('preview-container');
+            container.style.display = 'flex';
+            
+            const img = document.getElementById('preview-image');
+            img.src = selectedBase64;
+        }
+
+        // Reset and scan/take again
+        function resetCapture() {
+            selectedBase64 = null;
+            document.getElementById('preview-container').style.display = 'none';
+            document.getElementById('file-input').value = "";
+
+            if (currentTab === 'camera') {
+                document.getElementById('camera-view').style.display = 'flex';
+                startCamera();
+            } else {
+                document.getElementById('upload-view').style.display = 'flex';
+            }
+        }
+
+        // Run AI Analysis using module
+        async function analyzeWound() {
+            if (!selectedBase64) {
+                NotificationService.showToast("ไม่พบภาพบาดแผลเพื่อใช้วิเคราะห์", "danger");
+                return;
+            }
+
+            const overlay = document.getElementById('scanning-overlay');
+            const logElem = document.getElementById('status-log');
+            overlay.style.display = 'flex';
+
+            // Simulated steps in logs for smooth UX animation
+            const logs = [
+                "เชื่อมต่อระบบความปลอดภัย...",
+                "กำลังอัปโหลดรูปภาพไปยังเซิร์ฟเวอร์ AI...",
+                "กำลังตรวจหารอยโรคและจำแนกพื้นผิวแผล...",
+                "เปรียบเทียบบาดแผลในระบบฐานข้อมูลการแพทย์...",
+                "ประมวลผลคำแนะนำการปฐมพยาบาลเบื้องต้น..."
+            ];
+
+            let logIndex = 0;
+            const logInterval = setInterval(() => {
+                if (logIndex < logs.length) {
+                    logElem.innerText = logs[logIndex++];
+                }
+            }, 600);
+
+            try {
+                const result = await AiWoundAnalyzer.analyzeWound(selectedBase64);
+                clearInterval(logInterval);
+
+                if (result.success) {
+                    analyzedWoundId = result.woundId;
+                    displayResult(result);
+                } else {
+                    throw new Error("AI failed to classify");
+                }
+            } catch (err) {
+                clearInterval(logInterval);
+                overlay.style.display = 'none';
+                NotificationService.showToast("การวิเคราะห์ขัดข้อง กรุณาลองใหม่อีกครั้ง", "danger");
+            }
+        }
+
+        // Display AI results UI
+        function displayResult(result) {
+            document.getElementById('scanning-overlay').style.display = 'none';
+            document.getElementById('input-section').style.display = 'none';
+            
+            const section = document.getElementById('result-section');
+            section.style.display = 'block';
+
+            // Get local wound translation details
+            const woundInfo = WOUND_DATA[result.woundId];
+            if (woundInfo) {
+                document.getElementById('res-icon').innerText = woundInfo.icon;
+                document.getElementById('res-name-th').innerText = woundInfo.name_th;
+                document.getElementById('res-name-en').innerText = `${woundInfo.name_en} (${woundInfo.severity})`;
+            } else {
+                document.getElementById('res-icon').innerText = '🩹';
+                document.getElementById('res-name-th').innerText = 'แผลวิเคราะห์ผิดพลาด';
+                document.getElementById('res-name-en').innerText = result.woundId;
+            }
+
+            // Confidence progress bar
+            document.getElementById('res-confidence-label').innerText = `${result.confidence}%`;
+            const bar = document.getElementById('res-confidence-bar');
+            bar.style.width = '0%';
+            
+            // Explanation
+            document.getElementById('res-desc').innerText = result.description;
+
+            // Reasoning
+            const reasoningElem = document.getElementById('res-reasoning');
+            const reasoningContainer = document.getElementById('reasoning-container');
+            if (result.reasoning && result.reasoning.trim() !== '') {
+                reasoningElem.innerText = result.reasoning;
+                reasoningContainer.style.display = 'block';
+            } else {
+                reasoningContainer.style.display = 'none';
+            }
+
+            // Trigger animation delay
+            setTimeout(() => {
+                bar.style.width = `${result.confidence}%`;
+                
+                // Color mapping for confidence indicator
+                if (result.confidence >= 80) {
+                    bar.style.background = 'linear-gradient(90deg, #10B981 0%, #059669 100%)'; // Emerald Green
+                } else if (result.confidence >= 50) {
+                    bar.style.background = 'linear-gradient(90deg, #F59E0B 0%, #D97706 100%)'; // Amber
+                } else {
+                    bar.style.background = 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)'; // Red
+                }
+            }, 100);
+
+            // Set Action confirm link
+            const confirmBtn = document.getElementById('btn-confirm-wound');
+            confirmBtn.onclick = () => {
+                location.href = `first-aid-guide.html?wound=${result.woundId}&source=ai-scan`;
+            };
+        }
+
+        // Return from results to scanner input
+        function backToInput() {
+            document.getElementById('result-section').style.display = 'none';
+            document.getElementById('input-section').style.display = 'block';
+            resetCapture();
+        }
+
+        function goBack() {
+            stopCamera();
+            location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

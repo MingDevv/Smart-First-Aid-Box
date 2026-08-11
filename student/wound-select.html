@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เลือกประเภทบาดแผล - Smart First Aid Box</title>
+    <link class="styles" rel="stylesheet" href="../css/global.css">
+    <style>
+        .list-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .wound-list-card {
+            display: flex;
+            align-items: center;
+            padding: 16px 20px;
+            cursor: pointer;
+            border-radius: var(--radius-md);
+            transition: all 0.15s ease;
+            background-color: #FFFFFF;
+            border: 1px solid var(--border-color);
+            text-align: left;
+        }
+
+        .wound-list-card:hover {
+            border-color: var(--primary);
+            background-color: var(--primary-light);
+        }
+
+        .wound-list-icon {
+            font-size: 24px;
+            margin-right: 16px;
+            width: 44px;
+            height: 44px;
+            background-color: #F1F5F9;
+            border: 1px solid #E2E8F0;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            flex-shrink: 0;
+        }
+
+        .wound-list-info {
+            flex: 1;
+        }
+
+        .wound-list-name-th {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 2px;
+        }
+
+        .wound-list-name-en {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .search-container {
+            margin-top: 10px;
+        }
+
+        .search-input-wrapper {
+            position: relative;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .search-input {
+            padding-left: 38px;
+            border-radius: var(--radius-sm);
+        }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <button class="header-back" onclick="location.href='index.html'">←</button>
+        <div class="header-title">🩹 เลือกประเภทบาดแผล</div>
+        <div style="width: 24px;"></div> <!-- Spacer -->
+    </header>
+
+    <div class="container animate-slide-up">
+        <div class="search-container">
+            <div class="search-input-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="search-box" class="form-input search-input" placeholder="ค้นหาข้อมูลบาดแผล เช่น ถลอก, มีดบาด, บวม...">
+            </div>
+        </div>
+
+        <div class="list-container" id="wound-list">
+            <!-- Dynamically populated -->
+        </div>
+
+        <footer class="app-footer">
+            <p>© 2026 CRMS6 - Smart First Aid Box Project</p>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/wound-data.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const list = document.getElementById("wound-list");
+            const searchBox = document.getElementById("search-box");
+
+            function renderList(filterText = "") {
+                list.innerHTML = "";
+                const cleanFilter = filterText.trim().toLowerCase();
+                
+                Object.values(WOUND_DATA).forEach(wound => {
+                    const matchesTh = wound.name_th.toLowerCase().includes(cleanFilter);
+                    const matchesEn = wound.name_en.toLowerCase().includes(cleanFilter);
+                    const matchesDesc = wound.description.toLowerCase().includes(cleanFilter);
+
+                    if (cleanFilter === "" || matchesTh || matchesEn || matchesDesc) {
+                        const card = document.createElement("div");
+                        card.className = "card wound-list-card animate-fade-in";
+                        card.onclick = () => {
+                            location.href = `first-aid-guide.html?wound=${wound.id}`;
+                        };
+
+                        card.innerHTML = `
+                            <div class="wound-list-icon">${wound.icon}</div>
+                            <div class="wound-list-info">
+                                <div class="wound-list-name-th">${wound.name_th}</div>
+                                <div class="wound-list-name-en">${wound.name_en} — ${wound.description}</div>
+                            </div>
+                            <div style="color:var(--text-muted); font-size:14px; margin-left: 8px;">→</div>
+                        `;
+                        list.appendChild(card);
+                    }
+                });
+
+                if (list.children.length === 0) {
+                    list.innerHTML = `
+                        <div style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
+                            <div style="font-size: 32px; margin-bottom: 10px;">🔍</div>
+                            <p style="font-size: 14px;">ไม่พบข้อมูลบาดแผลที่ต้องการค้นหา</p>
+                        </div>
+                    `;
+                }
+            }
+
+            searchBox.addEventListener("input", (e) => {
+                renderList(e.target.value);
+            });
+
+            // Initial render
+            renderList();
+        });
+    </script>
+</body>
+</html>

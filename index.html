@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบกล่องปฐมพยาบาลอัจฉริยะ - โรงเรียนเทศบาล 6 นครเชียงราย</title>
+    <meta name="description" content="Smart First Aid Box - ระบบกล่องปฐมพยาบาลอัจฉริยะประจำสถานศึกษา ใช้ AI และ micro:bit ช่วยแนะนำการปฐมพยาบาลเบื้องต้น">
+    <link rel="stylesheet" href="css/global.css">
+    <style>
+        body {
+            background: linear-gradient(180deg, #0F172A 0%, #1E293B 50%, #0F172A 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            background: transparent;
+            border: none;
+        }
+
+        @media (min-width: 551px) {
+            .container {
+                background: transparent;
+                border: none;
+                box-shadow: none;
+            }
+            body {
+                background: linear-gradient(180deg, #0F172A 0%, #1E293B 50%, #0F172A 100%);
+            }
+        }
+
+        /* Hero Section */
+        .hero-section {
+            text-align: center;
+            padding: 40px 0 30px 0;
+            position: relative;
+        }
+
+        .hero-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(37, 99, 235, 0.15) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: rgba(37, 99, 235, 0.15);
+            border: 1px solid rgba(37, 99, 235, 0.3);
+            color: #93C5FD;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 5px 14px;
+            border-radius: 20px;
+            margin-bottom: 16px;
+            font-family: var(--font-prompt), sans-serif;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            display: block;
+            position: relative;
+            z-index: 1;
+            animation: floatIcon 3s ease-in-out infinite;
+        }
+
+        @keyframes floatIcon {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .hero-title {
+            font-size: 28px;
+            font-weight: 800;
+            color: #F8FAFC;
+            margin-bottom: 6px;
+            position: relative;
+            z-index: 1;
+            letter-spacing: -0.5px;
+        }
+
+        .hero-subtitle {
+            font-size: 14px;
+            color: #94A3B8;
+            font-weight: 400;
+            position: relative;
+            z-index: 1;
+            line-height: 1.5;
+        }
+
+        /* Live Stats Counter */
+        .stats-strip {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin: 24px 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .stat-pill {
+            text-align: center;
+        }
+
+        .stat-pill .stat-num {
+            font-family: var(--font-prompt), sans-serif;
+            font-size: 22px;
+            font-weight: 700;
+            color: #FFFFFF;
+        }
+
+        .stat-pill .stat-label {
+            font-size: 11px;
+            color: #64748B;
+            font-weight: 500;
+        }
+
+        .divider-dot {
+            width: 4px;
+            height: 4px;
+            background-color: #334155;
+            border-radius: 50%;
+            align-self: center;
+        }
+
+        /* Portal description */
+        .portal-description {
+            font-size: 13px;
+            color: #94A3B8;
+            text-align: center;
+            line-height: 1.6;
+            margin-bottom: 24px;
+            padding: 0 10px;
+        }
+
+        /* Menu Cards */
+        .menu-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .menu-item-btn {
+            display: flex;
+            align-items: center;
+            padding: 22px 20px;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid #334155;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            backdrop-filter: blur(8px);
+        }
+
+        .menu-item-btn:hover {
+            border-color: #2563EB;
+            background: rgba(37, 99, 235, 0.08);
+            box-shadow: 0 4px 20px rgba(37, 99, 235, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .menu-item-btn:active {
+            transform: translateY(0);
+        }
+
+        .menu-item-icon {
+            font-size: 30px;
+            margin-right: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 52px;
+            height: 52px;
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.2) 0%, rgba(30, 58, 138, 0.3) 100%);
+            border: 1px solid rgba(37, 99, 235, 0.2);
+            border-radius: var(--radius-sm);
+            flex-shrink: 0;
+        }
+
+        .menu-item-content {
+            flex: 1;
+        }
+
+        .menu-item-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #F1F5F9;
+            margin-bottom: 4px;
+        }
+
+        .menu-item-desc {
+            font-size: 12px;
+            color: #64748B;
+            line-height: 1.4;
+        }
+
+        .menu-item-arrow {
+            color: #475569;
+            font-size: 18px;
+            margin-left: 8px;
+            transition: transform 0.2s ease;
+        }
+
+        .menu-item-btn:hover .menu-item-arrow {
+            transform: translateX(3px);
+            color: #2563EB;
+        }
+
+        /* Tech badges */
+        .tech-strip {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 24px;
+            margin-bottom: 10px;
+        }
+
+        .tech-badge {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid #334155;
+            color: #64748B;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-family: var(--font-prompt), sans-serif;
+        }
+
+        /* Footer */
+        footer.app-footer {
+            background: transparent;
+            border-top: 1px solid #1E293B;
+            color: #475569;
+        }
+    </style>
+</head>
+<body>
+    <div class="container animate-fade-in">
+        <div class="hero-section">
+            <div class="hero-glow"></div>
+            <span class="hero-badge">🏆 โครงงาน CRMS6 | micro:bit Thailand Challenge 2026</span>
+            <span class="hero-icon">🏥</span>
+            <h1 class="hero-title">Smart First Aid Box</h1>
+            <p class="hero-subtitle">ระบบกล่องปฐมพยาบาลอัจฉริยะ<br>ประจำโรงเรียนเทศบาล 6 นครเชียงราย</p>
+
+            <!-- Live Usage Stats -->
+            <div class="stats-strip">
+                <div class="stat-pill">
+                    <div class="stat-num" id="stat-total-usage">0</div>
+                    <div class="stat-label">ครั้งที่ใช้งาน</div>
+                </div>
+                <div class="divider-dot"></div>
+                <div class="stat-pill">
+                    <div class="stat-num" id="stat-wound-types">7</div>
+                    <div class="stat-label">ประเภทแผล</div>
+                </div>
+                <div class="divider-dot"></div>
+                <div class="stat-pill">
+                    <div class="stat-num" id="stat-med-count">0</div>
+                    <div class="stat-label">รายการยา</div>
+                </div>
+            </div>
+        </div>
+
+        <p class="portal-description">
+            ยินดีต้อนรับสู่ระบบบริการปฐมพยาบาลเบื้องต้นอัจฉริยะ<br>
+            ใช้เทคโนโลยี AI + IoT + micro:bit ช่วยให้การปฐมพยาบาลเป็นเรื่องง่ายและถูกต้อง
+        </p>
+
+        <div class="menu-list">
+            <!-- Student Portal -->
+            <div class="menu-item-btn" onclick="location.href='student/index.html'">
+                <div class="menu-item-icon">🩹</div>
+                <div class="menu-item-content">
+                    <div class="menu-item-title">ระบบบริการปฐมพยาบาล</div>
+                    <div class="menu-item-desc">สำหรับนักเรียน — สแกนแผลด้วย AI, คู่มือทำแผล, ปลดล็อกตู้ยาอัตโนมัติ</div>
+                </div>
+                <div class="menu-item-arrow">→</div>
+            </div>
+
+            <!-- Dashboard -->
+            <div class="menu-item-btn" onclick="location.href='dashboard/index.html'">
+                <div class="menu-item-icon">📊</div>
+                <div class="menu-item-content">
+                    <div class="menu-item-title">แดชบอร์ดจัดการคลังยา</div>
+                    <div class="menu-item-desc">สำหรับครูพยาบาล — สถิติ, จัดการสต็อก, ดูประวัติ, ตั้งค่าระบบ</div>
+                </div>
+                <div class="menu-item-arrow">→</div>
+            </div>
+
+            <!-- About Project -->
+            <div class="menu-item-btn" onclick="location.href='student/about.html'">
+                <div class="menu-item-icon">ℹ️</div>
+                <div class="menu-item-content">
+                    <div class="menu-item-title">เกี่ยวกับโครงงาน</div>
+                    <div class="menu-item-desc">ข้อมูลทีมผู้พัฒนา, ระบบการทำงาน, แนวคิดและวิสัยทัศน์โครงงาน</div>
+                </div>
+                <div class="menu-item-arrow">→</div>
+            </div>
+        </div>
+
+        <!-- Tech Badges -->
+        <div class="tech-strip">
+            <span class="tech-badge">🧠 Gemini AI</span>
+            <span class="tech-badge">📡 micro:bit</span>
+            <span class="tech-badge">📶 ESP8266</span>
+            <span class="tech-badge">💬 LINE Notify</span>
+            <span class="tech-badge">📊 Chart.js</span>
+        </div>
+
+        <footer class="app-footer">
+            <p>© 2026 ทีมผู้พัฒนา CRMS6 - โรงเรียนเทศบาล 6 นครเชียงราย</p>
+            <p style="font-size: 10px; margin-top: 4px; opacity: 0.6;">โครงการแข่งขัน micro:bit Thailand Challenge 2026</p>
+        </footer>
+    </div>
+
+    <!-- Load storage for live stats -->
+    <script src="js/storage.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load live stats
+            const history = StorageService.getHistory();
+            const medicines = StorageService.getMedicines();
+
+            // Animate counter
+            function animateCounter(elementId, targetValue) {
+                const el = document.getElementById(elementId);
+                let current = 0;
+                const increment = Math.max(1, Math.ceil(targetValue / 30));
+                const timer = setInterval(() => {
+                    current += increment;
+                    if (current >= targetValue) {
+                        current = targetValue;
+                        clearInterval(timer);
+                    }
+                    el.innerText = current;
+                }, 30);
+            }
+
+            animateCounter('stat-total-usage', history.length);
+            animateCounter('stat-med-count', medicines.length);
+        });
+    </script>
+</body>
+</html>

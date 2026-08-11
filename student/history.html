@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ประวัติการใช้ตู้ยา - Smart First Aid Box</title>
+    <link rel="stylesheet" href="../css/global.css">
+    <style>
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 16px;
+        }
+
+        table.history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            text-align: left;
+            background-color: #FFFFFF;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+        }
+
+        table.history-table th {
+            background-color: #F8FAFC;
+            color: var(--primary);
+            padding: 12px 14px;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        table.history-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-main);
+        }
+
+        table.history-table tr:hover {
+            background-color: #F8FAFC;
+        }
+
+        .items-used-cell {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .item-chip {
+            background-color: #F1F5F9;
+            color: var(--text-main);
+            border: 1px solid #E2E8F0;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .empty-history {
+            text-align: center;
+            padding: 48px 20px;
+            color: var(--text-muted);
+            background-color: #FFFFFF;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            margin-top: 16px;
+        }
+
+        .empty-icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <button class="header-back" onclick="location.href='index.html'">←</button>
+        <div class="header-title">📋 ประวัติการใช้งานตู้ยา</div>
+        <div style="width: 24px;"></div>
+    </header>
+
+    <div class="container animate-slide-up">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+            <h2 style="font-size: 18px; color: var(--primary);">บันทึกประวัติการปฐมพยาบาล</h2>
+            <button class="btn btn-outline" id="clear-btn" style="padding: 6px 12px; font-size: 12px; width: auto; border-radius: var(--radius-sm);">
+                🗑️ ล้างประวัติ
+            </button>
+        </div>
+
+        <div class="table-wrapper" id="table-container">
+            <table class="history-table" id="history-tbl">
+                <thead>
+                    <tr>
+                        <th style="width: 35%;">วันเวลา</th>
+                        <th style="width: 25%;">อาการบาดแผล</th>
+                        <th style="width: 40%;">เวชภัณฑ์ที่ใช้</th>
+                    </tr>
+                </thead>
+                <tbody id="history-rows">
+                    <!-- Dynamic -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="empty-history" id="empty-state" style="display:none;">
+            <div class="empty-icon">📁</div>
+            <h3 style="margin-bottom:4px; font-size:16px;">ไม่มีข้อมูลประวัติ</h3>
+            <p style="font-size:13px;">ยังไม่มีการบันทึกรายการใช้งานปฐมพยาบาลในตู้ยานี้</p>
+        </div>
+
+        <footer class="app-footer">
+            <p>© 2026 CRMS6 - Smart First Aid Box Project</p>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/storage.js"></script>
+    <script src="../js/notification.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const rowsContainer = document.getElementById("history-rows");
+            const tableContainer = document.getElementById("table-container");
+            const emptyState = document.getElementById("empty-state");
+            const clearBtn = document.getElementById("clear-btn");
+
+            function formatThaiDate(isoString) {
+                const date = new Date(isoString);
+                return date.toLocaleDateString('th-TH', {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }) + ' น.';
+            }
+
+            function renderHistory() {
+                rowsContainer.innerHTML = "";
+                const logs = StorageService.getHistory();
+
+                if (logs.length === 0) {
+                    tableContainer.style.display = "none";
+                    emptyState.style.display = "block";
+                    clearBtn.style.display = "none";
+                    return;
+                }
+
+                tableContainer.style.display = "block";
+                emptyState.style.display = "none";
+                clearBtn.style.display = "block";
+
+                logs.forEach(log => {
+                    const row = document.createElement("tr");
+                    row.className = "animate-fade-in";
+                    
+                    let itemsHtml = "";
+                    if (log.itemsUsed && log.itemsUsed.length > 0) {
+                        itemsHtml = `
+                            <div class="items-used-cell">
+                                ${log.itemsUsed.map(item => `<span class="item-chip">${item}</span>`).join('')}
+                            </div>
+                        `;
+                    } else {
+                        itemsHtml = `<span style="color:var(--text-muted); font-size:12px;">ไม่ได้ระบุ</span>`;
+                    }
+
+                    row.innerHTML = `
+                        <td>${formatThaiDate(log.timestamp)}</td>
+                        <td style="font-weight:600; color:var(--primary);">${log.woundNameTh}</td>
+                        <td>${itemsHtml}</td>
+                    `;
+                    rowsContainer.appendChild(row);
+                });
+            }
+
+            clearBtn.addEventListener("click", () => {
+                if (confirm("คุณแน่ใจหรือไม่ว่าต้องการล้างประวัติการรักษาทั้งหมด?")) {
+                    StorageService.clearHistory();
+                    renderHistory();
+                    NotificationService.showToast("ล้างประวัติการรักษาเรียบร้อยแล้ว", "success");
+                }
+            });
+
+            // Initial render
+            renderHistory();
+        });
+    </script>
+</body>
+</html>

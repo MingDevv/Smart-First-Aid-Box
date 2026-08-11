@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ขั้นตอนปฐมพยาบาล - Smart First Aid Box</title>
+    <link rel="stylesheet" href="../css/global.css">
+    <style>
+        .guide-header-card {
+            background-color: var(--primary);
+            color: white;
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-sm);
+            text-align: center;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .guide-header-icon {
+            font-size: 38px;
+            margin-bottom: 8px;
+        }
+
+        .guide-header-title {
+            color: white;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .guide-header-subtitle {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+
+        .section-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 12px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .items-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .item-tag {
+            background-color: var(--primary-light);
+            color: var(--primary);
+            border: 1px solid rgba(30, 58, 138, 0.15);
+            font-size: 13px;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .step-item {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 14px;
+            align-items: flex-start;
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+        }
+
+        .step-item.active-step {
+            background-color: var(--primary-light);
+            border: 1px solid rgba(30, 58, 138, 0.2);
+        }
+
+        .step-number {
+            background-color: var(--secondary);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .step-item.active-step .step-number {
+            background-color: var(--primary);
+            transform: scale(1.1);
+        }
+
+        .step-text {
+            font-size: 14px;
+            color: var(--text-main);
+            line-height: 1.5;
+            padding-top: 1px;
+        }
+
+        /* Stepper progress styles */
+        .stepper-progress-bar {
+            width: 100%;
+            height: 6px;
+            background-color: var(--border-color);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 10px 0 16px 0;
+        }
+
+        .stepper-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--secondary) 0%, var(--primary) 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .stepper-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .view-mode-toggle {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 10px;
+        }
+
+        .mode-btn {
+            background: none;
+            border: none;
+            font-size: 12px;
+            color: var(--secondary);
+            cursor: pointer;
+            text-decoration: underline;
+            font-family: var(--font-prompt), sans-serif;
+        }
+
+        .warning-card {
+            border-left: 4px solid var(--accent);
+            background-color: var(--accent-light);
+            border: 1px solid rgba(217, 119, 6, 0.15);
+            border-left-width: 4px;
+            padding: 14px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #78350F;
+        }
+
+        .hw-status-card {
+            border-left: 4px solid var(--secondary);
+            background-color: var(--secondary-light);
+            border: 1px solid rgba(37, 99, 235, 0.15);
+            border-left-width: 4px;
+            padding: 14px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 20px;
+        }
+
+        .hw-status-title {
+            font-weight: 700;
+            font-size: 13px;
+            color: var(--secondary-hover);
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .hw-status-text {
+            font-size: 12px;
+            color: var(--text-main);
+        }
+
+        .sound-btn {
+            background-color: #FFFFFF;
+            border: 1px solid #CBD5E1;
+            color: var(--text-main);
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            transition: all 0.15s ease;
+            width: fit-content;
+            font-family: var(--font-prompt), sans-serif;
+        }
+
+        .sound-btn:hover {
+            background-color: #F8FAFC;
+            border-color: var(--text-muted);
+        }
+
+        .sound-btn.playing {
+            background-color: var(--primary-light);
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <button class="header-back" onclick="history.back()">←</button>
+        <div class="header-title">📋 แนะนำวิธีปฐมพยาบาล</div>
+        <div style="width: 24px;"></div>
+    </header>
+
+    <div class="container animate-slide-up">
+        <!-- Main guide layout -->
+        <div id="guide-layout" style="display:none;">
+            <div class="guide-header-card">
+                <div class="guide-header-icon" id="wound-icon">🤕</div>
+                <div class="guide-header-title" id="wound-title-th">โหลดข้อมูล...</div>
+                <div class="guide-header-subtitle" id="wound-title-en">Loading...</div>
+            </div>
+
+            <!-- Hardware controller interaction status -->
+            <div class="hw-status-card" id="hardware-panel">
+                <div class="hw-status-title">
+                    <span id="hardware-indicator-icon">🔌</span>
+                    <span id="hardware-status-label">กำลังเชื่อมต่อตู้ยา Smart Box...</span>
+                </div>
+                <div class="hw-status-text" id="hardware-log">ระบบกำลังประมวลผลคำสั่งไปยังบอร์ดควบคุม micro:bit</div>
+            </div>
+
+            <!-- Items needed -->
+            <div class="card">
+                <div class="section-title">🎒 อุปกรณ์เวชภัณฑ์ที่ต้องใช้</div>
+                <div class="items-list" id="items-list">
+                    <!-- Dynamic -->
+                </div>
+            </div>
+
+            <!-- First aid instructions -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <div class="section-title" style="border:none; padding:0; margin:0;">🩹 ขั้นตอนการดูแลทำแผล</div>
+                    <button class="mode-btn" id="toggle-view-mode" onclick="toggleViewMode()">ดูทีละขั้นตอน</button>
+                </div>
+
+                <!-- Stepper Progress Header -->
+                <div id="stepper-header" style="display:none; margin-top: 8px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); font-weight: 600;">
+                        <span>ความก้าวหน้าการทำแผล</span>
+                        <span id="step-counter-text">ขั้นตอนที่ 1 / 5</span>
+                    </div>
+                    <div class="stepper-progress-bar">
+                        <div class="stepper-progress-fill" id="stepper-fill"></div>
+                    </div>
+                </div>
+
+                <div id="steps-list">
+                    <!-- Dynamic -->
+                </div>
+
+                <!-- Stepper Navigation Controls -->
+                <div class="stepper-nav" id="stepper-controls" style="display:none;">
+                    <button class="btn btn-outline" style="flex:1; font-size:13px;" id="prev-step-btn" onclick="navigateStep(-1)">
+                        ← ขั้นตอนก่อนหน้า
+                    </button>
+                    <button class="btn btn-secondary" style="flex:1; font-size:13px;" id="next-step-btn" onclick="navigateStep(1)">
+                        ขั้นตอนถัดไป →
+                    </button>
+                </div>
+
+                <button class="sound-btn" id="speak-btn" style="margin-top: 14px;">
+                    🔊 ฟังคำแนะนำออกเสียง (ภาษาไทย)
+                </button>
+            </div>
+
+            <!-- Warnings -->
+            <div class="warning-card" id="warning-panel">
+                <strong>⚠️ ข้อควรระวัง:</strong>
+                <span id="warning-text"></span>
+            </div>
+
+            <button class="btn btn-primary" id="finish-btn" style="margin-top: 10px; margin-bottom: 20px;">
+                ✅ เสร็จสิ้นการรักษาและบันทึกประวัติ
+            </button>
+        </div>
+
+        <!-- Error layout -->
+        <div id="error-layout" style="display:none; text-align:center; padding:40px 20px;">
+            <div style="font-size:48px; margin-bottom:16px;">⚠️</div>
+            <h2>ไม่พบประเภทบาดแผล</h2>
+            <p style="color:var(--text-muted); margin-bottom:20px; font-size:14px;">ไม่พบข้อมูลและแนวทางการปฐมพยาบาลสำหรับแผลที่คุณระบุ</p>
+            <button class="btn btn-primary" onclick="location.href='index.html'">กลับสู่หน้าหลัก</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/wound-data.js"></script>
+    <script src="../js/storage.js"></script>
+    <script src="../js/api-bridge.js"></script>
+    <script src="../js/notification.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const woundId = urlParams.get('wound');
+
+            // Find matching wound details
+            let wound = null;
+
+            if (WOUND_DATA[woundId]) {
+                wound = WOUND_DATA[woundId];
+            }
+
+            if (!wound) {
+                document.getElementById("error-layout").style.display = "block";
+                return;
+            }
+
+            document.getElementById("guide-layout").style.display = "block";
+
+            // Render view elements
+            document.getElementById("wound-icon").innerText = wound.icon;
+            document.getElementById("wound-title-th").innerText = wound.name_th;
+            document.getElementById("wound-title-en").innerText = wound.name_en;
+            document.getElementById("warning-text").innerText = wound.warnings;
+
+            // Render items
+            const itemsContainer = document.getElementById("items-list");
+            if (!wound.items || wound.items.length === 0) {
+                itemsContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 13px; font-style: italic;">ไม่ต้องใช้อุปกรณ์เวชภัณฑ์สำหรับขั้นตอนนี้</span>';
+            } else {
+                wound.items.forEach(item => {
+                    const tag = document.createElement("span");
+                    tag.className = "item-tag";
+                    tag.innerText = item;
+                    itemsContainer.appendChild(tag);
+                });
+            }
+
+            // Render steps
+            const stepsContainer = document.getElementById("steps-list");
+            let currentStepIdx = 0;
+            let isSingleStepMode = false;
+
+            function renderSteps() {
+                stepsContainer.innerHTML = "";
+                const totalSteps = wound.steps.length;
+
+                wound.steps.forEach((step, idx) => {
+                    const stepItem = document.createElement("div");
+                    stepItem.className = `step-item ${idx === currentStepIdx ? 'active-step' : ''}`;
+                    stepItem.id = `step-node-${idx}`;
+                    
+                    if (isSingleStepMode && idx !== currentStepIdx) {
+                        stepItem.style.display = "none";
+                    } else {
+                        stepItem.style.display = "flex";
+                    }
+
+                    stepItem.innerHTML = `
+                        <div class="step-number">${idx + 1}</div>
+                        <div class="step-text">${step}</div>
+                    `;
+                    stepsContainer.appendChild(stepItem);
+                });
+
+                // Update Stepper Progress UI
+                const fill = document.getElementById("stepper-fill");
+                const counter = document.getElementById("step-counter-text");
+                const percent = Math.round(((currentStepIdx + 1) / totalSteps) * 100);
+                
+                fill.style.width = `${percent}%`;
+                counter.innerText = `ขั้นตอนที่ ${currentStepIdx + 1} จาก ${totalSteps}`;
+
+                // Update prev/next buttons
+                document.getElementById("prev-step-btn").disabled = currentStepIdx === 0;
+                const nextBtn = document.getElementById("next-step-btn");
+                if (currentStepIdx === totalSteps - 1) {
+                    nextBtn.innerText = "✅ ทำครบทุกขั้นตอนแล้ว";
+                    nextBtn.style.backgroundColor = "var(--success)";
+                    nextBtn.style.borderColor = "var(--success)";
+                } else {
+                    nextBtn.innerText = "ขั้นตอนถัดไป →";
+                    nextBtn.style.backgroundColor = "var(--secondary)";
+                    nextBtn.style.borderColor = "var(--secondary)";
+                }
+            }
+
+            window.navigateStep = function(direction) {
+                const totalSteps = wound.steps.length;
+                const newIdx = currentStepIdx + direction;
+                if (newIdx >= 0 && newIdx < totalSteps) {
+                    currentStepIdx = newIdx;
+                    renderSteps();
+                }
+            };
+
+            window.toggleViewMode = function() {
+                isSingleStepMode = !isSingleStepMode;
+                const toggleBtn = document.getElementById("toggle-view-mode");
+                const stepperHeader = document.getElementById("stepper-header");
+                const stepperControls = document.getElementById("stepper-controls");
+
+                if (isSingleStepMode) {
+                    toggleBtn.innerText = "แสดงทุกขั้นตอนรวม";
+                    stepperHeader.style.display = "block";
+                    stepperControls.style.display = "flex";
+                } else {
+                    toggleBtn.innerText = "ดูทีละขั้นตอน (Stepper)";
+                    stepperHeader.style.display = "none";
+                    stepperControls.style.display = "none";
+                }
+                renderSteps();
+            };
+
+            // Initial render of steps
+            renderSteps();
+
+            // Handle Audio Speech Readout
+            let synth = window.speechSynthesis;
+            let speakUtterance = null;
+            const speakBtn = document.getElementById("speak-btn");
+
+            speakBtn.addEventListener("click", () => {
+                if (synth.speaking) {
+                    synth.cancel();
+                    speakBtn.classList.remove("playing");
+                    speakBtn.innerHTML = "🔊 ฟังคำแนะนำออกเสียง (ภาษาไทย)";
+                    return;
+                }
+
+                // Prepare text to speak
+                let textToSpeak = `วิธีปฐมพยาบาลเบื้องต้นสำหรับ ${wound.name_th}. `;
+                textToSpeak += `อุปกรณ์ที่ต้องใช้คือ ${wound.items.join(", ")}. `;
+                textToSpeak += `ขั้นตอนการทำแผล มีดังนี้ครับ. `;
+                wound.steps.forEach((step, idx) => {
+                    textToSpeak += `ขั้นตอนที่ ${idx + 1}. ${step}. `;
+                });
+                textToSpeak += `ข้อควรระวัง. ${wound.warnings}.`;
+
+                speakUtterance = new SpeechSynthesisUtterance(textToSpeak);
+                speakUtterance.lang = 'th-TH';
+                speakUtterance.rate = 1.0;
+
+                speakUtterance.onstart = () => {
+                    speakBtn.classList.add("playing");
+                    speakBtn.innerHTML = "⏹️ หยุดเล่นเสียง";
+                };
+
+                speakUtterance.onend = () => {
+                    speakBtn.classList.remove("playing");
+                    speakBtn.innerHTML = "🔊 ฟังคำแนะนำออกเสียง (ภาษาไทย)";
+                };
+
+                speakUtterance.onerror = () => {
+                    speakBtn.classList.remove("playing");
+                    speakBtn.innerHTML = "🔊 ฟังคำแนะนำออกเสียง (ภาษาไทย)";
+                };
+
+                synth.speak(speakUtterance);
+            });
+
+            // Trigger Hardware Compartment via API Bridge
+            const hardwareIndicator = document.getElementById("hardware-indicator-icon");
+            const hardwareLabel = document.getElementById("hardware-status-label");
+            const hardwareLog = document.getElementById("hardware-log");
+
+            async function triggerHardware() {
+                if (wound.id === 'unknown') {
+                    hardwareIndicator.innerText = "🔒";
+                    hardwareLabel.innerText = "ไม่มีการเปิดช่องยาอัตโนมัติ";
+                    hardwareLog.innerText = "ระบบไม่พบประเภทแผลที่ระบุ จึงไม่มีการส่งคำสั่งเปิดช่องใส่เวชภัณฑ์ใดๆ";
+                    return;
+                }
+                try {
+                    // Send command to open drawer
+                    const response = await ApiBridge.openCompartment(wound.id);
+                    if (response.success) {
+                        hardwareIndicator.innerText = "🔓";
+                        hardwareLabel.innerText = "เปิดช่องใส่อุปกรณ์เรียบร้อย";
+                        
+                        if (response.mode === 'simulation') {
+                            hardwareLog.innerText = `[โหมดทดลอง] ปลดล็อกกล่องยาส่วน: ${wound.name_th} เรียบร้อย (บอร์ด micro:bit ได้จำลองเซอร์โวมอเตอร์หมุน 90 องศา)`;
+                            NotificationService.showToast("จำลอง: ปลดล็อกช่องยาแล้ว", "warning");
+                        } else {
+                            hardwareLog.innerText = `บอร์ด micro:bit ได้ทำการส่งคำสั่งเปิดช่องใส่เวชภัณฑ์ยาพยาบาลสำหรับแผลนี้แล้ว`;
+                            NotificationService.showToast("ปลดล็อกช่องยาสำเร็จ!", "success");
+                        }
+                    }
+                } catch(err) {
+                    hardwareIndicator.innerText = "❌";
+                    hardwareLabel.innerText = "การเชื่อมตู้ยาขัดข้อง";
+                    hardwareLog.innerText = "ไม่สามารถเชื่อมต่อกับบอร์ดควบคุมได้ แต่คุณสามารถเปิดตู้เพื่อใช้ยาได้ด้วยตนเอง";
+                }
+            }
+
+            // Fire hardware trigger
+            triggerHardware();
+
+            // Finish button flow
+            const finishBtn = document.getElementById("finish-btn");
+            finishBtn.addEventListener("click", async () => {
+                // Cancel speaking if active
+                if (synth.speaking) {
+                    synth.cancel();
+                }
+
+                finishBtn.disabled = true;
+                finishBtn.innerText = "กำลังบันทึกประวัติการใช้ยา...";
+
+                // 1. Add history log
+                const isAiScan = urlParams.get('source') === 'ai-scan';
+                const historyEntry = {
+                    woundType: wound.id,
+                    woundNameTh: wound.name_th,
+                    method: isAiScan ? "AI วิเคราะห์จากภาพถ่าย" : "เลือกประเภทแผลเอง",
+                    itemsUsed: wound.items
+                };
+                StorageService.addHistoryEntry(historyEntry);
+
+                // 2. Send LINE Notification to Nurse Team
+                const timeString = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                const lineMessage = `\n📢 [Smart First Aid Box]\nมีผู้ใช้งานเปิดตู้ยาปฐมพยาบาลสำหรับ: ${wound.name_th} (${wound.name_en})\nเวลา: ${timeString} น.\nกรุณาเข้าตรวจสอบประวัติการใช้งานและระดับสต็อกอุปกรณ์`;
+                
+                const lineResult = await NotificationService.sendLineNotification(lineMessage);
+                if (lineResult.mode === 'simulation') {
+                    NotificationService.showToast("ส่งไลน์แจ้งเตือนจำลองสำเร็จ!", "success");
+                } else if (lineResult.success) {
+                    NotificationService.showToast("ส่งแจ้งเตือน LINE หาครูพยาบาลสำเร็จ!", "success");
+                } else {
+                    NotificationService.showToast("ส่งไลน์จำลอง (เนื่องจากไม่ได้ต่อ LINE จริง)", "warning");
+                }
+
+                // 3. Show Success toast
+                NotificationService.showToast("บันทึกประวัติการปฐมพยาบาลเรียบร้อย", "success");
+
+                // Short delay and redirect
+                setTimeout(() => {
+                    location.href = "index.html";
+                }, 1500);
+            });
+        });
+    </script>
+</body>
+</html>

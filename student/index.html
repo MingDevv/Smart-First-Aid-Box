@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>บริการปฐมพยาบาลเบื้องต้น - Smart First Aid Box</title>
+    <link rel="stylesheet" href="../css/global.css">
+    <style>
+        .portal-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-top: 10px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .action-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .action-card {
+            display: flex;
+            align-items: center;
+            padding: 24px 20px;
+            background-color: #FFFFFF;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .action-card:hover {
+            border-color: var(--primary);
+            box-shadow: var(--shadow-md);
+        }
+
+        .action-icon-wrapper {
+            font-size: 28px;
+            width: 52px;
+            height: 52px;
+            background-color: var(--primary-light);
+            border: 1px solid rgba(30, 58, 138, 0.1);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+            color: var(--primary);
+        }
+
+        .action-content {
+            flex: 1;
+        }
+
+        .action-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 2px;
+        }
+
+        .action-desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .back-btn-wrapper {
+            margin-bottom: 20px;
+        }
+
+        /* SOS Emergency Button */
+        .sos-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 18px 24px;
+            background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%);
+            color: #FFFFFF;
+            border: 2px solid #FCA5A5;
+            border-radius: var(--radius-md);
+            font-family: var(--font-prompt), sans-serif;
+            font-size: 17px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);
+            transition: all 0.2s ease;
+            animation: sosPulse 2s ease-in-out infinite;
+            margin-top: 8px;
+        }
+
+        .sos-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.45);
+        }
+
+        .sos-btn:active {
+            transform: translateY(0);
+        }
+
+        .sos-btn.sending {
+            opacity: 0.7;
+            pointer-events: none;
+            animation: none;
+        }
+
+        @keyframes sosPulse {
+            0%, 100% { box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35); }
+            50% { box-shadow: 0 4px 24px rgba(220, 38, 38, 0.55); }
+        }
+
+        /* About link at bottom */
+        .about-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 20px;
+            padding: 12px;
+            font-size: 13px;
+            color: var(--text-muted);
+            cursor: pointer;
+            border: 1px dashed var(--border-color);
+            border-radius: var(--radius-sm);
+            transition: all 0.15s ease;
+            text-decoration: none;
+        }
+
+        .about-link:hover {
+            color: var(--primary);
+            border-color: var(--primary);
+            background-color: var(--primary-light);
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <button class="header-back" onclick="location.href='../index.html'">← หน้าหลัก</button>
+        <div class="header-title">🏥 บริการปฐมพยาบาลนักเรียน</div>
+        <div style="width: 60px;"></div> <!-- Spacer -->
+    </header>
+
+    <div class="container animate-slide-up">
+        <p class="portal-desc">
+            กรุณาเลือกรายการที่ต้องการทำเพื่อรับคำแนะนำในการดูแลรักษาเบื้องต้นอย่างถูกต้อง
+        </p>
+
+        <div class="action-list">
+            <!-- AI Wound Scanning -->
+            <div class="card action-card" onclick="location.href='wound-scan.html'" style="border-color: var(--secondary); background: linear-gradient(to right, #FFFFFF, var(--primary-light));">
+                <div class="action-icon-wrapper" style="background-color: var(--secondary); color: white;">🧠</div>
+                <div class="action-content">
+                    <div class="action-title" style="color: var(--secondary-hover); display: flex; align-items: center; gap: 6px;">
+                        <span>สแกนแผลด้วยระบบ AI</span>
+                        <span style="background-color: var(--secondary-light); color: var(--secondary); font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold;">แนะนำ</span>
+                    </div>
+                    <div class="action-desc">ถ่ายรูปบาดแผลของคุณด้วยกล้องถ่ายรูป หรืออัปโหลดไฟล์ภาพ เพื่อให้ระบบ AI ทำการประเมินและวิเคราะห์ระดับอาการบาดแผลอัตโนมัติ</div>
+                </div>
+            </div>
+
+            <!-- Select Wound manual -->
+            <div class="card action-card" onclick="location.href='wound-select.html'">
+                <div class="action-icon-wrapper">🩹</div>
+                <div class="action-content">
+                    <div class="action-title">เริ่มการปฐมพยาบาล (เลือกแผลเอง)</div>
+                    <div class="action-desc">เลือกชนิดของบาดแผลเพื่อดูขั้นตอนการทำแผลอย่างถูกต้อง และปลดล็อกช่องเก็บอุปกรณ์ยา</div>
+                </div>
+            </div>
+
+            <!-- View History -->
+            <div class="card action-card" onclick="location.href='history.html'">
+                <div class="action-icon-wrapper">📋</div>
+                <div class="action-content">
+                    <div class="action-title">ตรวจสอบประวัติการใช้ตู้ยา</div>
+                    <div class="action-desc">ตรวจสอบบันทึกรายละเอียดเหตุการณ์และการใช้ยาที่ผ่านมาภายในเครื่อง</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SOS Emergency Button -->
+        <button class="sos-btn" id="sos-btn" onclick="triggerSOS()">
+            🆘 ขอความช่วยเหลือฉุกเฉิน (SOS)
+        </button>
+
+        <!-- About Project Link -->
+        <a class="about-link" href="about.html">
+            ℹ️ เกี่ยวกับโครงงาน Smart First Aid Box
+        </a>
+
+        <footer class="app-footer">
+            <p>© 2026 CRMS6 - Smart First Aid Box Project</p>
+        </footer>
+    </div>
+
+    <!-- Scripts for SOS -->
+    <script src="../js/storage.js"></script>
+    <script src="../js/notification.js"></script>
+    <script src="../js/api-bridge.js"></script>
+    <script>
+        async function triggerSOS() {
+            const btn = document.getElementById('sos-btn');
+
+            // Confirmation
+            if (!confirm('⚠️ คุณต้องการส่งสัญญาณขอความช่วยเหลือฉุกเฉินหรือไม่?\n\nระบบจะส่งข้อความแจ้งเตือนครูพยาบาลทันทีและเปิดเสียงไซเรน')) {
+                return;
+            }
+
+            btn.classList.add('sending');
+            btn.innerHTML = '⏳ กำลังส่งสัญญาณขอความช่วยเหลือ...';
+
+            try {
+                // 1. Trigger Buzzer / Siren
+                await ApiBridge.triggerBuzzer('on');
+
+                // 2. Send LINE Emergency Notification
+                const timeString = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+                const dateString = new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+                const lineMessage = `\n🚨🚨 [SOS ฉุกเฉิน!] 🚨🚨\n📍 มีนักเรียนขอความช่วยเหลือฉุกเฉินจากตู้ Smart First Aid Box!\n📅 วันที่: ${dateString}\n🕐 เวลา: ${timeString} น.\n⚡ กรุณาเข้าตรวจสอบทันที!`;
+
+                const lineResult = await NotificationService.sendLineNotification(lineMessage);
+
+                if (lineResult.mode === 'simulation') {
+                    NotificationService.showToast('📢 ส่งสัญญาณ SOS จำลองสำเร็จ!', 'warning');
+                } else {
+                    NotificationService.showToast('📢 ส่งสัญญาณ SOS ถึงครูพยาบาลแล้ว!', 'success');
+                }
+
+                // 3. Log to history
+                StorageService.addHistoryEntry({
+                    woundType: 'sos_emergency',
+                    woundNameTh: '🆘 ขอความช่วยเหลือฉุกเฉิน',
+                    method: 'ปุ่ม SOS ฉุกเฉิน',
+                    itemsUsed: []
+                });
+
+            } catch (err) {
+                NotificationService.showToast('ส่งสัญญาณ SOS ขัดข้อง กรุณาขอความช่วยเหลือด้วยตนเอง', 'danger');
+            }
+
+            // Reset button after delay
+            setTimeout(() => {
+                btn.classList.remove('sending');
+                btn.innerHTML = '🆘 ขอความช่วยเหลือฉุกเฉิน (SOS)';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
