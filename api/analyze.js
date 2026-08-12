@@ -21,7 +21,7 @@ export default async function handler(req, res) {
         return res.status(405).json({ success: false, error: 'Method Not Allowed' });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_KEY || process.env['Gemini Key'];
     if (!apiKey || apiKey.trim() === '') {
         console.error('[Vercel] GEMINI_API_KEY is not configured in Environment Variables');
         return res.status(500).json({ 
