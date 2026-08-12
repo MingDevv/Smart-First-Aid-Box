@@ -49,17 +49,17 @@
             background-color: #FFFFFF;
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
-            padding: 20px;
+            padding: 16px;
             text-align: center;
             box-shadow: var(--shadow-sm);
             margin-bottom: 20px;
-            min-height: 280px;
+            min-height: 240px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             position: relative;
-            overflow: hidden;
+            overflow: visible;
         }
 
         #camera-view, #upload-view {
@@ -338,7 +338,7 @@
                 </div>
             </div>
             
-            <button class="btn btn-outline" style="margin-top:10px;" onclick="location.href='wound-select.html'">
+            <button class="btn btn-outline" style="margin-top:10px;" onclick="location.href='wound-select'">
                 🩹 เลือกประเภทแผลด้วยตนเอง (Manual Select)
             </button>
         </div>
@@ -382,7 +382,7 @@
                 <button class="btn btn-outline" onclick="backToInput()">
                     🔄 วิเคราะห์รูปภาพแผลใหม่อีกครั้ง
                 </button>
-                <button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger-light); background-color:var(--danger-light);" onclick="location.href='wound-select.html'">
+                <button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger-light); background-color:var(--danger-light);" onclick="location.href='wound-select'">
                     🩹 ผลลัพธ์ไม่ถูกต้อง: ขอเลือกแผลเอง
                 </button>
             </div>
@@ -409,7 +409,13 @@
             startCamera();
         });
 
-        // Switch Tab UI between Camera and Upload
+function showToast(msg, type = 'info') {
+    if (window.NotificationService && typeof window.NotificationService.showToast === 'function') {
+        window.NotificationService.showToast(msg, type);
+    } else {
+        console.log(`[Toast ${type}] ${msg}`);
+    }
+}
         function switchTab(tab) {
             currentTab = tab;
             resetCapture();
@@ -432,17 +438,31 @@
             stopCamera();
             
             const video = document.getElementById('video-feed');
-            const cameraView = document.getElementById('camera-view');
             
             try {
+                // Try rear camera first (for mobile devices)
                 stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "environment" }, // Rear camera preference
+                    video: { facingMode: "environment" },
                     audio: false
                 });
-                video.srcObject = stream;
+                if (video) video.srcObject = stream;
             } catch (err) {
-                console.error("Camera access error:", err);
-                NotificationService.showToast("ไม่สามารถเปิดใช้งานกล้องได้ กรุณาใช้โหมดอัปโหลดรูปภาพ", "warning");
+                console.warn("Rear camera unavailable, attempting fallback to default webcam:", err);
+                try {
+                    // Fallback to any default camera (for PCs / Laptops)
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: true,
+                        audio: false
+                    });
+                    if (video) video.srcObject = stream;
+                    return;
+                } catch (fallbackErr) {
+                    console.error("Camera access error:", fallbackErr);
+                }
+
+                if (window.NotificationService && typeof window.NotificationService.showToast === 'function') {
+                    window.NotificationService.showToast("ไม่สามารถเปิดใช้งานกล้องได้ เปลี่ยนเป็นโหมดอัปโหลดรูปภาพ", "warning");
+                }
                 switchTab('upload');
             }
         }
@@ -461,7 +481,7 @@
             } else {
                 stopCamera();
                 // Show camera offline placeholder/view in video background
-                NotificationService.showToast("ปิดกล้องชั่วคราว", "info");
+                showToast("ปิดกล้องชั่วคราว", "info");
             }
         }
 
@@ -469,7 +489,7 @@
         function capturePhoto() {
             const video = document.getElementById('video-feed');
             if (!stream) {
-                NotificationService.showToast("กล้องไม่ได้เปิดทำงานอยู่", "danger");
+                showToast("กล้องไม่ได้เปิดทำงานอยู่", "danger");
                 return;
             }
 
@@ -501,7 +521,7 @@
             if (!file) return;
 
             if (!file.type.startsWith('image/')) {
-                NotificationService.showToast("กรุณาเลือกไฟล์รูปภาพเท่านั้น", "danger");
+                showToast("กรุณาเลือกไฟล์รูปภาพเท่านั้น", "danger");
                 return;
             }
 
@@ -535,7 +555,7 @@
                 };
                 reader.readAsDataURL(file);
             } else {
-                NotificationService.showToast("กรุณาอัปโหลดไฟล์รูปภาพที่ถูกต้อง", "danger");
+                showToast("กรุณาอัปโหลดไฟล์รูปภาพที่ถูกต้อง", "danger");
             }
         });
 
@@ -601,7 +621,7 @@
         // Run AI Analysis using module
         async function analyzeWound() {
             if (!selectedBase64) {
-                NotificationService.showToast("ไม่พบภาพบาดแผลเพื่อใช้วิเคราะห์", "danger");
+                showToast("ไม่พบภาพบาดแผลเพื่อใช้วิเคราะห์", "danger");
                 return;
             }
 
@@ -635,12 +655,12 @@
                 } else {
                     clearInterval(logInterval);
                     overlay.style.display = 'none';
-                    NotificationService.showToast(result.error || "การวิเคราะห์ด้วย AI ขัดข้อง", "danger");
+                    showToast(result.error || "การวิเคราะห์ด้วย AI ขัดข้อง", "danger");
                 }
             } catch (err) {
                 clearInterval(logInterval);
                 overlay.style.display = 'none';
-                NotificationService.showToast("การวิเคราะห์ขัดข้อง กรุณาลองใหม่อีกครั้ง", "danger");
+                showToast("การวิเคราะห์ขัดข้อง กรุณาลองใหม่อีกครั้ง", "danger");
             }
         }
 
@@ -668,7 +688,7 @@
 
             // Show Toast if running in Simulation mode
             if (result.mode === 'simulation') {
-                NotificationService.showToast("⚠️ โหมดทดลอง: ยังไม่ได้ใส่ GEMINI_API_KEY ใน Vercel ระบบจึงจำลองผลลัพธ์", "warning");
+                showToast("⚠️ โหมดทดลอง: ยังไม่ได้ใส่ GEMINI_API_KEY ใน Vercel ระบบจึงจำลองผลลัพธ์", "warning");
             }
 
             // Reasoning
@@ -688,7 +708,7 @@
             if (isLowConfidence) {
                 confirmBtn.innerText = "⚠️ ความมั่นใจต่ำ — โปรดเลือกประเภทบาดแผลด้วยตนเอง";
                 confirmBtn.style.background = "linear-gradient(135deg, #D97706 0%, #B45309 100%)";
-                NotificationService.showToast("ระบบไม่แน่ใจประเภทแผล โปรดระบุด้วยตนเองเพื่อความปลอดภัย", "warning");
+                showToast("ระบบไม่แน่ใจประเภทแผล โปรดระบุด้วยตนเองเพื่อความปลอดภัย", "warning");
                 confirmBtn.onclick = () => {
                     location.href = `./`;
                 };

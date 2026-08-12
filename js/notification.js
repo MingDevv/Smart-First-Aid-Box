@@ -128,7 +128,10 @@ const NotificationService = {
 
         // Simulation overlay when offline or backend not active
         this.showLineMockModal(requestBody.flexMessage || requestBody.message || payload);
-        // Builder: SOS Emergency Flex Message (Clean, High Contrast, Prominent Student Profile)
+        return { success: true, mode: 'simulation' };
+    },
+
+    // Builder: SOS Emergency Flex Message (Clean, High Contrast, Prominent Student Profile)
     buildSosFlexMessage(studentName, timeStr) {
         const timeVal = timeStr || new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
         return {
@@ -484,25 +487,6 @@ const NotificationService = {
                 }, 300);
             }
         }, 12000);
-    }
-};
-
-window.NotificationService = NotificationService;olor:#94A3B8;">✨ แสดงผลจำลองสำหรับผู้พัฒนา</span>
-                <button onclick="this.parentElement.parentElement.remove()" style="background:rgba(255,255,255,0.15); border:none; border-radius:4px; color:#F8FAFC; padding:3px 10px; font-size:11px; cursor:pointer; font-family:Prompt;">ปิดหน้าต่าง</button>
-            </div>
-        `;
-
-        document.body.appendChild(modal);
-
-        // Auto remove after 10 seconds
-        setTimeout(() => {
-            if (modal.parentElement) {
-                modal.style.animation = 'slideOutRight 0.3s ease-in forwards';
-                setTimeout(() => {
-                    modal.remove();
-                }, 300);
-            }
-        }, 10000);
     }
 };
 
