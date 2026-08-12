@@ -113,18 +113,22 @@
 
         <!-- Configurations Section -->
         <div class="db-card">
-            <h3 style="font-size: 16px; margin-bottom: 14px;">⚙️ ตั้งค่าความเชื่อมโยงระบบ (System Config)</h3>
+            <h3 style="font-size: 16px; margin-bottom: 6px;">⚙️ ตั้งค่าความเชื่อมโยงระบบ (System Config)</h3>
+            
+            <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 12px; color: #34D399;">
+                🛡️ <strong>ความปลอดภัยสูงสุด (Vercel Serverless Active):</strong> API Key และ Token ถูกเปิดใช้งานระบบความปลอดภัยซ่อนไว้หลังเซิร์ฟเวอร์เรียบร้อย คุณสามารถกรอกคีย์ที่ <strong>Vercel ➔ Project Settings ➔ Environment Variables</strong> ได้ทันที โดยไม่ต้องโชว์คีย์ไว้บนหน้าเว็บ
+            </div>
             
             <form id="config-form" onsubmit="saveSystemConfig(event)">
                 <div class="form-group">
-                    <label class="form-label" style="color: #94A3B8;">Google Gemini API Key:</label>
-                    <input type="password" id="cfg-gemini-key" class="form-input" style="background:#1E293B; border-color:#334155; color:white;" placeholder="AI Studio Key (วิเคราะห์รูปแผล)">
+                    <label class="form-label" style="color: #94A3B8;">Google Gemini API Key <span style="font-size:11px; opacity:0.7;">(สำรองกรอกทดลองในเครื่อง):</span></label>
+                    <input type="password" id="cfg-gemini-key" class="form-input" style="background:#1E293B; border-color:#334155; color:white;" placeholder="ตั้งค่าผ่าน Vercel GEMINI_API_KEY แล้ว">
                     <button type="button" class="toggle-btn" onclick="toggleInputVisibility('cfg-gemini-key')">แสดง/ซ่อน Key</button>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" style="color: #94A3B8;">LINE Notify Token:</label>
-                    <input type="password" id="cfg-line-token" class="form-input" style="background:#1E293B; border-color:#334155; color:white;" placeholder="Line Notify Token (แจ้งเตือนครู)">
+                    <label class="form-label" style="color: #94A3B8;">LINE Notify / Messaging Token <span style="font-size:11px; opacity:0.7;">(สำรอง):</span></label>
+                    <input type="password" id="cfg-line-token" class="form-input" style="background:#1E293B; border-color:#334155; color:white;" placeholder="ตั้งค่าผ่าน Vercel LINE_TOKEN แล้ว">
                     <button type="button" class="toggle-btn" onclick="toggleInputVisibility('cfg-line-token')">แสดง/ซ่อน Token</button>
                 </div>
 
