@@ -65,13 +65,12 @@
         #camera-view, #upload-view {
             width: 100%;
             display: none;
+            flex-direction: column;
+            align-items: center;
         }
 
         #camera-view.active, #upload-view.active {
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 100%;
         }
 
         /* Video element style */
@@ -418,17 +417,29 @@ function showToast(msg, type = 'info') {
 }
         function switchTab(tab) {
             currentTab = tab;
-            resetCapture();
+            selectedBase64 = null;
+            document.getElementById('preview-container').style.display = 'none';
+            document.getElementById('file-input').value = "";
             
-            document.getElementById('tab-camera').classList.toggle('active', tab === 'camera');
-            document.getElementById('tab-upload').classList.toggle('active', tab === 'upload');
-            
-            document.getElementById('camera-view').classList.toggle('active', tab === 'camera');
-            document.getElementById('upload-view').classList.toggle('active', tab === 'upload');
+            const cameraView = document.getElementById('camera-view');
+            const uploadView = document.getElementById('upload-view');
+            const tabCamera = document.getElementById('tab-camera');
+            const tabUpload = document.getElementById('tab-upload');
+
+            tabCamera.classList.toggle('active', tab === 'camera');
+            tabUpload.classList.toggle('active', tab === 'upload');
 
             if (tab === 'camera') {
+                cameraView.style.display = 'flex';
+                uploadView.style.display = 'none';
+                cameraView.classList.add('active');
+                uploadView.classList.remove('active');
                 startCamera();
             } else {
+                cameraView.style.display = 'none';
+                uploadView.style.display = 'flex';
+                cameraView.classList.remove('active');
+                uploadView.classList.add('active');
                 stopCamera();
             }
         }
@@ -460,10 +471,16 @@ function showToast(msg, type = 'info') {
                     console.error("Camera access error:", fallbackErr);
                 }
 
-                if (window.NotificationService && typeof window.NotificationService.showToast === 'function') {
-                    window.NotificationService.showToast("ไม่สามารถเปิดใช้งานกล้องได้ เปลี่ยนเป็นโหมดอัปโหลดรูปภาพ", "warning");
-                }
-                switchTab('upload');
+                showToast("ไม่พบกล้องเปลี่ยนเป็นโหมดอัปโหลดรูปภาพอัตโนมัติ", "warning");
+                
+                // Switch cleanly to upload tab
+                currentTab = 'upload';
+                document.getElementById('tab-camera').classList.remove('active');
+                document.getElementById('tab-upload').classList.add('active');
+                document.getElementById('camera-view').style.display = 'none';
+                document.getElementById('camera-view').classList.remove('active');
+                document.getElementById('upload-view').style.display = 'flex';
+                document.getElementById('upload-view').classList.add('active');
             }
         }
 
@@ -609,13 +626,7 @@ function showToast(msg, type = 'info') {
             selectedBase64 = null;
             document.getElementById('preview-container').style.display = 'none';
             document.getElementById('file-input').value = "";
-
-            if (currentTab === 'camera') {
-                document.getElementById('camera-view').style.display = 'flex';
-                startCamera();
-            } else {
-                document.getElementById('upload-view').style.display = 'flex';
-            }
+            switchTab(currentTab);
         }
 
         // Run AI Analysis using module
