@@ -47,20 +47,14 @@ export default async function handler(req, res) {
         }
     }
 
-    // 2. Fallback to LINE Messaging API (Channel Access Token + Group ID)
-    if (!channelToken || channelToken.trim() === '') {
+    // 2. Messaging API Integration (Push to Group or Broadcast to All Followers)
+    const tokenToUse = channelToken || notifyToken;
+
+    if (!tokenToUse || tokenToUse.trim() === '') {
         console.error('[Vercel LINE] Neither LINE_NOTIFY_TOKEN nor LINE_CHANNEL_ACCESS_TOKEN configured');
         return res.status(500).json({ 
             success: false, 
-            error: 'ยังไม่ได้ตั้งค่า LINE_NOTIFY_TOKEN หรือ LINE_CHANNEL_ACCESS_TOKEN บน Vercel' 
-        });
-    }
-
-    if (!groupId || groupId.trim() === '') {
-        console.error('[Vercel LINE] LINE_GROUP_ID is missing');
-        return res.status(500).json({ 
-            success: false, 
-            error: 'ยังไม่ได้ตั้งค่า LINE_GROUP_ID บน Vercel Environment Variables' 
+            error: 'ยังไม่ได้ตั้งค่า LINE_CHANNEL_ACCESS_TOKEN บน Vercel' 
         });
     }
 
@@ -70,26 +64,26 @@ export default async function handler(req, res) {
             return res.status(400).json({ success: false, error: 'ไม่พบข้อความแจ้งเตือน (Missing message)' });
         }
 
-        // LINE Messaging API Push Message Endpoint
-        const response = await fetch('https://api.line.me/v2/bot/message/push', {
+        // If Group ID provided -> Push to group; Else -> Broadcast to all bot friends/followers
+        const targetUrl = (groupId && groupId.trim() !== '') 
+            ? 'https://api.line.me/v2/bot/message/push' 
+            : 'https://api.line.me/v2/bot/message/broadcast';
+
+        const bodyData = (groupId && groupId.trim() !== '')
+            ? { to: groupId.trim(), messages: [{ type: 'text', text: message }] }
+            : { messages: [{ type: 'text', text: message }] };
+
+        const response = await fetch(targetUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${channelToken.trim()}`
+                'Authorization': `Bearer ${tokenToUse.trim()}`
             },
-            body: JSON.stringify({
-                to: groupId.trim(),
-                messages: [
-                    {
-                        type: 'text',
-                        text: message
-                    }
-                ]
-            })
+            body: JSON.stringify(bodyData)
         });
 
         if (response.ok) {
-            console.log(`[Vercel LINE] Push notification sent successfully to ${groupId.trim()}!`);
+            console.log(`[Vercel LINE] Message sent successfully via ${targetUrl}!`);
             return res.status(200).json({ success: true, mode: 'messaging_api' });
         } else {
             const errData = await response.json().catch(() => ({}));
