@@ -38,19 +38,20 @@ const StorageService = {
     // Student Methods (On-demand private lookup - SEC Privacy Fix)
     getStudents() {
         const data = localStorage.getItem(STORAGE_KEYS.STUDENTS);
-        if (data) {
-            return JSON.parse(data);
-        }
-        return []; // Do not leak default student database into unauthenticated localStorage
+        const custom = data ? JSON.parse(data) : [];
+        // Always prioritize built-in DEFAULT_STUDENTS for default student IDs
+        const defaultIds = DEFAULT_STUDENTS.map(s => s.studentId);
+        const customOnly = custom.filter(s => !defaultIds.includes(s.studentId));
+        return [...DEFAULT_STUDENTS, ...customOnly];
     },
 
     getCurrentStudent() {
         const data = sessionStorage.getItem(STORAGE_KEYS.CURRENT_STUDENT);
         if (!data) return null;
         let student = JSON.parse(data);
-        // Refresh name & details from latest DEFAULT_STUDENTS or custom list if available
-        const latest = this.getStudents().find(s => s.studentId === student.studentId) ||
-                       DEFAULT_STUDENTS.find(s => s.studentId === student.studentId);
+        // Refresh name & details from latest DEFAULT_STUDENTS or custom list
+        const latest = DEFAULT_STUDENTS.find(s => s.studentId === student.studentId) ||
+                       this.getStudents().find(s => s.studentId === student.studentId);
         if (latest) {
             student = { ...student, ...latest };
             sessionStorage.setItem(STORAGE_KEYS.CURRENT_STUDENT, JSON.stringify(student));
