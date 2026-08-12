@@ -140,20 +140,8 @@ const StorageService = {
         baseUrl = baseUrl.replace(/\/+$/, '');
         const endpoint = `${baseUrl}/rest/v1/treatment_history`;
 
-        // Build full payload matching full schema
-        const fullPayload = {
-            student_id: entry.studentId || '12345',
-            student_name: entry.studentName || 'นักเรียนทั่วไป',
-            student_class: entry.studentClass || '-',
-            wound_type: entry.woundType || entry.woundId || 'cut_abrasion',
-            wound_name: entry.woundNameTh || 'มีดบาด / แผลถลอก',
-            method: entry.method || 'เลือกประเภทแผลเอง',
-            items_used: Array.isArray(entry.itemsUsed) ? entry.itemsUsed.join(', ') : (entry.itemsUsed || ''),
-            created_at: entry.timestamp || new Date().toISOString()
-        };
-
-        // Fallback payload without wound_type (in case table was created with base schema)
-        const fallbackPayload = {
+        // Clean payload matching production Supabase schema (student_id, student_name, student_class, wound_name, method, items_used, created_at)
+        const payload = {
             student_id: entry.studentId || '12345',
             student_name: entry.studentName || 'นักเรียนทั่วไป',
             student_class: entry.studentClass || '-',
@@ -163,8 +151,8 @@ const StorageService = {
             created_at: entry.timestamp || new Date().toISOString()
         };
 
-        const sendRequest = async (payloadToSend) => {
-            const resp = await fetch(endpoint, {
+        try {
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -172,23 +160,8 @@ const StorageService = {
                     'Authorization': `Bearer ${anonKey}`,
                     'Prefer': 'return=minimal'
                 },
-                body: JSON.stringify(payloadToSend)
+                body: JSON.stringify(payload)
             });
-            return resp;
-        };
-
-        try {
-            // First attempt: try full payload
-            let response = await sendRequest(fullPayload);
-
-            // If 400 Bad Request (PGRST204 - missing column), retry with fallback payload
-            if (!response.ok && response.status === 400) {
-                const errText = await response.clone().text().catch(() => '');
-                if (errText.includes('wound_type') || errText.includes('PGRST204')) {
-                    console.warn('[Supabase Sync] wound_type column not found in schema. Retrying with base schema payload...');
-                    response = await sendRequest(fallbackPayload);
-                }
-            }
 
             if (response.ok || response.status === 201 || response.status === 200) {
                 console.log('[Supabase] ✅ Successfully inserted record into Supabase!');
