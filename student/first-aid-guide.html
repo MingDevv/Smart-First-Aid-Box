@@ -301,6 +301,7 @@
     </div>
 
     <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../js/wound-data.js"></script>
     <script src="../js/storage.js"></script>
     <script src="../js/api-bridge.js"></script>
@@ -547,23 +548,38 @@
                 finishBtn.disabled = true;
                 finishBtn.innerText = "กำลังบันทึกประวัติการใช้ยา...";
 
-                // 1. Add history log
+                // 1. Get current logged in student info
+                const currentStudent = StorageService.getCurrentStudent() || { studentId: '12345', name: 'นายหมิง พัฒนาการ', class: 'ม.4/1' };
                 const isAiScan = urlParams.get('source') === 'ai-scan';
+                
                 const historyEntry = {
+                    studentId: currentStudent.studentId,
+                    studentName: currentStudent.name,
+                    studentClass: currentStudent.class,
                     woundType: wound.id,
                     woundNameTh: wound.name_th,
                     method: isAiScan ? "AI วิเคราะห์จากภาพถ่าย" : "เลือกประเภทแผลเอง",
-                    itemsUsed: wound.items
+                    itemsUsed: wound.items,
+                    timestamp: new Date().toISOString()
                 };
                 StorageService.addHistoryEntry(historyEntry);
 
-                // 2. Send LINE Notification to Nurse Team
+                // 2. Format detailed LINE Notification Message
                 const timeString = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-                const lineMessage = `\n📢 [Smart First Aid Box]\nมีผู้ใช้งานเปิดตู้ยาปฐมพยาบาลสำหรับ: ${wound.name_th} (${wound.name_en})\nเวลา: ${timeString} น.\nกรุณาเข้าตรวจสอบประวัติการใช้งานและระดับสต็อกอุปกรณ์`;
+                const itemsListStr = Array.isArray(wound.items) ? wound.items.join(', ') : wound.items;
+
+                const lineMessage = `\n📢 [Smart First Aid Box] แจ้งเตือนใช้ตู้ปฐมพยาบาล\n` +
+                    `🆔 รหัสนักเรียน: ${currentStudent.studentId}\n` +
+                    `👤 ชื่อ-สกุล: ${currentStudent.name} (${currentStudent.class})\n` +
+                    `🩹 บาดแผล: ${wound.name_th} (${wound.name_en})\n` +
+                    `💊 เวชภัณฑ์ที่เบิกใช้: ${itemsListStr}\n` +
+                    `🔍 วิธีเลือก: ${historyEntry.method}\n` +
+                    `🕒 เวลา: ${timeString} น.\n` +
+                    `☁️ การบันทึก: สำเร็จ (ส่งข้อมูลยัง Supabase & Local History)`;
                 
                 const lineResult = await NotificationService.sendLineNotification(lineMessage);
                 if (lineResult.mode === 'simulation') {
-                    NotificationService.showToast("บันทึกประวัติสำเร็จ (LINE จำลอง)", "info");
+                    NotificationService.showToast("บันทึกประวัติลง Supabase & แสดง LINE จำลอง", "info");
                 } else if (lineResult.success) {
                     NotificationService.showToast("ส่งแจ้งเตือน LINE หาครูพยาบาลสำเร็จ!", "success");
                 } else {

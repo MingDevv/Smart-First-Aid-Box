@@ -89,9 +89,10 @@
             <table class="history-table" id="history-tbl">
                 <thead>
                     <tr>
-                        <th style="width: 35%;">วันเวลา</th>
-                        <th style="width: 25%;">อาการบาดแผล</th>
-                        <th style="width: 40%;">เวชภัณฑ์ที่ใช้</th>
+                        <th style="width: 25%;">วันเวลา</th>
+                        <th style="width: 25%;">ผู้ใช้งาน (นักเรียน)</th>
+                        <th style="width: 25%;">ประเภทบาดแผล</th>
+                        <th style="width: 25%;">เวชภัณฑ์ที่เบิกใช้</th>
                     </tr>
                 </thead>
                 <tbody id="history-rows">
@@ -112,6 +113,7 @@
     </div>
 
     <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../js/storage.js"></script>
     <script src="../js/notification.js"></script>
     <script>
@@ -151,19 +153,24 @@
                     row.className = "animate-fade-in";
                     
                     let itemsHtml = "";
-                    if (log.itemsUsed && log.itemsUsed.length > 0) {
+                    const itemsArray = Array.isArray(log.itemsUsed) ? log.itemsUsed : (log.itemsUsed ? log.itemsUsed.split(', ') : []);
+                    if (itemsArray.length > 0) {
                         itemsHtml = `
                             <div class="items-used-cell">
-                                ${log.itemsUsed.map(item => `<span class="item-chip">${item}</span>`).join('')}
+                                ${itemsArray.map(item => `<span class="item-chip">${item}</span>`).join('')}
                             </div>
                         `;
                     } else {
                         itemsHtml = `<span style="color:var(--text-muted); font-size:12px;">ไม่ได้ระบุ</span>`;
                     }
 
+                    const studentDisplay = log.studentId ? `รหัส ${log.studentId}<br><span style="font-size:11px; color:var(--text-muted);">${log.studentName || ''} (${log.studentClass || ''})</span>` : 'นักเรียนทั่วไป';
+                    const woundDisplay = log.woundNameTh || 'มีดบาด / แผลถลอก';
+
                     row.innerHTML = `
-                        <td>${formatThaiDate(log.timestamp)}</td>
-                        <td style="font-weight:600; color:var(--primary);">${log.woundNameTh}</td>
+                        <td>${formatThaiDate(log.timestamp || log.created_at)}</td>
+                        <td style="font-weight:600; color:var(--primary);">${studentDisplay}</td>
+                        <td style="font-weight:600;">${woundDisplay}<br><span style="font-size:10px; color:var(--text-muted); font-weight:normal;">(${log.method || 'เลือกเอง'})</span></td>
                         <td>${itemsHtml}</td>
                     `;
                     rowsContainer.appendChild(row);

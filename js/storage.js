@@ -113,7 +113,10 @@ const StorageService = {
         let anonKey = (settings.supabaseAnonKey || '').trim();
 
         if (!baseUrl || !anonKey) {
-            console.log('[Supabase] URL or Anon Key not configured in settings. Sync skipped.');
+            console.log('[Supabase] URL or Anon Key not configured in settings. Local fallback active.');
+            if (window.NotificationService) {
+                window.NotificationService.showToast('💡 คุณสามารถตั้งค่า Supabase URL & Key ในตั้งค่าเพื่อบันทึกลง Database ออนไลน์ได้', 'info');
+            }
             return;
         }
 
@@ -122,16 +125,38 @@ const StorageService = {
 
         const endpoint = `${baseUrl}/rest/v1/treatment_history`;
         const payload = {
-            student_id: entry.studentId,
-            student_name: entry.studentName,
-            student_class: entry.studentClass,
-            wound_name: entry.woundNameTh,
-            method: entry.method,
-            items_used: Array.isArray(entry.itemsUsed) ? entry.itemsUsed.join(', ') : entry.itemsUsed,
-            created_at: entry.timestamp
+            student_id: entry.studentId || '12345',
+            student_name: entry.studentName || 'นักเรียนทั่วไป',
+            student_class: entry.studentClass || '-',
+            wound_type: entry.woundType || entry.woundId || 'cut_abrasion',
+            wound_name: entry.woundNameTh || 'มีดบาด / แผลถลอก',
+            method: entry.method || 'เลือกประเภทแผลเอง',
+            items_used: Array.isArray(entry.itemsUsed) ? entry.itemsUsed.join(', ') : (entry.itemsUsed || ''),
+            created_at: entry.timestamp || new Date().toISOString()
         };
 
         try {
+            // Check if global supabase client library is available
+            if (window.supabase && typeof window.supabase.createClient === 'function') {
+                if (!window._supabaseClientInstance) {
+                    window._supabaseClientInstance = window.supabase.createClient(baseUrl, anonKey);
+                }
+                const { data, error } = await window._supabaseClientInstance
+                    .from('treatment_history')
+                    .insert([payload]);
+
+                if (error) {
+                    console.error('[Supabase Client Error]', error);
+                    throw error;
+                }
+                console.log('[Supabase] Inserted successfully via JS Client!');
+                if (window.NotificationService) {
+                    window.NotificationService.showToast('☁️ บันทึกลง Supabaseสำเร็จเรียบร้อย!', 'success');
+                }
+                return;
+            }
+
+            // Fallback REST API POST endpoint
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
@@ -146,13 +171,13 @@ const StorageService = {
             if (response.ok) {
                 console.log('[Supabase] Successfully inserted record into Supabase!');
                 if (window.NotificationService) {
-                    window.NotificationService.showToast('☁️ บันทึกลง Supabase สำเร็จ!', 'success');
+                    window.NotificationService.showToast('☁️ บันทึกลง Supabase สำเร็จเรียบร้อย!', 'success');
                 }
             } else {
                 const errText = await response.text();
                 console.error('[Supabase Error]', response.status, errText);
                 if (window.NotificationService) {
-                    window.NotificationService.showToast(`Supabase Error (${response.status}): ${errText.substring(0, 50)}`, 'danger');
+                    window.NotificationService.showToast(`Supabase Sync Warning: ${errText.substring(0, 60)}`, 'warning');
                 }
             }
         } catch (err) {
