@@ -101,6 +101,8 @@ export default async function handler(req, res) {
 {"woundId": "cut_abrasion|insect|unknown", "confidence": 0-100, "description": "คำอธิบายลักษณะแผลสั้นๆ", "reasoning": "เหตุผลที่เลือก"}`;
 
         // Build a simple, compatible payload (no responseSchema for max compatibility)
+        // NOTE: Gemini 3.x are "thinking models" — internal reasoning tokens consume maxOutputTokens
+        // Must set high enough to accommodate thinking + actual JSON output
         const payload = {
             contents: [
                 {
@@ -116,7 +118,10 @@ export default async function handler(req, res) {
                 }
             ],
             generationConfig: {
-                maxOutputTokens: 300
+                maxOutputTokens: 2048,
+                thinkingConfig: {
+                    thinkingBudget: 0
+                }
             }
         };
 
@@ -163,11 +168,32 @@ export default async function handler(req, res) {
         }
 
         // Extract text response from Gemini
-        const textResponse = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
-        console.log(`[Vercel] Raw AI text (first 500 chars): ${String(textResponse).substring(0, 500)}`);
+        // Gemini 3.x "thinking models" may return multiple parts: thought parts + text part
+        // We need to find the actual text part (not the thought/thinking part)
+        const parts = responseData.candidates?.[0]?.content?.parts || [];
+        let textResponse = null;
+        
+        // First try to find a part with 'text' but no 'thought' flag
+        for (const part of parts) {
+            if (part.text && !part.thought) {
+                textResponse = part.text;
+                break;
+            }
+        }
+        // Fallback: just get any text from any part
+        if (!textResponse) {
+            for (const part of parts) {
+                if (part.text) {
+                    textResponse = part.text;
+                    break;
+                }
+            }
+        }
+        
+        console.log(`[Vercel] Parts count: ${parts.length}, Raw AI text (first 500 chars): ${String(textResponse).substring(0, 500)}`);
 
         if (!textResponse) {
-            console.error('[Vercel] Empty text in Gemini response. Full structure:', JSON.stringify(responseData).substring(0, 500));
+            console.error('[Vercel] No text found in Gemini response. Full structure:', JSON.stringify(responseData).substring(0, 800));
             return res.status(502).json({ success: false, error: USER_ERROR_MSG });
         }
 
