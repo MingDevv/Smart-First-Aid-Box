@@ -1,4 +1,12 @@
 // API/ANALYZE.JS — Vercel Serverless Function for Secure Gemini Vision Analysis
+export const config = {
+    api: {
+        bodyParser: {
+            sizeLimit: '10mb'  // Allow large base64 images
+        }
+    }
+};
+
 export default async function handler(req, res) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -15,6 +23,7 @@ export default async function handler(req, res) {
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey || apiKey.trim() === '') {
+        console.error('[Vercel] GEMINI_API_KEY is not configured in Environment Variables');
         return res.status(500).json({ 
             success: false, 
             error: 'ยังไม่ได้ตั้งค่า GEMINI_API_KEY บน Vercel Environment Variables' 
@@ -35,20 +44,28 @@ export default async function handler(req, res) {
         const mimeType = matches[1];
         const base64Data = matches[2];
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`;
+        // Use gemini-2.0-flash — stable, free-tier compatible, fast, supports vision
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey.trim()}`;
 
-        const prompt = `คุณคือระบบ AI ผู้เชี่ยวชาญด้านวิเคราะห์บาดแผลและปฐมพยาบาลเบื้องต้น 
+        const prompt = `คุณคือระบบ AI ผู้เชี่ยวชาญด้านวิเคราะห์บาดแผลและปฐมพยาบาลเบื้องต้นสำหรับนักเรียนในโรงเรียน
 
-โปรดวิเคราะห์ภาพถ่ายบาดแผลนี้อย่างละเอียด แล้วจำแนกประเภทบาดแผลออกเป็น 1 ใน 3 ประเภทต่อไปนี้เท่านั้น:
+โปรดวิเคราะห์ภาพถ่ายนี้อย่างละเอียดที่สุด แล้วจำแนกประเภทบาดแผลออกเป็น 1 ใน 3 ประเภทต่อไปนี้เท่านั้น:
 
 1. **cut_abrasion** (มีดบาด / แผลถลอก)
-   - ลักษณะทางทัศนวิสัย: รอยขูดขีดบนผิวหนัง, ผิวหนังชั้นนอกถลอกเป็นปื้น, รอยบาดเป็นเส้นตรงจากของมีคม, มีเลือดซึมหรือรอยสะเก็ดแผลสด
-2. **insect** (แมลงสัตว์กัดต่อย)
-   - ลักษณะทางทัศนวิสัย: ตุ่มนูนแดงเป็นวงกลมหรือวงรีเฉพาะจุด, รอยบวมแดงจากการอักเสบ, จุดแดงตรงกลาง (รอยกัด/เหล็กใน), ไม่มีผิวหนังถลอกหลุดลอกเป็นแผ่น
-3. **unknown** (ไม่สามารถระบุได้)
-   - ลักษณะทางทัศนวิสัย: ภาพมืด เบลอ หลุดโฟกัส, ไม่ใช่ภาพบาดแผลบนผิวหนังมนุษย์, หรือเป็นบาดแผลรุนแรงที่เกินขอบเขตตู้ปฐมพยาบาล (เช่น เลือดไหลไม่หยุด แผลลึกเห็นกระดูก/กล้ามเนื้อ แผลไฟไหม้พอง รอยหมากัด)
+   - ลักษณะสำคัญ: รอยขูดขีดยาวบนผิวหนัง, ผิวหนังชั้นนอกถลอกเป็นปื้นหรือหลุดลอก, รอยบาดเป็นเส้นตรง/โค้งจากของมีคม, มีเลือดซึมหรือรอยสะเก็ดแผลสดแดง, ขอบแผลชัดเจน
 
-ตอบเป็นโครงสร้าง JSON เท่านั้น`;
+2. **insect** (แมลงสัตว์กัดต่อย)
+   - ลักษณะสำคัญ: ตุ่มนูนแดงเป็นวงกลมหรือวงรีเฉพาะจุด 1-3 ตำแหน่ง, รอยบวมแดงรอบจุดกลาง, จุดแดงเล็กตรงกลาง (รอยกัดหรือรอยเหล็กใน), ไม่มีผิวหนังถลอกหลุดลอกเป็นแผ่นกว้าง, อาจมีรอยผื่นแดงรอบ
+
+3. **unknown** (ไม่สามารถระบุได้)
+   - ใช้เมื่อ: ภาพมืดมาก/เบลอจนไม่เห็นรายละเอียด, ไม่ใช่ภาพบาดแผลบนผิวหนังมนุษย์, เป็นบาดแผลรุนแรงเกินขอบเขตปฐมพยาบาลเบื้องต้น (เลือดไหลไม่หยุด, แผลลึกมาก, แผลไฟไหม้พอง, รอยสัตว์ใหญ่กัด)
+
+กฎสำคัญ:
+- ดูที่ลักษณะทางกายภาพของแผลในภาพเท่านั้น
+- ถ้าไม่แน่ใจ ให้ตอบ unknown พร้อม confidence ต่ำ
+- confidence ต้องสะท้อนความมั่นใจจริงๆ ห้ามให้สูงถ้าภาพไม่ชัด
+
+ตอบเป็น JSON เท่านั้น`;
 
         const payload = {
             contents: [
@@ -66,6 +83,7 @@ export default async function handler(req, res) {
             ],
             generationConfig: {
                 temperature: 0.1,
+                maxOutputTokens: 256,
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: "OBJECT",
@@ -77,7 +95,7 @@ export default async function handler(req, res) {
                         },
                         confidence: {
                             type: "INTEGER",
-                            description: "ระดับความมั่นใจเป็นเปอร์เซ็นต์ (0-100)"
+                            description: "ระดับความมั่นใจเป็นเปอร์เซ็นต์ (0-100) สะท้อนความชัดเจนของภาพและลักษณะแผลจริง"
                         },
                         description: {
                             type: "STRING",
@@ -85,7 +103,7 @@ export default async function handler(req, res) {
                         },
                         reasoning: {
                             type: "STRING",
-                            description: "เหตุผลสั้นๆ ที่เลือกระบุประเภทนี้"
+                            description: "เหตุผลสั้นๆ ที่เลือกระบุประเภทนี้ โดยอ้างอิงจากสิ่งที่เห็นในภาพ"
                         }
                     },
                     required: ["woundId", "confidence", "description", "reasoning"]
@@ -93,41 +111,53 @@ export default async function handler(req, res) {
             }
         };
 
+        // Call Gemini with 15 second timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            signal: controller.signal
         });
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
             const errData = await response.json().catch(() => ({}));
-            return res.status(response.status).json({ 
+            console.error('[Vercel] Gemini API Error:', response.status, errData?.error?.message);
+            return res.status(502).json({ 
                 success: false, 
-                error: errData?.error?.message || `Gemini API error! status: ${response.status}` 
+                error: errData?.error?.message || `Gemini API error (HTTP ${response.status})` 
             });
         }
 
         const data = await response.json();
         const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!textResponse) {
-            return res.status(500).json({ success: false, error: 'ไม่ได้รับคำตอบจากโมเดล AI' });
+            console.error('[Vercel] Empty response from Gemini');
+            return res.status(502).json({ success: false, error: 'ไม่ได้รับคำตอบจากโมเดล AI' });
         }
 
         const parsedResult = JSON.parse(textResponse.trim());
 
-        console.log(`[Vercel Server Log] AI Analyzed Result: ${parsedResult.woundId} (${parsedResult.confidence}%)`);
+        console.log(`[Vercel] ✅ AI Result: ${parsedResult.woundId} (${parsedResult.confidence}%) — ${parsedResult.reasoning}`);
 
         return res.status(200).json({
             success: true,
             mode: 'serverless',
             woundId: parsedResult.woundId || 'unknown',
-            confidence: typeof parsedResult.confidence === 'number' ? parsedResult.confidence : 80,
+            confidence: typeof parsedResult.confidence === 'number' ? parsedResult.confidence : 50,
             description: parsedResult.description || 'วิเคราะห์เรียบร้อย',
             reasoning: parsedResult.reasoning || ''
         });
 
     } catch (error) {
-        console.error('[Vercel Serverless Error]', error);
+        if (error.name === 'AbortError') {
+            console.error('[Vercel] Gemini API Timeout (15s)');
+            return res.status(504).json({ success: false, error: 'AI วิเคราะห์ไม่ทันภายใน 15 วินาที กรุณาลองใหม่' });
+        }
+        console.error('[Vercel] Serverless Error:', error.message);
         return res.status(500).json({ success: false, error: error.message || 'Server error' });
     }
 }

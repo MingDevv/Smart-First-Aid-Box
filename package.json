@@ -1,0 +1,7 @@
+{
+  "name": "smart-first-aid-box",
+  "version": "1.0.0",
+  "description": "Smart First Aid Box — IoT Healthcare System for Schools",
+  "private": true,
+  "type": "module"
+}

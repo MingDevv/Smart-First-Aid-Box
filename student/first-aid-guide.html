@@ -471,11 +471,6 @@
             const hardwareLabel = document.getElementById("hardware-status-label");
             const hardwareLog = document.getElementById("hardware-log");
 
-            // Trigger Hardware Compartment via API Bridge
-            const hardwareIndicator = document.getElementById("hardware-indicator-icon");
-            const hardwareLabel = document.getElementById("hardware-status-label");
-            const hardwareLog = document.getElementById("hardware-log");
-
             async function triggerHardware() {
                 if (wound.id === 'unknown') {
                     hardwareIndicator.innerText = "🔒";
