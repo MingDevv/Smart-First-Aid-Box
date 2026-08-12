@@ -1,9 +1,15 @@
 {
-  "version": 2,
-  "buildCommand": "",
-  "outputDirectory": ".",
-  "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "handle": "filesystem" }
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "redirects": [
+    { "source": "/index.html", "destination": "/", "permanent": true },
+    { "source": "/index", "destination": "/", "permanent": true },
+    { "source": "/student/index.html", "destination": "/student", "permanent": true },
+    { "source": "/student/index", "destination": "/student", "permanent": true },
+    { "source": "/dashboard/index.html", "destination": "/dashboard", "permanent": true },
+    { "source": "/dashboard/index", "destination": "/dashboard", "permanent": true }
+  ],
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" }
   ]
 }

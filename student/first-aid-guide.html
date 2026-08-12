@@ -296,7 +296,7 @@
             <div style="font-size:48px; margin-bottom:16px;">⚠️</div>
             <h2>ไม่พบประเภทบาดแผล</h2>
             <p style="color:var(--text-muted); margin-bottom:20px; font-size:14px;">ไม่พบข้อมูลและแนวทางการปฐมพยาบาลสำหรับแผลที่คุณระบุ</p>
-            <button class="btn btn-primary" onclick="location.href='index.html'">กลับสู่หน้าหลัก</button>
+            <button class="btn btn-primary" onclick="location.href='./'">กลับสู่หน้าหลัก</button>
         </div>
     </div>
 
@@ -564,20 +564,20 @@
                 };
                 StorageService.addHistoryEntry(historyEntry);
 
-                // 2. Format detailed LINE Notification Message
+                // 2. Format detailed LINE Flex Message Notification
                 const timeString = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-                const itemsListStr = Array.isArray(wound.items) ? wound.items.join(', ') : wound.items;
-
-                const lineMessage = `\n📢 [Smart First Aid Box] แจ้งเตือนใช้ตู้ปฐมพยาบาล\n` +
-                    `🆔 รหัสนักเรียน: ${currentStudent.studentId}\n` +
-                    `👤 ชื่อ-สกุล: ${currentStudent.name} (${currentStudent.class})\n` +
-                    `🩹 บาดแผล: ${wound.name_th} (${wound.name_en})\n` +
-                    `💊 เวชภัณฑ์ที่เบิกใช้: ${itemsListStr}\n` +
-                    `🔍 วิธีเลือก: ${historyEntry.method}\n` +
-                    `🕒 เวลา: ${timeString} น.\n` +
-                    `☁️ การบันทึก: สำเร็จ (ส่งข้อมูลยัง Supabase & Local History)`;
+                const flexPayload = NotificationService.buildFirstAidFlexMessage({
+                    studentId: currentStudent.studentId,
+                    name: currentStudent.name,
+                    studentClass: currentStudent.class,
+                    woundNameTh: wound.name_th,
+                    woundNameEn: wound.name_en,
+                    items: wound.items,
+                    method: historyEntry.method,
+                    timeStr: timeString
+                });
                 
-                const lineResult = await NotificationService.sendLineNotification(lineMessage);
+                const lineResult = await NotificationService.sendLineNotification(flexPayload);
                 if (lineResult.mode === 'simulation') {
                     NotificationService.showToast("บันทึกประวัติลง Supabase & แสดง LINE จำลอง", "info");
                 } else if (lineResult.success) {
@@ -591,7 +591,7 @@
 
                 // Short delay and redirect
                 setTimeout(() => {
-                    location.href = "index.html";
+                    location.href = "./";
                 }, 1500);
             });
         });

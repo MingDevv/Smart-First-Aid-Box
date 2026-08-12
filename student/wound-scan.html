@@ -338,7 +338,7 @@
                 </div>
             </div>
             
-            <button class="btn btn-outline" style="margin-top:10px;" onclick="location.href='wound-select.html'">
+            <button class="btn btn-outline" style="margin-top:10px;" onclick="location.href='wound-select'">
                 🩹 เลือกประเภทแผลด้วยตนเอง (Manual Select)
             </button>
         </div>
@@ -382,7 +382,7 @@
                 <button class="btn btn-outline" onclick="backToInput()">
                     🔄 วิเคราะห์รูปภาพแผลใหม่อีกครั้ง
                 </button>
-                <button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger-light); background-color:var(--danger-light);" onclick="location.href='wound-select.html'">
+                <button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger-light); background-color:var(--danger-light);" onclick="location.href='wound-select'">
                     🩹 ผลลัพธ์ไม่ถูกต้อง: ขอเลือกแผลเอง
                 </button>
             </div>
@@ -690,13 +690,13 @@
                 confirmBtn.style.background = "linear-gradient(135deg, #D97706 0%, #B45309 100%)";
                 NotificationService.showToast("ระบบไม่แน่ใจประเภทแผล โปรดระบุด้วยตนเองเพื่อความปลอดภัย", "warning");
                 confirmBtn.onclick = () => {
-                    location.href = `index.html`;
+                    location.href = `./`;
                 };
             } else {
                 confirmBtn.innerText = "ยืนยันและรับคำแนะนำปฐมพยาบาล ➔";
                 confirmBtn.style.background = "";
                 confirmBtn.onclick = () => {
-                    location.href = `first-aid-guide.html?wound=${result.woundId}&source=ai-scan`;
+                    location.href = `first-aid-guide?wound=${result.woundId}&source=ai-scan`;
                 };
             }
 
@@ -724,7 +724,7 @@
 
         function goBack() {
             stopCamera();
-            location.href = 'index.html';
+            location.href = './';
         }
     </script>
 </body>

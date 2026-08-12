@@ -6,7 +6,7 @@
     <title>สถิติการใช้งาน - Smart First Aid Box</title>
     <script>
         if (sessionStorage.getItem('dashboard_auth') !== 'true') {
-            window.location.replace('index.html');
+            window.location.replace('./');
         }
     </script>
     <link rel="stylesheet" href="../css/global.css">
@@ -74,9 +74,9 @@
     <div class="container animate-fade-in" style="background-color: transparent;">
         <!-- Navigation Tabs -->
         <div class="dashboard-nav">
-            <div class="nav-item" onclick="location.href='index.html'">ภาพรวมระบบ</div>
-            <div class="nav-item active" onclick="location.href='statistics.html'">สถิติและรายงาน</div>
-            <div class="nav-item" onclick="location.href='medicine-management.html'">จัดการสต็อกยา</div>
+            <div class="nav-item" onclick="location.href='./'">ภาพรวมระบบ</div>
+            <div class="nav-item active" onclick="location.href='statistics'">สถิติและรายงาน</div>
+            <div class="nav-item" onclick="location.href='medicine-management'">จัดการสต็อกยา</div>
         </div>
 
         <!-- Charts Card -->
@@ -129,12 +129,12 @@
     <script>
         // Check Authentication status
         if (sessionStorage.getItem('dashboard_auth') !== 'true') {
-            location.href = 'index.html';
+            location.href = './';
         }
 
         function logout() {
             sessionStorage.removeItem('dashboard_auth');
-            location.href = 'index.html';
+            location.href = './';
         }
 
         document.addEventListener("DOMContentLoaded", () => {

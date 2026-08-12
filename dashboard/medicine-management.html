@@ -6,7 +6,7 @@
     <title>บริหารจัดการคลังยา - Smart First Aid Box</title>
     <script>
         if (sessionStorage.getItem('dashboard_auth') !== 'true') {
-            window.location.replace('index.html');
+            window.location.replace('./');
         }
     </script>
     <link rel="stylesheet" href="../css/global.css">
@@ -97,9 +97,9 @@
     <div class="container animate-fade-in" style="background: transparent;">
         <!-- Navigation Tabs -->
         <div class="dashboard-nav">
-            <div class="nav-item" onclick="location.href='index.html'">ภาพรวม</div>
-            <div class="nav-item" onclick="location.href='statistics.html'">สถิติ/รายงาน</div>
-            <div class="nav-item active" onclick="location.href='medicine-management.html'">สต็อกตู้ยา</div>
+            <div class="nav-item" onclick="location.href='./'">ภาพรวม</div>
+            <div class="nav-item" onclick="location.href='statistics'">สถิติ/รายงาน</div>
+            <div class="nav-item active" onclick="location.href='medicine-management'">สต็อกตู้ยา</div>
         </div>
 
         <!-- Inventory List Section -->
@@ -186,12 +186,12 @@
     <script>
         // Check Authentication status
         if (sessionStorage.getItem('dashboard_auth') !== 'true') {
-            location.href = 'index.html';
+            location.href = './';
         }
 
         function logout() {
             sessionStorage.removeItem('dashboard_auth');
-            location.href = 'index.html';
+            location.href = './';
         }
 
         const medContainer = document.getElementById("medicine-list-container");

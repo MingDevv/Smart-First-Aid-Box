@@ -43,12 +43,69 @@ export default async function handler(req, res) {
     const channelToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
     const groupId = process.env.LINE_GROUP_ID || process.env.LINE_USER_ID;
 
-    // 1. Prioritize LINE Notify Token if provided (Direct push to the pre-selected LINE Group/Chat)
+    const { message, flexMessage, messages } = req.body || {};
+
+    // Determine payload format
+    let lineMessagesPayload = [];
+    if (messages && Array.isArray(messages) && messages.length > 0) {
+        lineMessagesPayload = messages;
+    } else if (flexMessage) {
+        lineMessagesPayload = [flexMessage];
+    } else if (message) {
+        lineMessagesPayload = [{ type: 'text', text: typeof message === 'string' ? message : JSON.stringify(message) }];
+    } else {
+        return res.status(400).json({ success: false, error: 'ไม่พบข้อความแจ้งเตือน (Missing message or flexMessage)' });
+    }
+
+    // 1. If Messaging API Channel Access Token is provided -> Send rich message / Flex Message
+    if (channelToken && channelToken.trim() !== '') {
+        try {
+            const targetUrl = (groupId && groupId.trim() !== '') 
+                ? 'https://api.line.me/v2/bot/message/push' 
+                : 'https://api.line.me/v2/bot/message/broadcast';
+
+            const bodyData = (groupId && groupId.trim() !== '')
+                ? { to: groupId.trim(), messages: lineMessagesPayload }
+                : { messages: lineMessagesPayload };
+
+            const response = await fetch(targetUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${channelToken.trim()}`
+                },
+                body: JSON.stringify(bodyData)
+            });
+
+            if (response.ok) {
+                console.log(`[Vercel LINE Messaging API] Sent successfully via ${targetUrl}!`);
+                return res.status(200).json({ success: true, mode: 'messaging_api' });
+            } else {
+                const errData = await response.json().catch(() => ({}));
+                console.error(`[Vercel LINE Messaging API] Error (HTTP ${response.status}):`, JSON.stringify(errData));
+                // Fall through to LINE Notify if configured
+                if (!notifyToken) {
+                    return res.status(response.status).json({ 
+                        success: false, 
+                        error: errData.message || `ส่ง LINE Messaging API ไม่สำเร็จ (HTTP ${response.status})` 
+                    });
+                }
+            }
+        } catch (messagingErr) {
+            console.error('[Vercel LINE Messaging API Exception]', messagingErr);
+            if (!notifyToken) {
+                return res.status(500).json({ success: false, error: messagingErr.message });
+            }
+        }
+    }
+
+    // 2. Fallback or Primary LINE Notify Token (Sends plain text message)
     if (notifyToken && notifyToken.trim() !== '') {
         try {
-            const { message } = req.body || {};
-            if (!message) {
-                return res.status(400).json({ success: false, error: 'ไม่พบข้อความแจ้งเตือน (Missing message)' });
+            // Extract text fallback from flex payload if needed
+            let textMessage = message;
+            if (!textMessage && flexMessage) {
+                textMessage = flexMessage.altText || 'แจ้งเตือนจากระบบ Smart First Aid Box';
             }
 
             const response = await fetch('https://notify-api.line.me/api/notify', {
@@ -57,7 +114,7 @@ export default async function handler(req, res) {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'Authorization': `Bearer ${notifyToken.trim()}`
                 },
-                body: new URLSearchParams({ message })
+                body: new URLSearchParams({ message: textMessage })
             });
 
             if (response.ok) {
@@ -74,54 +131,9 @@ export default async function handler(req, res) {
         }
     }
 
-    // 2. Messaging API Integration (Push to Group or Broadcast to All Followers)
-    const tokenToUse = channelToken || notifyToken;
-
-    if (!tokenToUse || tokenToUse.trim() === '') {
-        console.error('[Vercel LINE] Neither LINE_NOTIFY_TOKEN nor LINE_CHANNEL_ACCESS_TOKEN configured');
-        return res.status(500).json({ 
-            success: false, 
-            error: 'ยังไม่ได้ตั้งค่า LINE_CHANNEL_ACCESS_TOKEN บน Vercel' 
-        });
-    }
-
-    try {
-        const { message } = req.body || {};
-        if (!message) {
-            return res.status(400).json({ success: false, error: 'ไม่พบข้อความแจ้งเตือน (Missing message)' });
-        }
-
-        // If Group ID provided -> Push to group; Else -> Broadcast to all bot friends/followers
-        const targetUrl = (groupId && groupId.trim() !== '') 
-            ? 'https://api.line.me/v2/bot/message/push' 
-            : 'https://api.line.me/v2/bot/message/broadcast';
-
-        const bodyData = (groupId && groupId.trim() !== '')
-            ? { to: groupId.trim(), messages: [{ type: 'text', text: message }] }
-            : { messages: [{ type: 'text', text: message }] };
-
-        const response = await fetch(targetUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${tokenToUse.trim()}`
-            },
-            body: JSON.stringify(bodyData)
-        });
-
-        if (response.ok) {
-            console.log(`[Vercel LINE] Message sent successfully via ${targetUrl}!`);
-            return res.status(200).json({ success: true, mode: 'messaging_api' });
-        } else {
-            const errData = await response.json().catch(() => ({}));
-            console.error(`[Vercel LINE] Push failed (HTTP ${response.status}):`, JSON.stringify(errData));
-            return res.status(response.status).json({ 
-                success: false, 
-                error: errData.message || `ส่ง LINE ไม่สำเร็จ (HTTP ${response.status})` 
-            });
-        }
-    } catch (error) {
-        console.error('[Vercel LINE] Serverless Notification Error:', error);
-        return res.status(500).json({ success: false, error: error.message || 'Server error' });
-    }
+    console.error('[Vercel LINE] Neither LINE_CHANNEL_ACCESS_TOKEN nor LINE_NOTIFY_TOKEN configured');
+    return res.status(500).json({ 
+        success: false, 
+        error: 'ยังไม่ได้ตั้งค่า LINE_CHANNEL_ACCESS_TOKEN หรือ LINE_NOTIFY_TOKEN บน Vercel' 
+    });
 }
