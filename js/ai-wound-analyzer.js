@@ -144,11 +144,11 @@ const AiWoundAnalyzer = {
     // Return a mocked classification result (Explicit Simulation mode)
     async getSimulatedWoundResult(errorReason = '') {
         const options = [
-            { woundId: 'cut_abrasion', confidence: 95, description: 'พบรอยขูดขีดบนผิวหนังและรอยเลือดซึม สอดคล้องกับแผลมีดบาด/แผลถลอกทั่วไป' },
-            { woundId: 'insect', confidence: 92, description: 'พบบาดแผลบวมแดงนูนตรงกลางเฉพาะจุด สอดคล้องกับแมลงสัตว์กัดต่อย' }
+            { woundId: 'cut_abrasion', description: 'พบรอยขูดขีดบนผิวหนังและรอยเลือดซึม สอดคล้องกับแผลมีดบาด/แผลถลอกทั่วไป' },
+            { woundId: 'insect', description: 'พบบาดแผลบวมแดงนูนตรงกลางเฉพาะจุด สอดคล้องกับแมลงสัตว์กัดต่อย' }
         ];
 
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 1200));
 
         const randomResult = options[Math.floor(Math.random() * options.length)];
         
@@ -156,11 +156,13 @@ const AiWoundAnalyzer = {
             success: true,
             mode: 'simulation',
             woundId: randomResult.woundId,
-            confidence: randomResult.confidence,
-            description: randomResult.description + (errorReason ? ` (${errorReason})` : '')
+            confidence: 50, // Low confidence for simulation to prevent misleading high %
+            description: `[โหมดทดลอง/จำลอง] ${randomResult.description}` + (errorReason ? ` (${errorReason})` : ''),
+            reasoning: 'ระบบกำลังทำงานในโหมดจำลอง (Simulation) เนื่องจากยังไม่ได้ตั้งค่า GEMINI_API_KEY บน Vercel หรือในระบบหลังบ้าน'
         };
     }
 };
 
 window.AiWoundAnalyzer = AiWoundAnalyzer;
+
 

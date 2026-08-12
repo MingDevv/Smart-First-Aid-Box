@@ -539,6 +539,35 @@
             }
         });
 
+        // Compress & resize image to max dimension 800px for optimal speed & serverless payload size
+        function compressImage(dataUrl, callback) {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                const maxDim = 800;
+
+                if (width > maxDim || height > maxDim) {
+                    if (width > height) {
+                        height = Math.round((height * maxDim) / width);
+                        width = maxDim;
+                    } else {
+                        width = Math.round((width * maxDim) / height);
+                        height = maxDim;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                const compressed = canvas.toDataURL('image/jpeg', 0.85);
+                callback(compressed);
+            };
+            img.src = dataUrl;
+        }
+
         // Show image preview card
         function showPreview() {
             document.getElementById('camera-view').style.display = 'none';
@@ -547,8 +576,12 @@
             const container = document.getElementById('preview-container');
             container.style.display = 'flex';
             
-            const img = document.getElementById('preview-image');
-            img.src = selectedBase64;
+            // Compress for fast API analysis
+            compressImage(selectedBase64, (compressed) => {
+                selectedBase64 = compressed;
+                const img = document.getElementById('preview-image');
+                img.src = selectedBase64;
+            });
         }
 
         // Reset and scan/take again
@@ -632,6 +665,11 @@
             
             // Explanation
             document.getElementById('res-desc').innerText = result.description;
+
+            // Show Toast if running in Simulation mode
+            if (result.mode === 'simulation') {
+                NotificationService.showToast("⚠️ โหมดทดลอง: ยังไม่ได้ใส่ GEMINI_API_KEY ใน Vercel ระบบจึงจำลองผลลัพธ์", "warning");
+            }
 
             // Reasoning
             const reasoningElem = document.getElementById('res-reasoning');
