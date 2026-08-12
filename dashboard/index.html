@@ -288,20 +288,9 @@
                     <button onclick="closeCloudSettingsModal()" style="background:none; border:none; font-size:20px; cursor:pointer;">✕</button>
                 </div>
 
-                <div style="font-size:13px; color:var(--text-main); display:flex; flex-direction:column; gap:12px;">
-                    <div>
-                        <label style="font-weight:600; display:block; margin-bottom:4px;">⚡ Supabase Project URL:</label>
-                        <input type="text" id="cfg-supabase-url" placeholder="https://your-project.supabase.co" style="width:100%; padding:8px 12px; border:1px solid var(--border-color); border-radius:6px; font-size:13px;">
-                    </div>
-
-                    <div>
-                        <label style="font-weight:600; display:block; margin-bottom:4px;">🔑 Supabase Anon Public Key:</label>
-                        <input type="password" id="cfg-supabase-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6Ik..." style="width:100%; padding:8px 12px; border:1px solid var(--border-color); border-radius:6px; font-size:13px;">
-                    </div>
-
-                    <div>
-                        <label style="font-weight:600; display:block; margin-bottom:4px;">💬 LINE Messaging / Notify Token:</label>
-                        <input type="password" id="cfg-line-token" placeholder="วาง LINE Access Token ที่นี่..." style="width:100%; padding:8px 12px; border:1px solid var(--border-color); border-radius:6px; font-size:13px;">
+                    <div style="background:#ECFDF5; border:1px solid #A7F3D0; border-radius:8px; padding:12px; font-size:12px; color:#065F46; line-height:1.5;">
+                        🛡️ <strong>ความปลอดภัยสูงสุด (Vercel Serverless Function):</strong><br>
+                        API Keys & Tokens ทั้งหมดถูกซ่อนไว้หลังเซิร์ฟเวอร์เรียบร้อยแล้ว ไม่แสดงบนหน้าเว็บครู เพื่อป้องกันไม่ให้บุคคลภายนอกมองเห็นหรือแอบคัดลอกคีย์
                     </div>
 
                     <div style="background:#F0F9FF; border:1px solid #BAE6FD; border-radius:8px; padding:12px; margin-top:4px;">
@@ -322,9 +311,6 @@ ALTER TABLE treatment_history ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow Public Insert" ON treatment_history FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow Public Read" ON treatment_history FOR SELECT USING (true);</textarea>
                     </div>
-
-                    <button class="btn btn-primary" onclick="saveCloudSettings()" style="width:100%; margin-top:8px;">💾 บันทึกการตั้งค่าระบบ</button>
-                </div>
             </div>
         </div>
 
@@ -576,30 +562,11 @@ CREATE POLICY "Allow Public Read" ON treatment_history FOR SELECT USING (true);<
 
         // Cloud Settings Modal Handlers
         function openCloudSettingsModal() {
-            const settings = StorageService.getSettings();
-            document.getElementById('cfg-supabase-url').value = settings.supabaseUrl || '';
-            document.getElementById('cfg-supabase-key').value = settings.supabaseAnonKey || '';
-            document.getElementById('cfg-line-token').value = settings.lineToken || '';
             document.getElementById('cloud-settings-modal').style.display = 'flex';
         }
 
         function closeCloudSettingsModal() {
             document.getElementById('cloud-settings-modal').style.display = 'none';
-        }
-
-        function saveCloudSettings() {
-            const supabaseUrl = document.getElementById('cfg-supabase-url').value.trim();
-            const supabaseAnonKey = document.getElementById('cfg-supabase-key').value.trim();
-            const lineToken = document.getElementById('cfg-line-token').value.trim();
-
-            StorageService.saveSettings({
-                supabaseUrl,
-                supabaseAnonKey,
-                lineToken
-            });
-
-            NotificationService.showToast("บันทึกการตั้งค่า Supabase & LINE สำเร็จ!", "success");
-            closeCloudSettingsModal();
         }
 
         // Run check on load
