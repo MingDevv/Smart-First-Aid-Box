@@ -52,22 +52,30 @@ export default async function handler(req, res) {
 
     const apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_KEY || process.env['Gemini Key'];
     if (!apiKey || apiKey.trim() === '') {
-        console.error('[Vercel] GEMINI_API_KEY is not configured in Environment Variables');
+        console.error('[Vercel] GEMINI_API_KEY is not configured in Vercel Environment Variables. Key length: 0');
         return res.status(500).json({ 
             success: false, 
-            error: 'ยังไม่ได้ตั้งค่า GEMINI_API_KEY บน Vercel Environment Variables' 
+            error: 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง' 
         });
     }
+
+    console.log('[Vercel] GEMINI_API_KEY configured. Length:', apiKey.trim().length);
 
     try {
         const { image } = req.body || {};
         if (!image) {
-            return res.status(400).json({ success: false, error: 'ไม่พบข้อมูลรูปภาพ (Missing image)' });
+            return res.status(400).json({ 
+                success: false, 
+                error: 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง' 
+            });
         }
 
         const matches = image.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
         if (!matches) {
-            return res.status(400).json({ success: false, error: 'รูปแบบไฟล์รูปภาพไม่ถูกต้อง (Invalid base64 format)' });
+            return res.status(400).json({ 
+                success: false, 
+                error: 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง' 
+            });
         }
         
         const mimeType = matches[1];
@@ -163,7 +171,7 @@ export default async function handler(req, res) {
                 } else {
                     const errData = await response.json().catch(() => ({}));
                     lastErrorMessage = errData?.error?.message || `HTTP ${response.status}`;
-                    console.warn(`[Vercel] Model ${modelName} failed (${response.status}): ${lastErrorMessage}`);
+                    console.warn(`[Vercel] Model ${modelName} failed (${response.status}):`, JSON.stringify(errData));
                 }
             } catch (err) {
                 lastErrorMessage = err.message || 'Fetch error';
@@ -172,10 +180,10 @@ export default async function handler(req, res) {
         }
 
         if (!responseData) {
-            console.error('[Vercel] All Gemini candidate models failed. Last error:', lastErrorMessage);
+            console.error('[Vercel] All Gemini candidate models failed. Last error details:', lastErrorMessage);
             return res.status(502).json({
                 success: false,
-                error: 'บริการ Gemini AI ขัดข้องชั่วคราว กรุณาตรวจสอบ GEMINI_API_KEY หรือลองใหม่อีกครั้ง'
+                error: 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง'
             });
         }
 
