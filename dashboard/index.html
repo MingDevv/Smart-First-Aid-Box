@@ -194,9 +194,9 @@
             
             <!-- Dashboard navigation tabs -->
             <div class="dashboard-nav">
-                <div class="nav-item active" onclick="location.href='./'">ภาพรวมระบบ</div>
-                <div class="nav-item" onclick="location.href='statistics'">สถิติและรายงาน</div>
-                <div class="nav-item" onclick="location.href='medicine-management'">จัดการสต็อกยา</div>
+                <div class="nav-item active" onclick="location.href='/dashboard/'">ภาพรวมระบบ</div>
+                <div class="nav-item" onclick="location.href='/dashboard/statistics'">สถิติและรายงาน</div>
+                <div class="nav-item" onclick="location.href='/dashboard/medicine-management'">จัดการสต็อกยา</div>
             </div>
 
             <!-- Cabinet Status Bar -->
@@ -259,7 +259,7 @@
             <div class="db-card">
                 <h3 style="font-size: 15px; margin-bottom: 12px; display:flex; justify-content:space-between; align-items:center; color: var(--primary);">
                     <span>📝 ประวัติการบันทึกการรักษานักเรียนล่าสุด</span>
-                    <a href="statistics" style="font-size:12px; font-weight:500; color:var(--secondary);">ดูประวัติทั้งหมด →</a>
+                    <a href="/dashboard/statistics" style="font-size:12px; font-weight:500; color:var(--secondary);">ดูประวัติทั้งหมด →</a>
                 </h3>
                 <div class="timeline-container" id="recent-timeline">
                     <!-- Dynamic -->

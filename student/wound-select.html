@@ -96,7 +96,7 @@
 </head>
 <body>
     <header class="app-header">
-        <button class="header-back" onclick="location.href='./'">← หน้าหลัก</button>
+        <button class="header-back" onclick="location.href='/student/'">← หน้าหลัก</button>
         <div class="header-title">🩹 เลือกประเภทบาดแผล</div>
         <div style="width: 60px;"></div>
     </header>
@@ -142,7 +142,7 @@
                         const card = document.createElement("div");
                         card.className = "card wound-list-card animate-fade-in";
                         card.onclick = () => {
-                            location.href = `first-aid-guide?wound=${wound.id}`;
+                            location.href = `/student/first-aid-guide?wound=${wound.id}`;
                         };
 
                         card.innerHTML = `

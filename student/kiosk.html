@@ -101,19 +101,19 @@
         </div>
 
         <div class="kiosk-grid">
-            <div class="kiosk-card" onclick="location.href='wound-scan.html'">
+            <div class="kiosk-card" onclick="location.href='/student/wound-scan'">
                 <div style="font-size: 48px; margin-bottom: 12px;">📷</div>
                 <h3 style="font-size: 20px; margin: 0 0 8px 0;">สแกนแผลด้วย AI</h3>
                 <p style="color: #94A3B8; font-size: 14px; margin: 0;">ถ่ายภาพแผลเพื่อจำแนกประเภทและจ่ายยาอัตโนมัติ</p>
             </div>
 
-            <div class="kiosk-card" onclick="location.href='first-aid-guide.html?wound=cut_abrasion'">
+            <div class="kiosk-card" onclick="location.href='/student/first-aid-guide?wound=cut_abrasion'">
                 <div style="font-size: 48px; margin-bottom: 12px;">🩹</div>
                 <h3 style="font-size: 20px; margin: 0 0 8px 0;">มีดบาด / แผลถลอก</h3>
                 <p style="color: #94A3B8; font-size: 14px; margin: 0;">คำแนะนำล้างแผล ใส่ยาเบตาดีน และติดพลาสเตอร์</p>
             </div>
 
-            <div class="kiosk-card" onclick="location.href='first-aid-guide.html?wound=insect'">
+            <div class="kiosk-card" onclick="location.href='/student/first-aid-guide?wound=insect'">
                 <div style="font-size: 48px; margin-bottom: 12px;">🐝</div>
                 <h3 style="font-size: 20px; margin: 0 0 8px 0;">แมลงสัตว์กัดต่อย</h3>
                 <p style="color: #94A3B8; font-size: 14px; margin: 0;">คำแนะนำเอาเหล็กในออก ทายาคารามายด์ ประคบเย็น</p>
@@ -145,7 +145,7 @@
         function resetIdleTimer() {
             clearTimeout(idleTimer);
             idleTimer = setTimeout(() => {
-                location.href = 'kiosk.html';
+                location.href = '/student/kiosk';
             }, 60000);
         }
         window.onload = resetIdleTimer;

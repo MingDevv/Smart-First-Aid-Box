@@ -97,9 +97,9 @@
     <div class="container animate-fade-in" style="background: transparent;">
         <!-- Navigation Tabs -->
         <div class="dashboard-nav">
-            <div class="nav-item" onclick="location.href='./'">ภาพรวม</div>
-            <div class="nav-item" onclick="location.href='statistics'">สถิติ/รายงาน</div>
-            <div class="nav-item active" onclick="location.href='medicine-management'">สต็อกตู้ยา</div>
+            <div class="nav-item" onclick="location.href='/dashboard/'">ภาพรวม</div>
+            <div class="nav-item" onclick="location.href='/dashboard/statistics'">สถิติ/รายงาน</div>
+            <div class="nav-item active" onclick="location.href='/dashboard/medicine-management'">สต็อกตู้ยา</div>
         </div>
 
         <!-- Inventory List Section -->
@@ -181,17 +181,17 @@
     </footer>
 
     <!-- Scripts -->
-    <script src="../js/storage.js"></script>
-    <script src="../js/notification.js"></script>
+    <script src="/js/storage.js"></script>
+    <script src="/js/notification.js"></script>
     <script>
-        // Check Authentication status
+        // Check Auth
         if (sessionStorage.getItem('dashboard_auth') !== 'true') {
-            location.href = './';
+            location.href = '/dashboard/';
         }
 
         function logout() {
             sessionStorage.removeItem('dashboard_auth');
-            location.href = './';
+            location.href = '/dashboard/';
         }
 
         const medContainer = document.getElementById("medicine-list-container");
