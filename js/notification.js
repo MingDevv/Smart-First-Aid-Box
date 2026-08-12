@@ -80,7 +80,26 @@ const NotificationService = {
 
     // Send LINE Notification (or simulate if token is empty)
     async sendLineNotification(message) {
-        // Retrieve settings to check if LINE Token is available
+        // 1. Try Vercel Serverless Function first (Most Secure — Token hidden on Server & Logs visible in Vercel)
+        try {
+            const serverlessResponse = await fetch('/api/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message })
+            });
+
+            if (serverlessResponse.ok) {
+                const serverlessResult = await serverlessResponse.json();
+                if (serverlessResult.success) {
+                    console.log('[LINE Notify] Sent securely via Vercel Serverless Function!');
+                    return serverlessResult;
+                }
+            }
+        } catch (serverlessError) {
+            console.log('[LINE Notify] Serverless endpoint not active, checking local storage settings...');
+        }
+
+        // 2. Client-side fallback if serverless endpoint is not configured
         let settings = { lineToken: '' };
         if (window.StorageService) {
             settings = window.StorageService.getSettings();

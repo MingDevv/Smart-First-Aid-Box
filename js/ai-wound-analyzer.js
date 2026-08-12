@@ -2,12 +2,32 @@
 const AiWoundAnalyzer = {
     // Perform AI analysis on a base64 encoded image of a wound
     async analyzeWound(base64DataWithPrefix) {
+        // 1. Try Vercel Serverless Function first (Most Secure — Key hidden on Server & Logs visible in Vercel)
+        try {
+            const serverlessResponse = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: base64DataWithPrefix })
+            });
+
+            if (serverlessResponse.ok) {
+                const serverlessResult = await serverlessResponse.json();
+                if (serverlessResult.success) {
+                    console.log('[AI Analyzer] Analyzed securely via Vercel Serverless Function!');
+                    return serverlessResult;
+                }
+            }
+        } catch (serverlessError) {
+            console.log('[AI Analyzer] Serverless endpoint not active, checking local storage settings...');
+        }
+
+        // 2. Client-side fallback if serverless endpoint is not configured
         let settings = { geminiApiKey: '' };
         if (window.StorageService) {
             settings = window.StorageService.getSettings();
         }
 
-        // Check if API key exists
+        // Check if API key exists in local settings
         if (!settings.geminiApiKey || settings.geminiApiKey.trim() === '') {
             console.log('[AI Analyzer] No Gemini API Key configured. Running in simulation mode.');
             return this.getSimulatedWoundResult();
