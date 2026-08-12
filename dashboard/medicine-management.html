@@ -219,6 +219,11 @@
         const medContainer = document.getElementById("medicine-list-container");
         const modal = document.getElementById("med-modal");
 
+        function escapeHtml(str) {
+            if (typeof str !== 'string') return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
         // Load Stock Data
         function renderMedicines() {
             medContainer.innerHTML = "";
@@ -245,24 +250,38 @@
                 item.className = "med-item";
                 
                 const thaiDate = new Date(med.exp).toLocaleDateString('th-TH', {year:'numeric', month:'short', day:'numeric'});
+                const safeName = escapeHtml(med.name);
+                const safeUnit = escapeHtml(med.unit);
 
                 item.innerHTML = `
-                    <div class="med-info" onclick="openEditModal(${JSON.stringify(med).replace(/"/g, '&quot;')})">
+                    <div class="med-info" style="cursor:pointer;">
                         <div class="med-name">
-                            <span>${med.name}</span>
+                            <span>${safeName}</span>
                             ${statusBadgeHtml}
                         </div>
                         <div class="med-expiry">📅 หมดอายุ: ${thaiDate}</div>
                     </div>
                     <div class="stock-control">
-                        <button class="stock-control-btn" onclick="updateQty(${med.id}, -1)">-</button>
+                        <button class="stock-control-btn btn-minus">-</button>
                         <div class="med-stock">
                             <span class="med-qty ${isLow ? 'low-stock' : ''}">${med.qty}</span>
-                            <span style="font-size:11px; color:#94A3B8;">${med.unit}</span>
+                            <span style="font-size:11px; color:#94A3B8;">${safeUnit}</span>
                         </div>
-                        <button class="stock-control-btn" onclick="updateQty(${med.id}, 1)">+</button>
+                        <button class="stock-control-btn btn-plus">+</button>
                     </div>
                 `;
+
+                // Safe event listeners without JSON in inline attributes (BUG-04 Fix)
+                item.querySelector('.med-info').addEventListener('click', () => openEditModal(med));
+                item.querySelector('.btn-minus').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    updateQty(med.id, -1);
+                });
+                item.querySelector('.btn-plus').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    updateQty(med.id, 1);
+                });
+
                 medContainer.appendChild(item);
             });
         }

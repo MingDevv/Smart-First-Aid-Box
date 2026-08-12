@@ -7,9 +7,28 @@ export const config = {
     }
 };
 
+// In-memory rate limiting map (10 requests per minute per IP)
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const MAX_REQUESTS_PER_WINDOW = 10;
+
+function checkRateLimit(ip) {
+    const now = Date.now();
+    const windowData = rateLimitMap.get(ip) || { count: 0, resetTime: now + RATE_LIMIT_WINDOW_MS };
+    if (now > windowData.resetTime) {
+        windowData.count = 1;
+        windowData.resetTime = now + RATE_LIMIT_WINDOW_MS;
+    } else {
+        windowData.count++;
+    }
+    rateLimitMap.set(ip, windowData);
+    return windowData.count > MAX_REQUESTS_PER_WINDOW;
+}
+
 export default async function handler(req, res) {
-    // Set CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // Set CORS headers safely
+    const origin = req.headers.origin || '*';
+    res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -19,6 +38,16 @@ export default async function handler(req, res) {
 
     if (req.method !== 'POST') {
         return res.status(405).json({ success: false, error: 'Method Not Allowed' });
+    }
+
+    // Rate Limiting check
+    const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown-ip';
+    if (checkRateLimit(clientIp)) {
+        console.warn(`[Vercel Analyze] Rate limit exceeded for IP: ${clientIp}`);
+        return res.status(429).json({
+            success: false,
+            error: 'ขออภัย คุณใช้งานเกินจำนวนครั้งที่กำหนด (Rate limit exceeded) กรุณารอ 1 นาที'
+        });
     }
 
     const apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_KEY || process.env['Gemini Key'];

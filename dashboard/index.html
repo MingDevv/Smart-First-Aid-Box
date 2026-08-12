@@ -147,7 +147,7 @@
     <div class="lock-screen" id="lock-overlay">
         <span style="background-color: var(--primary-light); color: var(--primary); padding: 4px 12px; border-radius: 4px; font-size:11px; font-weight: 600; font-family: var(--font-prompt);">ระบบสารสนเทศคลังยาโรงเรียน</span>
         <h2 style="font-size: 20px; margin-top: 10px; margin-bottom: 4px; color: var(--primary);">🔑 เข้าสู่แดชบอร์ดจัดการคลังยา</h2>
-        <p style="color: var(--text-muted); font-size: 13px;">กรุณากรอกรหัส PIN 4 หลักเพื่อความปลอดภัย (รหัสเริ่มต้น: 1234)</p>
+        <p style="color: var(--text-muted); font-size: 13px;">กรุณากรอกรหัส PIN 4 หลักเพื่อความปลอดภัยเข้าสู่ระบบครูพยาบาล</p>
         
         <div class="pin-dot-container">
             <div class="pin-dot" id="dot-0"></div>
@@ -352,7 +352,28 @@ CREATE POLICY "Allow Public Read" ON treatment_history FOR SELECT USING (true);<
             }
         }
 
+        function escapeHtml(str) {
+            if (typeof str !== 'string') return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        function checkPinLockout() {
+            const lockoutUntil = Number(localStorage.getItem('pin_lockout_until') || 0);
+            if (Date.now() < lockoutUntil) {
+                const remainingSecs = Math.ceil((lockoutUntil - Date.now()) / 1000);
+                return remainingSecs;
+            }
+            return 0;
+        }
+
         function pressPin(num) {
+            const remaining = checkPinLockout();
+            if (remaining > 0) {
+                NotificationService.showToast(`🚨 ระงับการลอง PIN อีก ${remaining} วินาที (ระงับชั่วคราวจากความพยายามผิดหลายครั้ง)`, "danger");
+                clearPin();
+                return;
+            }
+
             if (currentPinInput.length < 4) {
                 currentPinInput += num;
                 updatePinDots();
@@ -362,13 +383,24 @@ CREATE POLICY "Allow Public Read" ON treatment_history FOR SELECT USING (true);<
                 // Verify PIN
                 const settings = StorageService.getSettings();
                 if (currentPinInput === settings.dashboardPin) {
+                    localStorage.removeItem('pin_failed_attempts');
+                    localStorage.removeItem('pin_lockout_until');
                     sessionStorage.setItem('dashboard_auth', 'true');
                     document.getElementById('lock-overlay').style.display = 'none';
                     document.getElementById('dashboard-content').style.display = 'block';
                     loadDashboardData();
                     NotificationService.showToast("ยินดีต้อนรับเข้าสู่ระบบจัดการคลังยา", "success");
                 } else {
-                    NotificationService.showToast("รหัส PIN ไม่ถูกต้อง", "danger");
+                    let attempts = Number(localStorage.getItem('pin_failed_attempts') || 0) + 1;
+                    localStorage.setItem('pin_failed_attempts', attempts);
+                    
+                    if (attempts >= 5) {
+                        const lockTime = Date.now() + (15 * 60 * 1000); // 15 minutes lockout
+                        localStorage.setItem('pin_lockout_until', lockTime);
+                        NotificationService.showToast("🚨 กรอก PIN ผิดเกิน 5 ครั้ง! ระบบจะระงับการลอง PIN เป็นเวลา 15 นาที", "danger");
+                    } else {
+                        NotificationService.showToast(`รหัส PIN ไม่ถูกต้อง (เหลือโอกาสลองอีก ${5 - attempts} ครั้ง)`, "danger");
+                    }
                     clearPin();
                 }
             }
@@ -469,14 +501,15 @@ CREATE POLICY "Allow Public Read" ON treatment_history FOR SELECT USING (true);<
                     document.getElementById('insight-top-wound').innerText = topWound[0];
                 }
 
-                // Most used medicine item
+                // Most used medicine item (BUG-01 Fix: Safe check for itemsUsed)
                 const itemFreq = {};
                 history.forEach(h => {
-                    if (h.itemsUsed) {
-                        h.itemsUsed.forEach(item => {
+                    const items = Array.isArray(h.itemsUsed) ? h.itemsUsed : [];
+                    items.forEach(item => {
+                        if (item) {
                             itemFreq[item] = (itemFreq[item] || 0) + 1;
-                        });
-                    }
+                        }
+                    });
                 });
                 const topItem = Object.entries(itemFreq).sort((a, b) => b[1] - a[1])[0];
                 if (topItem) {
@@ -507,7 +540,7 @@ CREATE POLICY "Allow Public Read" ON treatment_history FOR SELECT USING (true);<
                 cabinetText.innerText = '✅ ตู้ยาพร้อมใช้งาน';
             }
 
-            // 7. Build Timeline list (Top 4 latest)
+            // 7. Build Timeline list (Top 4 latest) - SEC-01 & BUG-01 Fix
             const timeline = document.getElementById('recent-timeline');
             timeline.innerHTML = "";
 
@@ -521,14 +554,19 @@ CREATE POLICY "Allow Public Read" ON treatment_history FOR SELECT USING (true);<
                     const time = new Date(log.timestamp).toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'});
                     const date = new Date(log.timestamp).toLocaleDateString('th-TH', {day:'numeric', month:'short'});
 
+                    const safeMethod = escapeHtml(log.method || 'ไม่ระบุ');
+                    const safeWoundName = escapeHtml(log.woundNameTh || 'ไม่ระบุบาดแผล');
+                    const itemsStr = Array.isArray(log.itemsUsed) ? log.itemsUsed.join(", ") : (log.itemsUsed || '-');
+                    const safeItemsStr = escapeHtml(itemsStr);
+
                     item.innerHTML = `
                         <div class="timeline-meta">
                             <span>🕒 ${date} - ${time} น.</span>
-                            <span>ระบุ: ${log.method}</span>
+                            <span>ระบุ: ${safeMethod}</span>
                         </div>
-                        <div style="font-weight:600; color:var(--primary); font-size:14px;">แผลปฐมพยาบาล: ${log.woundNameTh}</div>
+                        <div style="font-weight:600; color:var(--primary); font-size:14px;">แผลปฐมพยาบาล: ${safeWoundName}</div>
                         <div style="color:var(--text-muted); font-size:12px; margin-top:2px;">
-                            เวชภัณฑ์ที่เปิดใช้: ${log.itemsUsed.join(", ")}
+                            เวชภัณฑ์ที่เปิดใช้: ${safeItemsStr}
                         </div>
                     `;
                     timeline.appendChild(item);

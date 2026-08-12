@@ -388,6 +388,11 @@
                 return;
             }
             const result = StorageService.loginStudent(enteredId);
+            if (!result.success) {
+                NotificationService.showToast(result.error, "danger");
+                clearNum();
+                return;
+            }
             document.getElementById('student-login-modal').style.display = 'none';
             updateStudentProfileUI(result.student);
             NotificationService.showToast(`ยินดีต้อนรับ: ${result.student.name}`, "success");

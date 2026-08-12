@@ -51,21 +51,31 @@ const StorageService = {
     },
 
     loginStudent(studentId) {
+        const cleanId = String(studentId).trim();
         const students = this.getStudents();
-        const student = students.find(s => s.studentId === String(studentId).trim());
+        const student = students.find(s => s.studentId === cleanId);
         if (student) {
             sessionStorage.setItem(STORAGE_KEYS.CURRENT_STUDENT, JSON.stringify(student));
             return { success: true, student };
         }
-        const genericStudent = {
-            studentId: String(studentId),
-            name: `นักเรียน รหัส ${studentId}`,
-            class: "ทั่วไป",
-            allergies: ["ไม่ทราบประวัติแพ้ยา"],
-            isUnknownStudent: true
+        
+        // Allow guest login explicitly for ID 99999
+        if (cleanId === "99999") {
+            const guestStudent = {
+                studentId: "99999",
+                name: "นักเรียนทั่วไป (ไม่ระบุตัวตน)",
+                class: "ทั่วไป",
+                allergies: []
+            };
+            sessionStorage.setItem(STORAGE_KEYS.CURRENT_STUDENT, JSON.stringify(guestStudent));
+            return { success: true, student: guestStudent };
+        }
+
+        // Reject invalid student ID (BUG-02 Fix)
+        return { 
+            success: false, 
+            error: "ไม่พบรหัสนักเรียนในระบบ กรุณาตรวจสอบรหัส หรือกด 'ทั่วไป' เพื่อใช้บริการ" 
         };
-        sessionStorage.setItem(STORAGE_KEYS.CURRENT_STUDENT, JSON.stringify(genericStudent));
-        return { success: true, student: genericStudent };
     },
 
     logoutStudent() {

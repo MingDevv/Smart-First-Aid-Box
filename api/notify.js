@@ -1,6 +1,24 @@
-// API/NOTIFY.JS — Vercel Serverless Function for LINE Messaging API (Push Message)
+// In-memory rate limiting map (15 requests per minute per IP)
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const MAX_REQUESTS_PER_WINDOW = 15;
+
+function checkRateLimit(ip) {
+    const now = Date.now();
+    const windowData = rateLimitMap.get(ip) || { count: 0, resetTime: now + RATE_LIMIT_WINDOW_MS };
+    if (now > windowData.resetTime) {
+        windowData.count = 1;
+        windowData.resetTime = now + RATE_LIMIT_WINDOW_MS;
+    } else {
+        windowData.count++;
+    }
+    rateLimitMap.set(ip, windowData);
+    return windowData.count > MAX_REQUESTS_PER_WINDOW;
+}
+
 export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const origin = req.headers.origin || '*';
+    res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -10,6 +28,15 @@ export default async function handler(req, res) {
 
     if (req.method !== 'POST') {
         return res.status(405).json({ success: false, error: 'Method Not Allowed' });
+    }
+
+    const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown-ip';
+    if (checkRateLimit(clientIp)) {
+        console.warn(`[Vercel Notify] Rate limit exceeded for IP: ${clientIp}`);
+        return res.status(429).json({
+            success: false,
+            error: 'ขออภัย คุณส่งข้อความถี่เกินไป (Rate limit exceeded) กรุณารอ 1 นาที'
+        });
     }
 
     const notifyToken = process.env.LINE_NOTIFY_TOKEN || process.env.LINE_TOKEN || process.env['Line Token'];

@@ -1,7 +1,19 @@
 // JS/NOTIFICATION.JS
 const NotificationService = {
+    // Helper function to escape HTML special characters to prevent XSS (SEC-01, SEC-02)
+    escapeHtml(str) {
+        if (typeof str !== 'string') return '';
+        return str
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    },
+
     // Show a beautiful, floating toast notification
     showToast(message, type = 'info') {
+        const safeMessage = this.escapeHtml(String(message));
         // Create container if it doesn't exist
         let container = document.getElementById('toast-container');
         if (!container) {
@@ -66,7 +78,7 @@ const NotificationService = {
             toast.style.backgroundColor = '#1E3A8A'; // info (Navy)
         }
 
-        toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
+        toast.innerHTML = `<span>${icon}</span> <span>${safeMessage}</span>`;
         container.appendChild(toast);
 
         // Auto remove toast
@@ -78,9 +90,8 @@ const NotificationService = {
         }, 3000);
     },
 
-    // Send LINE Notification (or simulate if token is empty)
+    // Send LINE Notification via Vercel Serverless Function ONLY (SEC-04, BUG-05)
     async sendLineNotification(message) {
-        // 1. Try Vercel Serverless Function first (Most Secure — Token hidden on Server & Logs visible in Vercel)
         try {
             const serverlessResponse = await fetch('/api/notify', {
                 method: 'POST',
@@ -94,52 +105,22 @@ const NotificationService = {
                     console.log('[LINE Notify] Sent securely via Vercel Serverless Function!');
                     return serverlessResult;
                 }
+            } else {
+                const errJson = await serverlessResponse.json().catch(() => ({}));
+                console.warn('[LINE Notify] Serverless notification error:', errJson.error);
             }
         } catch (serverlessError) {
-            console.log('[LINE Notify] Serverless endpoint not active, checking local storage settings...');
+            console.log('[LINE Notify] Backend endpoint inactive/offline, running in local simulation mode...');
         }
 
-        // 2. Client-side fallback if serverless endpoint is not configured
-        let settings = { lineToken: '' };
-        if (window.StorageService) {
-            settings = window.StorageService.getSettings();
-        }
-
-        // If no token configured, run in simulation mode
-        if (!settings.lineToken || settings.lineToken.trim() === '') {
-            console.log('[LINE Notify Simulation] Sending message:', message);
-            
-            // Create a notification preview modal
-            this.showLineMockModal(message);
-
-            return { success: true, mode: 'simulation' };
-        }
-
-        // If token exists, attempt to send
-        try {
-            const response = await fetch('https://cors-anywhere.herokuapp.com/https://notify-api.line.me/api/notify', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'Authorization': `Bearer ${settings.lineToken.trim()}`
-                },
-                body: new URLSearchParams({ message: message })
-            });
-
-            if (response.ok) {
-                return { success: true, mode: 'production' };
-            } else {
-                console.error(`[LINE Notify Error] Response status: ${response.status}`);
-                return { success: false, mode: 'production', error: `ส่ง LINE ไม่สำเร็จ (HTTP ${response.status})` };
-            }
-        } catch (error) {
-            console.error('[LINE Notify Error] Error sending LINE Notification:', error);
-            return { success: false, mode: 'error', error: 'ไม่สามารถส่งข้อความแจ้งเตือนผ่าน LINE ได้: ' + error.message };
-        }
+        // Simulation overlay when offline or backend not active (no cors-anywhere)
+        this.showLineMockModal(message);
+        return { success: true, mode: 'simulation' };
     },
 
-    // Display a beautiful LINE notification simulation overlay
+    // Display a beautiful LINE notification simulation overlay with XSS protection (SEC-02)
     showLineMockModal(message) {
+        const safeMsg = this.escapeHtml(message);
         const modal = document.createElement('div');
         modal.style.position = 'fixed';
         modal.style.top = '20px';
@@ -177,7 +158,7 @@ const NotificationService = {
                 <strong style="font-size:14px; font-weight:600;">LINE Notify (จำลอง)</strong>
                 <span style="margin-left:auto; font-size:11px; opacity:0.8;">เมื่อสักครู่</span>
             </div>
-            <div style="font-size:13px; line-height:1.4; white-space: pre-wrap;">${message}</div>
+            <div style="font-size:13px; line-height:1.4; white-space: pre-wrap;">${safeMsg}</div>
             <button onclick="this.parentElement.remove()" style="margin-top:10px; width:100%; padding:6px; background:rgba(255,255,255,0.2); border:none; border-radius:4px; color:white; font-size:12px; font-weight:600; cursor:pointer; font-family:Prompt;">ปิดการแสดงจำลอง</button>
         `;
 
