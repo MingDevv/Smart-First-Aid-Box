@@ -26,13 +26,18 @@ const AiWoundAnalyzer = {
             // Use stable Gemini model endpoint
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-            const prompt = `วิเคราะห์ภาพบาดแผลนี้แล้วเลือกประเภทแผลที่ตรงที่สุดจาก 3 ประเภทนี้เท่านั้น:
+            const prompt = `คุณคือระบบ AI ผู้เชี่ยวชาญด้านวิเคราะห์บาดแผลและปฐมพยาบาลเบื้องต้น 
 
-1. **cut_abrasion** (มีดบาด / แผลถลอก) — มีรอยขูดขีด ผิวหนังชั้นนอกหลุดลอก แผลโดนของมีคมบาด หรือมีเลือดซึมเล็กน้อย
-2. **insect** (แมลงสัตว์กัดต่อย) — มีตุ่มนูนแดง คัน รอยจุดกัด หรือรอยเหล็กในผึ้ง/มดกัด
-3. **unknown** (ไม่สามารถระบุได้) — ภาพมืด เบลอ ไม่ใช่บาดแผลบนร่างกาย หรือเป็นแผลรุนแรงมากที่เกินขอบเขตการปฐมพยาบาลเบื้องต้น (เช่น แผลลึก เลือดไหลไม่หยุด หมากัด)
+โปรดวิเคราะห์ภาพถ่ายบาดแผลนี้อย่างละเอียด แล้วจำแนกประเภทบาดแผลออกเป็น 1 ใน 3 ประเภทต่อไปนี้เท่านั้น:
 
-ตอบเป็น JSON เท่านั้น`;
+1. **cut_abrasion** (มีดบาด / แผลถลอก)
+   - ลักษณะทางทัศนวิสัย: รอยขูดขีดบนผิวหนัง, ผิวหนังชั้นนอกถลอกเป็นปื้น, รอยบาดเป็นเส้นตรงจากของมีคม, มีเลือดซึมหรือรอยสะเก็ดแผลสด
+2. **insect** (แมลงสัตว์กัดต่อย)
+   - ลักษณะทางทัศนวิสัย: ตุ่มนูนแดงเป็นวงกลมหรือวงรีเฉพาะจุด, รอยบวมแดงจากการอักเสบ, จุดแดงตรงกลาง (รอยกัด/เหล็กใน), ไม่มีผิวหนังถลอกหลุดลอกเป็นแผ่น
+3. **unknown** (ไม่สามารถระบุได้)
+   - ลักษณะทางทัศนวิสัย: ภาพมืด เบลอ หลุดโฟกัส, ไม่ใช่ภาพบาดแผลบนผิวหนังมนุษย์, หรือเป็นบาดแผลรุนแรงที่เกินขอบเขตตู้ปฐมพยาบาล (เช่น เลือดไหลไม่หยุด แผลลึกเห็นกระดูก/กล้ามเนื้อ แผลไฟไหม้พอง รอยหมากัด)
+
+ตอบเป็นโครงสร้าง JSON เท่านั้น`;
 
             const payload = {
                 contents: [
@@ -49,7 +54,7 @@ const AiWoundAnalyzer = {
                     }
                 ],
                 generationConfig: {
-                    temperature: 0.2,
+                    temperature: 0.1,
                     responseMimeType: "application/json",
                     responseSchema: {
                         type: "OBJECT",
@@ -57,18 +62,22 @@ const AiWoundAnalyzer = {
                             woundId: {
                                 type: "STRING",
                                 enum: ["cut_abrasion", "insect", "unknown"],
-                                description: "The wound type that best matches the image."
+                                description: "ประเภทบาดแผลที่ตรงกับภาพที่สุด"
                             },
                             confidence: {
                                 type: "INTEGER",
-                                description: "Confidence percentage (0-100)."
+                                description: "ระดับความมั่นใจเป็นเปอร์เซ็นต์ (0-100)"
                             },
                             description: {
                                 type: "STRING",
-                                description: "Brief Thai explanation of observed features."
+                                description: "คำอธิบายลักษณะบาดแผลภาษาไทยสั้นๆ ที่สังเกตเห็นจากภาพ"
+                            },
+                            reasoning: {
+                                type: "STRING",
+                                description: "เหตุผลสั้นๆ ที่เลือกระบุประเภทนี้"
                             }
                         },
-                        required: ["woundId", "confidence", "description"]
+                        required: ["woundId", "confidence", "description", "reasoning"]
                     }
                 }
             };
@@ -98,7 +107,8 @@ const AiWoundAnalyzer = {
                 mode: 'production',
                 woundId: parsedResult.woundId || 'unknown',
                 confidence: typeof parsedResult.confidence === 'number' ? parsedResult.confidence : 80,
-                description: parsedResult.description || 'วิเคราะห์โดยระบบเรียบร้อย'
+                description: parsedResult.description || 'วิเคราะห์โดยระบบเรียบร้อย',
+                reasoning: parsedResult.reasoning || ''
             };
 
         } catch (error) {
