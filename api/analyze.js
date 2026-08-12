@@ -70,12 +70,6 @@ export default async function handler(req, res) {
             return res.status(400).json({ success: false, error: 'รูปแบบไฟล์รูปภาพไม่ถูกต้อง (Invalid base64 format)' });
         }
         
-        const mimeType = matches[1];
-        const base64Data = matches[2];
-
-        // Use gemini-2.0-flash — stable, free-tier compatible, fast, supports vision
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey.trim()}`;
-
         const prompt = `คุณคือระบบ AI ผู้เชี่ยวชาญด้านวิเคราะห์บาดแผลและปฐมพยาบาลเบื้องต้นสำหรับนักเรียนในโรงเรียน
 
 โปรดวิเคราะห์ภาพถ่ายนี้อย่างละเอียดที่สุด แล้วจำแนกประเภทบาดแผลออกเป็น 1 ใน 3 ประเภทต่อไปนี้เท่านั้น:
@@ -140,28 +134,49 @@ export default async function handler(req, res) {
             }
         };
 
-        // Call Gemini with 15 second timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        // List candidate models to ensure resilience across API model updates
+        const candidateModels = ['gemini-1.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-pro'];
+        let responseData = null;
+        let lastErrorMessage = '';
 
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
+        for (const modelName of candidateModels) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey.trim()}`;
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-        if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            console.error('[Vercel] Gemini API Error:', response.status, errData?.error?.message);
-            return res.status(502).json({ 
-                success: false, 
-                error: errData?.error?.message || `Gemini API error (HTTP ${response.status})` 
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                if (response.ok) {
+                    responseData = await response.json();
+                    console.log(`[Vercel] Successfully called Gemini model: ${modelName}`);
+                    break;
+                } else {
+                    const errData = await response.json().catch(() => ({}));
+                    lastErrorMessage = errData?.error?.message || `HTTP ${response.status}`;
+                    console.warn(`[Vercel] Model ${modelName} failed (${response.status}): ${lastErrorMessage}`);
+                }
+            } catch (err) {
+                lastErrorMessage = err.message || 'Fetch error';
+                console.warn(`[Vercel] Model ${modelName} exception: ${lastErrorMessage}`);
+            }
+        }
+
+        if (!responseData) {
+            console.error('[Vercel] All Gemini candidate models failed. Last error:', lastErrorMessage);
+            return res.status(502).json({
+                success: false,
+                error: 'บริการ Gemini AI ขัดข้องชั่วคราว กรุณาตรวจสอบ GEMINI_API_KEY หรือลองใหม่อีกครั้ง'
             });
         }
 
-        const data = await response.json();
+        const data = responseData;
         const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!textResponse) {
             console.error('[Vercel] Empty response from Gemini');

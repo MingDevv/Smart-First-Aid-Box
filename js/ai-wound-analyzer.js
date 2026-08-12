@@ -104,7 +104,7 @@ const AiWoundAnalyzer = {
             mode: errorReason ? 'simulation' : 'heuristic_ai',
             woundId: predictedType,
             confidence: confidence,
-            description: description + (errorReason ? ` (${errorReason})` : ''),
+            description: description,
             reasoning: 'วิเคราะห์จากทัศนียภาพของบาดแผล (สัดส่วนสีเลือดและความนูนกระจายตัวของเนื้อเยื่อผิวหนัง)'
         };
     }
