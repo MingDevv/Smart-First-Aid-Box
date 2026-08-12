@@ -145,8 +145,8 @@ export default async function handler(req, res) {
             }
         };
 
-        // List candidate models to ensure resilience across API model updates
-        const candidateModels = ['gemini-1.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-pro'];
+        // List candidate models — updated Aug 2026 (Gemini 1.x/2.x retired, use 3.x series)
+        const candidateModels = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'];
         let responseData = null;
         let lastErrorMessage = '';
 
@@ -191,7 +191,7 @@ export default async function handler(req, res) {
         const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!textResponse) {
             console.error('[Vercel] Empty response from Gemini');
-            return res.status(502).json({ success: false, error: 'ไม่ได้รับคำตอบจากโมเดล AI' });
+            return res.status(502).json({ success: false, error: 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง' });
         }
 
         const parsedResult = JSON.parse(textResponse.trim());
@@ -210,9 +210,9 @@ export default async function handler(req, res) {
     } catch (error) {
         if (error.name === 'AbortError') {
             console.error('[Vercel] Gemini API Timeout (15s)');
-            return res.status(504).json({ success: false, error: 'AI วิเคราะห์ไม่ทันภายใน 15 วินาที กรุณาลองใหม่' });
+            return res.status(504).json({ success: false, error: 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง' });
         }
         console.error('[Vercel] Serverless Error:', error.message);
-        return res.status(500).json({ success: false, error: error.message || 'Server error' });
+        return res.status(500).json({ success: false, error: 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง' });
     }
 }
