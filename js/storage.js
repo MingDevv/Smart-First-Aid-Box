@@ -19,10 +19,10 @@ const DEFAULT_MEDICINES = [
 ];
 
 const DEFAULT_STUDENTS = [
-    { studentId: "12345", name: "นายหมิง พัฒนาการ", class: "ม.4/1", allergies: ["ยาเบตาดีน"] },
-    { studentId: "12346", name: "นางสาวเปตอง ปฐมพยาบาล", class: "ม.5/2", allergies: [] },
-    { studentId: "12347", name: "นายเมย์ ออกแบบระบบ", class: "ม.6/1", allergies: ["แอลกอฮอล์"] },
-    { studentId: "11111", name: "นายสมชาย ใจดี", class: "ม.4/2", allergies: [] },
+    { studentId: "12345", name: "นายหมิง", class: "ม.4/4", allergies: ["ยาเบตาดีน"] },
+    { studentId: "12346", name: "นายเปตอง", class: "ม.4/4", allergies: [] },
+    { studentId: "12347", name: "นายเม", class: "ม.4/4", allergies: ["แอลกอฮอล์"] },
+    { studentId: "11111", name: "นายเม้ง", class: "ม.4/4", allergies: [] },
     { studentId: "99999", name: "นักเรียนทั่วไป (ไม่ระบุตัวตน)", class: "ทั่วไป", allergies: [] }
 ];
 
@@ -51,11 +51,11 @@ const StorageService = {
 
     loginStudent(studentId) {
         const cleanId = String(studentId).trim();
-        
+
         // Check dynamically stored students or default list on-demand
         const customStudents = this.getStudents();
         let student = customStudents.find(s => s.studentId === cleanId);
-        
+
         if (!student) {
             student = DEFAULT_STUDENTS.find(s => s.studentId === cleanId);
         }
@@ -64,7 +64,7 @@ const StorageService = {
             sessionStorage.setItem(STORAGE_KEYS.CURRENT_STUDENT, JSON.stringify(student));
             return { success: true, student };
         }
-        
+
         // Allow guest login explicitly for ID 99999
         if (cleanId === "99999") {
             const guestStudent = {
@@ -78,9 +78,9 @@ const StorageService = {
         }
 
         // Reject invalid student ID
-        return { 
-            success: false, 
-            error: "ไม่พบรหัสนักเรียนในระบบ กรุณาตรวจสอบรหัส หรือกด 'ทั่วไป' เพื่อใช้บริการ" 
+        return {
+            success: false,
+            error: "ไม่พบรหัสนักเรียนในระบบ กรุณาตรวจสอบรหัส หรือกด 'ทั่วไป' เพื่อใช้บริการ"
         };
     },
 
@@ -214,9 +214,9 @@ const StorageService = {
         const targets = itemAliasMap[name] || [name];
 
         const updated = medicines.map(med => {
-            const isMatch = targets.some(target => 
-                med.name === target || 
-                med.name.toLowerCase().includes(target.toLowerCase()) || 
+            const isMatch = targets.some(target =>
+                med.name === target ||
+                med.name.toLowerCase().includes(target.toLowerCase()) ||
                 target.toLowerCase().includes(med.name.toLowerCase())
             );
             if (isMatch) {
