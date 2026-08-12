@@ -70,6 +70,9 @@ export default async function handler(req, res) {
             return res.status(400).json({ success: false, error: 'รูปแบบไฟล์รูปภาพไม่ถูกต้อง (Invalid base64 format)' });
         }
         
+        const mimeType = matches[1];
+        const base64Data = matches[2];
+        
         const prompt = `คุณคือระบบ AI ผู้เชี่ยวชาญด้านวิเคราะห์บาดแผลและปฐมพยาบาลเบื้องต้นสำหรับนักเรียนในโรงเรียน
 
 โปรดวิเคราะห์ภาพถ่ายนี้อย่างละเอียดที่สุด แล้วจำแนกประเภทบาดแผลออกเป็น 1 ใน 3 ประเภทต่อไปนี้เท่านั้น:
