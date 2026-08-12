@@ -25,6 +25,9 @@ function checkRateLimit(ip) {
     return windowData.count > MAX_REQUESTS_PER_WINDOW;
 }
 
+// Safe user-facing error message (never expose internals)
+const USER_ERROR_MSG = 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง';
+
 export default async function handler(req, res) {
     // Set CORS headers safely
     const origin = req.headers.origin || '*';
@@ -46,41 +49,36 @@ export default async function handler(req, res) {
         console.warn(`[Vercel Analyze] Rate limit exceeded for IP: ${clientIp}`);
         return res.status(429).json({
             success: false,
-            error: 'ขออภัย คุณใช้งานเกินจำนวนครั้งที่กำหนด (Rate limit exceeded) กรุณารอ 1 นาที'
+            error: 'ขออภัย คุณใช้งานเกินจำนวนครั้งที่กำหนด กรุณารอ 1 นาที'
         });
     }
 
     const apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_KEY || process.env['Gemini Key'];
     if (!apiKey || apiKey.trim() === '') {
-        console.error('[Vercel] GEMINI_API_KEY is not configured in Vercel Environment Variables. Key length: 0');
-        return res.status(500).json({ 
-            success: false, 
-            error: 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง' 
-        });
+        console.error('[Vercel] CRITICAL: No Gemini API key found in any env variable');
+        return res.status(500).json({ success: false, error: USER_ERROR_MSG });
     }
 
-    console.log('[Vercel] GEMINI_API_KEY configured. Length:', apiKey.trim().length);
+    console.log('[Vercel] API Key present, length:', apiKey.trim().length);
 
     try {
         const { image } = req.body || {};
         if (!image) {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง' 
-            });
+            console.error('[Vercel] No image data in request body');
+            return res.status(400).json({ success: false, error: USER_ERROR_MSG });
         }
 
-        const matches = image.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+        const matches = image.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9\-.+]+);base64,(.+)$/);
         if (!matches) {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง' 
-            });
+            console.error('[Vercel] Invalid base64 image format');
+            return res.status(400).json({ success: false, error: USER_ERROR_MSG });
         }
         
         const mimeType = matches[1];
         const base64Data = matches[2];
         
+        console.log(`[Vercel] Image received: mimeType=${mimeType}, base64Length=${base64Data.length}`);
+
         const prompt = `คุณคือระบบ AI ผู้เชี่ยวชาญด้านวิเคราะห์บาดแผลและปฐมพยาบาลเบื้องต้นสำหรับนักเรียนในโรงเรียน
 
 โปรดวิเคราะห์ภาพถ่ายนี้อย่างละเอียดที่สุด แล้วจำแนกประเภทบาดแผลออกเป็น 1 ใน 3 ประเภทต่อไปนี้เท่านั้น:
@@ -92,15 +90,17 @@ export default async function handler(req, res) {
    - ลักษณะสำคัญ: ตุ่มนูนแดงเป็นวงกลมหรือวงรีเฉพาะจุด 1-3 ตำแหน่ง, รอยบวมแดงรอบจุดกลาง, จุดแดงเล็กตรงกลาง (รอยกัดหรือรอยเหล็กใน), ไม่มีผิวหนังถลอกหลุดลอกเป็นแผ่นกว้าง, อาจมีรอยผื่นแดงรอบ
 
 3. **unknown** (ไม่สามารถระบุได้)
-   - ใช้เมื่อ: ภาพมืดมาก/เบลอจนไม่เห็นรายละเอียด, ไม่ใช่ภาพบาดแผลบนผิวหนังมนุษย์, เป็นบาดแผลรุนแรงเกินขอบเขตปฐมพยาบาลเบื้องต้น (เลือดไหลไม่หยุด, แผลลึกมาก, แผลไฟไหม้พอง, รอยสัตว์ใหญ่กัด)
+   - ใช้เมื่อ: ภาพมืดมาก/เบลอจนไม่เห็นรายละเอียด, ไม่ใช่ภาพบาดแผลบนผิวหนังมนุษย์, เป็นบาดแผลรุนแรงเกินขอบเขตปฐมพยาบาลเบื้องต้น
 
 กฎสำคัญ:
 - ดูที่ลักษณะทางกายภาพของแผลในภาพเท่านั้น
 - ถ้าไม่แน่ใจ ให้ตอบ unknown พร้อม confidence ต่ำ
 - confidence ต้องสะท้อนความมั่นใจจริงๆ ห้ามให้สูงถ้าภาพไม่ชัด
 
-ตอบเป็น JSON เท่านั้น`;
+ตอบเป็น JSON เท่านั้นในรูปแบบนี้ (ห้ามใส่ markdown code block):
+{"woundId": "cut_abrasion|insect|unknown", "confidence": 0-100, "description": "คำอธิบายลักษณะแผลสั้นๆ", "reasoning": "เหตุผลที่เลือก"}`;
 
+        // Build a simple, compatible payload (no responseSchema for max compatibility)
         const payload = {
             contents: [
                 {
@@ -116,36 +116,11 @@ export default async function handler(req, res) {
                 }
             ],
             generationConfig: {
-                temperature: 0.1,
-                maxOutputTokens: 256,
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: "OBJECT",
-                    properties: {
-                        woundId: {
-                            type: "STRING",
-                            enum: ["cut_abrasion", "insect", "unknown"],
-                            description: "ประเภทบาดแผลที่ตรงกับภาพที่สุด"
-                        },
-                        confidence: {
-                            type: "INTEGER",
-                            description: "ระดับความมั่นใจเป็นเปอร์เซ็นต์ (0-100) สะท้อนความชัดเจนของภาพและลักษณะแผลจริง"
-                        },
-                        description: {
-                            type: "STRING",
-                            description: "คำอธิบายลักษณะบาดแผลภาษาไทยสั้นๆ ที่สังเกตเห็นจากภาพ"
-                        },
-                        reasoning: {
-                            type: "STRING",
-                            description: "เหตุผลสั้นๆ ที่เลือกระบุประเภทนี้ โดยอ้างอิงจากสิ่งที่เห็นในภาพ"
-                        }
-                    },
-                    required: ["woundId", "confidence", "description", "reasoning"]
-                }
+                maxOutputTokens: 300
             }
         };
 
-        // List candidate models — updated Aug 2026 (Gemini 1.x/2.x retired, use 3.x series)
+        // Candidate models — Aug 2026 (Gemini 1.x/2.x fully retired)
         const candidateModels = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'];
         let responseData = null;
         let lastErrorMessage = '';
@@ -153,8 +128,9 @@ export default async function handler(req, res) {
         for (const modelName of candidateModels) {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey.trim()}`;
             try {
+                console.log(`[Vercel] Trying model: ${modelName}...`);
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 12000);
+                const timeoutId = setTimeout(() => controller.abort(), 15000);
 
                 const response = await fetch(url, {
                     method: 'POST',
@@ -164,55 +140,83 @@ export default async function handler(req, res) {
                 });
                 clearTimeout(timeoutId);
 
+                console.log(`[Vercel] Model ${modelName} HTTP status: ${response.status}`);
+
                 if (response.ok) {
                     responseData = await response.json();
-                    console.log(`[Vercel] Successfully called Gemini model: ${modelName}`);
+                    console.log(`[Vercel] ✅ Model ${modelName} responded OK`);
                     break;
                 } else {
-                    const errData = await response.json().catch(() => ({}));
-                    lastErrorMessage = errData?.error?.message || `HTTP ${response.status}`;
-                    console.warn(`[Vercel] Model ${modelName} failed (${response.status}):`, JSON.stringify(errData));
+                    const errText = await response.text().catch(() => '');
+                    lastErrorMessage = `HTTP ${response.status}: ${errText.substring(0, 200)}`;
+                    console.warn(`[Vercel] ❌ Model ${modelName} failed (${response.status}): ${errText.substring(0, 300)}`);
                 }
             } catch (err) {
-                lastErrorMessage = err.message || 'Fetch error';
-                console.warn(`[Vercel] Model ${modelName} exception: ${lastErrorMessage}`);
+                lastErrorMessage = err.name === 'AbortError' ? 'Timeout (15s)' : (err.message || 'Fetch error');
+                console.warn(`[Vercel] ❌ Model ${modelName} exception: ${lastErrorMessage}`);
             }
         }
 
         if (!responseData) {
-            console.error('[Vercel] All Gemini candidate models failed. Last error details:', lastErrorMessage);
-            return res.status(502).json({
-                success: false,
-                error: 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง'
-            });
+            console.error('[Vercel] ALL candidate models failed. Last error:', lastErrorMessage);
+            return res.status(502).json({ success: false, error: USER_ERROR_MSG });
         }
 
-        const data = responseData;
-        const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        // Extract text response from Gemini
+        const textResponse = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
+        console.log(`[Vercel] Raw AI text (first 500 chars): ${String(textResponse).substring(0, 500)}`);
+
         if (!textResponse) {
-            console.error('[Vercel] Empty response from Gemini');
-            return res.status(502).json({ success: false, error: 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง' });
+            console.error('[Vercel] Empty text in Gemini response. Full structure:', JSON.stringify(responseData).substring(0, 500));
+            return res.status(502).json({ success: false, error: USER_ERROR_MSG });
         }
 
-        const parsedResult = JSON.parse(textResponse.trim());
+        // Robust JSON parsing — handle markdown code fences and extra text
+        let parsedResult;
+        try {
+            // Strip markdown code fences if present: ```json ... ``` or ``` ... ```
+            let cleanText = textResponse.trim();
+            const jsonMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)```/);
+            if (jsonMatch) {
+                cleanText = jsonMatch[1].trim();
+            }
+            parsedResult = JSON.parse(cleanText);
+        } catch (parseErr) {
+            console.error('[Vercel] JSON parse failed. Raw text:', textResponse.substring(0, 300));
+            console.error('[Vercel] Parse error:', parseErr.message);
+            // Try to extract JSON object from text with regex as last resort
+            const jsonObjMatch = textResponse.match(/\{[\s\S]*?"woundId"[\s\S]*?\}/);
+            if (jsonObjMatch) {
+                try {
+                    parsedResult = JSON.parse(jsonObjMatch[0]);
+                    console.log('[Vercel] Recovered JSON from regex extraction');
+                } catch (e2) {
+                    return res.status(502).json({ success: false, error: USER_ERROR_MSG });
+                }
+            } else {
+                return res.status(502).json({ success: false, error: USER_ERROR_MSG });
+            }
+        }
 
-        console.log(`[Vercel] ✅ AI Result: ${parsedResult.woundId} (${parsedResult.confidence}%) — ${parsedResult.reasoning}`);
+        // Validate and sanitize the parsed result
+        const validWoundIds = ['cut_abrasion', 'insect', 'unknown'];
+        const woundId = validWoundIds.includes(parsedResult.woundId) ? parsedResult.woundId : 'unknown';
+        const confidence = (typeof parsedResult.confidence === 'number' && parsedResult.confidence >= 0 && parsedResult.confidence <= 100)
+            ? parsedResult.confidence : 50;
+
+        console.log(`[Vercel] ✅ AI Result: ${woundId} (${confidence}%) — ${parsedResult.reasoning || 'N/A'}`);
 
         return res.status(200).json({
             success: true,
             mode: 'serverless',
-            woundId: parsedResult.woundId || 'unknown',
-            confidence: typeof parsedResult.confidence === 'number' ? parsedResult.confidence : 50,
+            woundId: woundId,
+            confidence: confidence,
             description: parsedResult.description || 'วิเคราะห์เรียบร้อย',
             reasoning: parsedResult.reasoning || ''
         });
 
     } catch (error) {
-        if (error.name === 'AbortError') {
-            console.error('[Vercel] Gemini API Timeout (15s)');
-            return res.status(504).json({ success: false, error: 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง' });
-        }
-        console.error('[Vercel] Serverless Error:', error.message);
-        return res.status(500).json({ success: false, error: 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง' });
+        console.error(`[Vercel] UNHANDLED ERROR: name=${error.name}, message=${error.message}, stack=${String(error.stack).substring(0, 300)}`);
+        return res.status(500).json({ success: false, error: USER_ERROR_MSG });
     }
 }

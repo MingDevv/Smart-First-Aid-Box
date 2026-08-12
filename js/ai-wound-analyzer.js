@@ -1,4 +1,4 @@
-// JS/AI-WOUND-ANALYZER.JS
+// JS/AI-WOUND-ANALYZER.JS — Client-side bridge to serverless Gemini API
 const AiWoundAnalyzer = {
     // Perform AI analysis on a base64 encoded image of a wound via serverless backend API ONLY
     async analyzeWound(base64DataWithPrefix) {
@@ -10,25 +10,25 @@ const AiWoundAnalyzer = {
                 body: JSON.stringify({ image: base64DataWithPrefix })
             });
 
-            if (serverlessResponse.ok) {
-                const serverlessResult = await serverlessResponse.json();
-                if (serverlessResult && serverlessResult.success) {
-                    console.log('[AI Analyzer] Analyzed securely via Vercel Serverless Function!');
-                    return serverlessResult;
-                }
+            // Read the response body ONCE (can't read body twice)
+            const responseBody = await serverlessResponse.json().catch(() => ({}));
+
+            if (serverlessResponse.ok && responseBody && responseBody.success) {
+                console.log('[AI Analyzer] ✅ Analyzed securely via Vercel Serverless Function!');
+                return responseBody;
             }
 
-            const errJson = await serverlessResponse.json().catch(() => ({}));
-            console.warn('[AI Analyzer] Serverless API error response:', errJson.error || serverlessResponse.status);
+            // API returned an error
+            console.warn(`[AI Analyzer] Server error (${serverlessResponse.status}):`, responseBody.error || 'Unknown');
             return {
                 success: false,
-                error: errJson.error || 'ไม่สามารถวิเคราะห์รูปภาพได้ กรุณาลองใหม่ หรือเลือกแผลด้วยตนเอง'
+                error: responseBody.error || 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง'
             };
-        } catch (serverlessError) {
-            console.error('[AI Analyzer] Network or endpoint failure:', serverlessError);
+        } catch (networkError) {
+            console.error('[AI Analyzer] Network failure:', networkError.message);
             return {
                 success: false,
-                error: 'ไม่สามารถวิเคราะห์รูปภาพได้ กรุณาลองใหม่ หรือเลือกแผลด้วยตนเอง'
+                error: 'ไม่สามารถเชื่อมต่อระบบวิเคราะห์ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่'
             };
         }
     }
