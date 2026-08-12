@@ -35,14 +35,13 @@ const DEFAULT_SETTINGS = {
 };
 
 const StorageService = {
-    // Student Methods
+    // Student Methods (On-demand private lookup - SEC Privacy Fix)
     getStudents() {
         const data = localStorage.getItem(STORAGE_KEYS.STUDENTS);
-        if (!data) {
-            localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(DEFAULT_STUDENTS));
-            return DEFAULT_STUDENTS;
+        if (data) {
+            return JSON.parse(data);
         }
-        return JSON.parse(data);
+        return []; // Do not leak default student database into unauthenticated localStorage
     },
 
     getCurrentStudent() {
@@ -52,8 +51,15 @@ const StorageService = {
 
     loginStudent(studentId) {
         const cleanId = String(studentId).trim();
-        const students = this.getStudents();
-        const student = students.find(s => s.studentId === cleanId);
+        
+        // Check dynamically stored students or default list on-demand
+        const customStudents = this.getStudents();
+        let student = customStudents.find(s => s.studentId === cleanId);
+        
+        if (!student) {
+            student = DEFAULT_STUDENTS.find(s => s.studentId === cleanId);
+        }
+
         if (student) {
             sessionStorage.setItem(STORAGE_KEYS.CURRENT_STUDENT, JSON.stringify(student));
             return { success: true, student };
@@ -71,7 +77,7 @@ const StorageService = {
             return { success: true, student: guestStudent };
         }
 
-        // Reject invalid student ID (BUG-02 Fix)
+        // Reject invalid student ID
         return { 
             success: false, 
             error: "ไม่พบรหัสนักเรียนในระบบ กรุณาตรวจสอบรหัส หรือกด 'ทั่วไป' เพื่อใช้บริการ" 

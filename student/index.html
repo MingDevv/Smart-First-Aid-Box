@@ -195,13 +195,23 @@
             transform: scale(0.95);
         }
 
-        /* SOS Emergency Button */
+        body {
+            padding-bottom: 90px;
+        }
+
+        /* SOS Emergency Button - Pinned Bottom (SEC / UI Fix) */
         .sos-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
-            width: 100%;
+            width: calc(100% - 32px);
+            max-width: 440px;
             padding: 16px 24px;
             background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%);
             color: #FFFFFF;
@@ -211,9 +221,8 @@
             font-size: 16px;
             font-weight: 700;
             cursor: pointer;
-            box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);
+            box-shadow: 0 8px 24px rgba(220, 38, 38, 0.45);
             transition: all 0.2s ease;
-            margin-top: 14px;
         }
 
         .about-link {
@@ -345,10 +354,52 @@
     <script src="../js/api-bridge.js"></script>
     <script>
         let enteredId = "";
+        let failedAttempts = parseInt(sessionStorage.getItem('student_login_failed_attempts') || '0', 10);
+        let lockoutUntil = parseInt(sessionStorage.getItem('student_login_lockout_until') || '0', 10);
+        let lockoutTimer = null;
 
         document.addEventListener("DOMContentLoaded", () => {
+            checkLockoutState();
             checkStudentAuth();
         });
+
+        function checkLockoutState() {
+            const now = Date.now();
+            if (lockoutUntil > now) {
+                startLockoutCountdown(Math.ceil((lockoutUntil - now) / 1000));
+                return true;
+            } else {
+                sessionStorage.removeItem('student_login_lockout_until');
+                return false;
+            }
+        }
+
+        function startLockoutCountdown(secondsLeft) {
+            updateLockoutUI(secondsLeft);
+            if (lockoutTimer) clearInterval(lockoutTimer);
+            
+            lockoutTimer = setInterval(() => {
+                const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+                if (remaining <= 0) {
+                    clearInterval(lockoutTimer);
+                    lockoutTimer = null;
+                    failedAttempts = 0;
+                    sessionStorage.setItem('student_login_failed_attempts', '0');
+                    sessionStorage.removeItem('student_login_lockout_until');
+                    const display = document.getElementById('id-display-text');
+                    display.style.color = '#1E293B';
+                    updateDisplay();
+                } else {
+                    updateLockoutUI(remaining);
+                }
+            }, 1000);
+        }
+
+        function updateLockoutUI(remainingSec) {
+            const display = document.getElementById('id-display-text');
+            display.style.color = '#DC2626';
+            display.innerText = `🔒 ล็อก ${remainingSec}s`;
+        }
 
         function checkStudentAuth() {
             const student = StorageService.getCurrentStudent();
@@ -361,11 +412,18 @@
 
         function openLoginModal() {
             enteredId = "";
-            updateDisplay();
+            if (!checkLockoutState()) {
+                updateDisplay();
+            }
             document.getElementById('student-login-modal').style.display = 'flex';
         }
 
         function pressNum(num) {
+            if (checkLockoutState()) {
+                const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+                NotificationService.showToast(`⚠️ รหัสผิดครบ 3 ครั้ง ระบบระงับชั่วคราว (เหลือ ${remaining} วินาที)`, "danger");
+                return;
+            }
             if (enteredId.length < 5) {
                 enteredId += num;
                 updateDisplay();
@@ -373,32 +431,62 @@
         }
 
         function clearNum() {
+            if (checkLockoutState()) return;
             enteredId = "";
             updateDisplay();
         }
 
         function updateDisplay() {
+            if (checkLockoutState()) return;
             const display = document.getElementById('id-display-text');
+            display.style.color = '#1E293B';
             display.innerText = enteredId.padEnd(5, '-');
         }
 
         function submitStudentLogin() {
+            if (checkLockoutState()) {
+                const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+                NotificationService.showToast(`⚠️ รหัสผิดครบ 3 ครั้ง ระบบระงับชั่วคราว (เหลือ ${remaining} วินาที)`, "danger");
+                return;
+            }
+
             if (enteredId.length < 5) {
                 NotificationService.showToast("กรุณากรอกรหัสนักเรียน 5 หลักให้ครบ", "warning");
                 return;
             }
+
             const result = StorageService.loginStudent(enteredId);
             if (!result.success) {
-                NotificationService.showToast(result.error, "danger");
+                failedAttempts++;
+                sessionStorage.setItem('student_login_failed_attempts', String(failedAttempts));
+                
+                if (failedAttempts >= 3) {
+                    lockoutUntil = Date.now() + 30000; // 30 seconds lockout
+                    sessionStorage.setItem('student_login_lockout_until', String(lockoutUntil));
+                    startLockoutCountdown(30);
+                    NotificationService.showToast("⚠️ กรอกรหัสผิด 3 ครั้งติด ระบบถูกระงับ 30 วินาที", "danger");
+                } else {
+                    NotificationService.showToast(`${result.error} (ลองผิดอีก ${3 - failedAttempts} ครั้งจะถูกล็อก)`, "danger");
+                }
                 clearNum();
                 return;
             }
+
+            // Success
+            failedAttempts = 0;
+            sessionStorage.setItem('student_login_failed_attempts', '0');
+            sessionStorage.removeItem('student_login_lockout_until');
             document.getElementById('student-login-modal').style.display = 'none';
             updateStudentProfileUI(result.student);
             NotificationService.showToast(`ยินดีต้อนรับ: ${result.student.name}`, "success");
         }
 
         function quickGuestLogin() {
+            if (checkLockoutState()) {
+                const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+                NotificationService.showToast(`⚠️ รหัสผิดครบ 3 ครั้ง ระบบระงับชั่วคราว (เหลือ ${remaining} วินาที)`, "danger");
+                return;
+            }
             const result = StorageService.loginStudent("99999");
             document.getElementById('student-login-modal').style.display = 'none';
             updateStudentProfileUI(result.student);
