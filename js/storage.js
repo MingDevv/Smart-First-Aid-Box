@@ -46,7 +46,16 @@ const StorageService = {
 
     getCurrentStudent() {
         const data = sessionStorage.getItem(STORAGE_KEYS.CURRENT_STUDENT);
-        return data ? JSON.parse(data) : null;
+        if (!data) return null;
+        let student = JSON.parse(data);
+        // Refresh name & details from latest DEFAULT_STUDENTS or custom list if available
+        const latest = this.getStudents().find(s => s.studentId === student.studentId) ||
+                       DEFAULT_STUDENTS.find(s => s.studentId === student.studentId);
+        if (latest) {
+            student = { ...student, ...latest };
+            sessionStorage.setItem(STORAGE_KEYS.CURRENT_STUDENT, JSON.stringify(student));
+        }
+        return student;
     },
 
     loginStudent(studentId) {
