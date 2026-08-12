@@ -471,6 +471,11 @@
             const hardwareLabel = document.getElementById("hardware-status-label");
             const hardwareLog = document.getElementById("hardware-log");
 
+            // Trigger Hardware Compartment via API Bridge
+            const hardwareIndicator = document.getElementById("hardware-indicator-icon");
+            const hardwareLabel = document.getElementById("hardware-status-label");
+            const hardwareLog = document.getElementById("hardware-log");
+
             async function triggerHardware() {
                 if (wound.id === 'unknown') {
                     hardwareIndicator.innerText = "🔒";
@@ -478,6 +483,32 @@
                     hardwareLog.innerText = "ระบบไม่พบประเภทแผลที่ระบุ จึงไม่มีการส่งคำสั่งเปิดช่องใส่เวชภัณฑ์ใดๆ";
                     return;
                 }
+
+                // Issue #8: Check allergy collision before opening drawer
+                const currentStudent = StorageService.getCurrentStudent();
+                if (currentStudent && currentStudent.allergies && currentStudent.allergies.length > 0) {
+                    const studentAllergies = currentStudent.allergies;
+                    const matchedAllergies = [];
+
+                    (wound.items || []).forEach(item => {
+                        studentAllergies.forEach(allergy => {
+                            if (allergy !== "ไม่ทราบประวัติแพ้ยา" && 
+                               (item.toLowerCase().includes(allergy.toLowerCase()) || allergy.toLowerCase().includes(item.toLowerCase()))) {
+                                matchedAllergies.push(allergy);
+                            }
+                        });
+                    });
+
+                    if (matchedAllergies.length > 0) {
+                        hardwareIndicator.innerText = "🛑";
+                        hardwareLabel.innerText = "ระงับการจ่ายยา (ตรวจพบประวัติแพ้ยา!)";
+                        hardwareLabel.style.color = "#DC2626";
+                        hardwareLog.innerText = `🚨 คำเตือนความปลอดภัย: ผู้เรียนมีประวัติแพ้ยา (${matchedAllergies.join(', ')}) ซึ่งอยู่ในชุดอุปกรณ์นี้ ระบบจึงระงับการเปิดตู้ยาอัตโนมัติ กรุณาติดต่อครูพยาบาล`;
+                        NotificationService.showToast(`🚨 ระงับการเปิดตู้ยา! ตรวจพบประวัติแพ้ยา: ${matchedAllergies.join(', ')}`, "danger");
+                        return;
+                    }
+                }
+
                 try {
                     // Send command to open drawer
                     const response = await ApiBridge.openCompartment(wound.id);
@@ -486,17 +517,24 @@
                         hardwareLabel.innerText = "เปิดช่องใส่อุปกรณ์เรียบร้อย";
                         
                         if (response.mode === 'simulation') {
-                            hardwareLog.innerText = `[โหมดทดลอง] ปลดล็อกกล่องยาส่วน: ${wound.name_th} เรียบร้อย (บอร์ด micro:bit ได้จำลองเซอร์โวมอเตอร์หมุน 90 องศา)`;
+                            hardwareLog.innerText = `[โหมดทดลอง] ปลดล็อกกล่องยาส่วน: ${wound.name_th} เรียบร้อย (จำลองบอร์ดควบคุมเปิดช่อง #${response.compartment})`;
                             NotificationService.showToast("จำลอง: ปลดล็อกช่องยาแล้ว", "warning");
                         } else {
-                            hardwareLog.innerText = `บอร์ด micro:bit ได้ทำการส่งคำสั่งเปิดช่องใส่เวชภัณฑ์ยาพยาบาลสำหรับแผลนี้แล้ว`;
+                            hardwareLog.innerText = `บอร์ดควบคุมส่งคำสั่งเปิดช่องใส่เวชภัณฑ์ยาพยาบาลสำหรับแผลนี้เรียบร้อย (ช่อง #${response.compartment})`;
                             NotificationService.showToast("ปลดล็อกช่องยาสำเร็จ!", "success");
                         }
+                    } else {
+                        hardwareIndicator.innerText = "❌";
+                        hardwareLabel.innerText = "เปิดตู้ยาไม่สำเร็จ";
+                        hardwareLabel.style.color = "#DC2626";
+                        hardwareLog.innerText = `❌ ${response.error || 'ไม่สามารถสั่งเปิดตู้ยาได้'} — คุณสามารถหยิบยาดำเนินการด้วยตนเองหรือแจ้งครูพยาบาล`;
+                        NotificationService.showToast(response.error || "การเปิดตู้ยาขัดข้อง", "danger");
                     }
                 } catch(err) {
                     hardwareIndicator.innerText = "❌";
                     hardwareLabel.innerText = "การเชื่อมตู้ยาขัดข้อง";
                     hardwareLog.innerText = "ไม่สามารถเชื่อมต่อกับบอร์ดควบคุมได้ แต่คุณสามารถเปิดตู้เพื่อใช้ยาได้ด้วยตนเอง";
+                    NotificationService.showToast("ไม่สามารถเชื่อมต่อตู้ยาได้", "danger");
                 }
             }
 
@@ -530,11 +568,11 @@
                 
                 const lineResult = await NotificationService.sendLineNotification(lineMessage);
                 if (lineResult.mode === 'simulation') {
-                    NotificationService.showToast("ส่งไลน์แจ้งเตือนจำลองสำเร็จ!", "success");
+                    NotificationService.showToast("บันทึกประวัติสำเร็จ (LINE จำลอง)", "info");
                 } else if (lineResult.success) {
                     NotificationService.showToast("ส่งแจ้งเตือน LINE หาครูพยาบาลสำเร็จ!", "success");
                 } else {
-                    NotificationService.showToast("ส่งไลน์จำลอง (เนื่องจากไม่ได้ต่อ LINE จริง)", "warning");
+                    NotificationService.showToast(lineResult.error || "ส่งแจ้งเตือน LINE ไม่สำเร็จ", "danger");
                 }
 
                 // 3. Show Success toast

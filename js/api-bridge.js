@@ -1,5 +1,14 @@
 // JS/API-BRIDGE.JS
 const ApiBridge = {
+    // Check if hardware URL is configured and valid
+    isHardwareConfigured(settings) {
+        if (!settings || !settings.esp32Url) return false;
+        const url = settings.esp32Url.trim();
+        // If explicitly set to empty or default unconfigured placeholder, mark as not configured
+        if (!url || settings.isConfigured === false) return false;
+        return true;
+    },
+
     // Check if the hardware (ESP32 controller connected to micro:bit) is online
     async getHardwareStatus() {
         let settings = { esp32Url: '' };
@@ -7,12 +16,11 @@ const ApiBridge = {
             settings = window.StorageService.getSettings();
         }
 
-        const url = settings.esp32Url || settings.esp8266Url || '';
-
-        if (!url || url.includes('192.168.1.100')) {
-            // Default or empty URL, treat as simulation
+        if (!this.isHardwareConfigured(settings)) {
             return { connected: false, mode: 'simulation' };
         }
+
+        const url = settings.esp32Url.trim();
 
         try {
             const controller = new AbortController();
@@ -26,10 +34,10 @@ const ApiBridge = {
             if (response.ok) {
                 return { connected: true, mode: 'production' };
             }
-            return { connected: false, mode: 'simulation' };
+            return { connected: false, mode: 'error', error: `HTTP ${response.status}` };
         } catch (e) {
-            console.log('[ApiBridge] Cannot connect to ESP32 controller, falling back to simulation.');
-            return { connected: false, mode: 'simulation' };
+            console.log('[ApiBridge] Cannot connect to ESP32 controller.');
+            return { connected: false, mode: 'error', error: e.message };
         }
     },
 
@@ -39,8 +47,6 @@ const ApiBridge = {
         if (window.StorageService) {
             settings = window.StorageService.getSettings();
         }
-
-        const url = settings.esp32Url || settings.esp8266Url || '';
 
         // Mapping woundId to ESP32 / micro:bit compartment numbers (1 or 2)
         const woundCompartmentMap = {
@@ -52,11 +58,13 @@ const ApiBridge = {
 
         const compartmentNum = woundCompartmentMap[woundId] || 1;
 
-        if (!url || url.includes('192.168.1.100')) {
+        if (!this.isHardwareConfigured(settings)) {
             console.log(`[ApiBridge Simulation] Opening Compartment #${compartmentNum} for Wound: ${woundId}`);
             await new Promise(resolve => setTimeout(resolve, 800));
             return { success: true, mode: 'simulation', compartment: compartmentNum };
         }
+
+        const url = settings.esp32Url.trim();
 
         try {
             const controller = new AbortController();
@@ -71,10 +79,10 @@ const ApiBridge = {
             if (response.ok) {
                 return { success: true, mode: 'production', compartment: compartmentNum };
             }
-            throw new Error('Response not OK');
+            return { success: false, mode: 'production', compartment: compartmentNum, error: `ตู้ยาตอบกลับสถานะรหัส: ${response.status}` };
         } catch (err) {
-            console.warn(`[ApiBridge] ESP32 link failed. Simulating opening drawer #${compartmentNum}`);
-            return { success: true, mode: 'simulation', compartment: compartmentNum };
+            console.warn(`[ApiBridge Error] Connection to ESP32 failed at ${url}:`, err);
+            return { success: false, mode: 'error', compartment: compartmentNum, error: 'ไม่สามารถเชื่อมต่อกับตู้ยาได้ กรุณาตรวจสอบสายสัญญาณหรือ WiFi' };
         }
     },
 
@@ -85,13 +93,14 @@ const ApiBridge = {
             settings = window.StorageService.getSettings();
         }
 
-        const url = settings.esp32Url || settings.esp8266Url || '';
         const stateParam = state === 'on' ? '1' : '0';
 
-        if (!url || url.includes('192.168.1.100')) {
+        if (!this.isHardwareConfigured(settings)) {
             console.log(`[ApiBridge Simulation] ESP32 Buzzer Siren turned: ${state.toUpperCase()}`);
             return { success: true, mode: 'simulation' };
         }
+
+        const url = settings.esp32Url.trim();
 
         try {
             const controller = new AbortController();
@@ -106,12 +115,13 @@ const ApiBridge = {
             if (response.ok) {
                 return { success: true, mode: 'production' };
             }
-            throw new Error('Response not OK');
+            return { success: false, mode: 'production', error: `สวิตช์สัญญาณตอบกลับสถานะรหัส: ${response.status}` };
         } catch (err) {
-            console.warn(`[ApiBridge] ESP32 link failed. Simulating buzzer: ${state.toUpperCase()}`);
-            return { success: true, mode: 'simulation' };
+            console.warn(`[ApiBridge Error] ESP32 Buzzer link failed at ${url}:`, err);
+            return { success: false, mode: 'error', error: 'ไม่สามารถส่งสัญญาณไซเรนไปยังอุปกรณ์ได้' };
         }
     }
 };
 
 window.ApiBridge = ApiBridge;
+

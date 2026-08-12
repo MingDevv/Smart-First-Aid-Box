@@ -61,7 +61,8 @@ const StorageService = {
             studentId: String(studentId),
             name: `นักเรียน รหัส ${studentId}`,
             class: "ทั่วไป",
-            allergies: []
+            allergies: ["ไม่ทราบประวัติแพ้ยา"],
+            isUnknownStudent: true
         };
         sessionStorage.setItem(STORAGE_KEYS.CURRENT_STUDENT, JSON.stringify(genericStudent));
         return { success: true, student: genericStudent };
@@ -93,7 +94,7 @@ const StorageService = {
         history.unshift(newEntry);
         localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history));
 
-        // Deduct quantities in inventory
+        // Deduct quantities in inventory using smart item mapping
         if (entry.itemsUsed && Array.isArray(entry.itemsUsed)) {
             entry.itemsUsed.forEach(itemName => {
                 this.deductMedicineStock(itemName, 1);
@@ -179,8 +180,26 @@ const StorageService = {
 
     deductMedicineStock(name, amount = 1) {
         const medicines = this.getMedicines();
+
+        // Alias dictionary mapping wound item text to stock medicine names
+        const itemAliasMap = {
+            "สำลี/ผ้าก๊อซสะอาด": ["สำลีสะอาด", "ผ้าก๊อซปราศจากเชื้อ"],
+            "ยาคารามายด์ หรือ ยาหม่อง": ["ยาคารามายด์ (Calamine Lotion)"],
+            "ถุงน้ำแข็งประคบ": ["เจลเย็น / Cold Pack"],
+            "ยาเบตาดีน (Antiseptic)": ["ยาเบตาดีน (Antiseptic)"],
+            "พลาสเตอร์ยา": ["พลาสเตอร์ยา"],
+            "น้ำเกลือล้างแผล (Normal Saline)": ["น้ำเกลือล้างแผล (Normal Saline)"]
+        };
+
+        const targets = itemAliasMap[name] || [name];
+
         const updated = medicines.map(med => {
-            if (med.name === name) {
+            const isMatch = targets.some(target => 
+                med.name === target || 
+                med.name.toLowerCase().includes(target.toLowerCase()) || 
+                target.toLowerCase().includes(med.name.toLowerCase())
+            );
+            if (isMatch) {
                 return { ...med, qty: Math.max(0, med.qty - amount) };
             }
             return med;

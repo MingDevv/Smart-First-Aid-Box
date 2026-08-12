@@ -156,19 +156,34 @@
                 });
             }
 
+            // Check if demo mode is enabled in URL or toggle
+            const urlParams = new URLSearchParams(window.location.search);
+            const showDemo = urlParams.get('demo') === 'true';
+
             // --- Chart 1: Wound Type Distribution ---
             const woundCounts = {};
             history.forEach(log => {
-                const name = log.woundNameTh;
+                const name = log.woundNameTh || 'ไม่ระบุประเภท';
                 woundCounts[name] = (woundCounts[name] || 0) + 1;
             });
 
             const woundLabels = Object.keys(woundCounts);
             const woundValues = Object.values(woundCounts);
             
-            // If empty, supply placeholder data
-            const cleanLabels = woundLabels.length > 0 ? woundLabels : ["แผลถลอก", "มีดบาด", "ฟกช้ำ"];
-            const cleanValues = woundValues.length > 0 ? woundValues : [3, 1, 2];
+            let cleanLabels = woundLabels;
+            let cleanValues = woundValues;
+            let chart1TitleSuffix = "";
+
+            if (history.length === 0) {
+                if (showDemo) {
+                    cleanLabels = ["มีดบาด / แผลถลอก", "แมลงสัตว์กัดต่อย"];
+                    cleanValues = [3, 2];
+                    chart1TitleSuffix = " (ตัวอย่าง DEMO)";
+                } else {
+                    cleanLabels = ["ยังไม่มีประวัติบันทึก"];
+                    cleanValues = [0];
+                }
+            }
 
             const ctx1 = document.getElementById('woundTypeChart').getContext('2d');
             new Chart(ctx1, {
@@ -177,7 +192,7 @@
                     labels: cleanLabels,
                     datasets: [{
                         data: cleanValues,
-                        backgroundColor: [
+                        backgroundColor: history.length === 0 && !showDemo ? ['#CBD5E1'] : [
                             '#1E3A8A', '#2563EB', '#D97706', '#DC2626', '#059669', '#64748B'
                         ],
                         borderWidth: 1,
@@ -194,6 +209,12 @@
                                 color: '#1E293B',
                                 font: { family: 'Prompt', size: 12 }
                             }
+                        },
+                        title: {
+                            display: showDemo,
+                            text: '📌 โหมดแสดงข้อมูลตัวอย่าง (DEMO)',
+                            color: '#D97706',
+                            font: { family: 'Prompt', size: 11 }
                         }
                     }
                 }
@@ -209,8 +230,18 @@
             const dateLabels = Object.keys(dateCounts).reverse();
             const dateValues = Object.values(dateCounts).reverse();
 
-            const cleanDateLabels = dateLabels.length > 0 ? dateLabels : ["14 ก.ค.", "15 ก.ค.", "16 ก.ค."];
-            const cleanDateValues = dateValues.length > 0 ? dateValues : [2, 5, 3];
+            let cleanDateLabels = dateLabels;
+            let cleanDateValues = dateValues;
+
+            if (history.length === 0) {
+                if (showDemo) {
+                    cleanDateLabels = ["10 ส.ค.", "11 ส.ค.", "12 ส.ค."];
+                    cleanDateValues = [2, 4, 3];
+                } else {
+                    cleanDateLabels = ["ไม่มีข้อมูล"];
+                    cleanDateValues = [0];
+                }
+            }
 
             const ctx2 = document.getElementById('timelineChart').getContext('2d');
             new Chart(ctx2, {
@@ -218,10 +249,10 @@
                 data: {
                     labels: cleanDateLabels,
                     datasets: [{
-                        label: 'จำนวนเคสปฐมพยาบาล',
+                        label: history.length === 0 && !showDemo ? 'ไม่มีข้อมูลประวัติ' : 'จำนวนเคสปฐมพยาบาล',
                         data: cleanDateValues,
-                        borderColor: '#2563EB',
-                        backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                        borderColor: history.length === 0 && !showDemo ? '#94A3B8' : '#2563EB',
+                        backgroundColor: history.length === 0 && !showDemo ? 'rgba(148, 163, 184, 0.1)' : 'rgba(37, 99, 235, 0.08)',
                         fill: true,
                         tension: 0.3
                     }]
@@ -232,7 +263,8 @@
                     scales: {
                         y: {
                             grid: { color: '#E2E8F0' },
-                            ticks: { color: '#64748B', precision: 0 }
+                            ticks: { color: '#64748B', precision: 0 },
+                            beginAtZero: true
                         },
                         x: {
                             grid: { display: false },

@@ -78,7 +78,7 @@ const NotificationService = {
         }, 3000);
     },
 
-    // Simulate or send LINE Notification
+    // Send LINE Notification (or simulate if token is empty)
     async sendLineNotification(message) {
         // Retrieve settings to check if LINE Token is available
         let settings = { lineToken: '' };
@@ -86,23 +86,23 @@ const NotificationService = {
             settings = window.StorageService.getSettings();
         }
 
-        // If no token, simulate
+        // If no token configured, run in simulation mode
         if (!settings.lineToken || settings.lineToken.trim() === '') {
             console.log('[LINE Notify Simulation] Sending message:', message);
             
-            // Create a gorgeous notification preview modal
+            // Create a notification preview modal
             this.showLineMockModal(message);
 
             return { success: true, mode: 'simulation' };
         }
 
-        // If token exists, attempt to send via free CORS proxy or direct
+        // If token exists, attempt to send
         try {
             const response = await fetch('https://cors-anywhere.herokuapp.com/https://notify-api.line.me/api/notify', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'Authorization': `Bearer ${settings.lineToken}`
+                    'Authorization': `Bearer ${settings.lineToken.trim()}`
                 },
                 body: new URLSearchParams({ message: message })
             });
@@ -110,14 +110,12 @@ const NotificationService = {
             if (response.ok) {
                 return { success: true, mode: 'production' };
             } else {
-                console.warn('LINE Notify via proxy failed, falling back to simulation');
-                this.showLineMockModal(message);
-                return { success: true, mode: 'simulation' };
+                console.error(`[LINE Notify Error] Response status: ${response.status}`);
+                return { success: false, mode: 'production', error: `ส่ง LINE ไม่สำเร็จ (HTTP ${response.status})` };
             }
         } catch (error) {
-            console.error('Error sending LINE Notification:', error);
-            this.showLineMockModal(message);
-            return { success: true, mode: 'simulation' };
+            console.error('[LINE Notify Error] Error sending LINE Notification:', error);
+            return { success: false, mode: 'error', error: 'ไม่สามารถส่งข้อความแจ้งเตือนผ่าน LINE ได้: ' + error.message };
         }
     },
 

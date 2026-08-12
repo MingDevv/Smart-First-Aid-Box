@@ -600,7 +600,9 @@
                     analyzedWoundId = result.woundId;
                     displayResult(result);
                 } else {
-                    throw new Error("AI failed to classify");
+                    clearInterval(logInterval);
+                    overlay.style.display = 'none';
+                    NotificationService.showToast(result.error || "การวิเคราะห์ด้วย AI ขัดข้อง", "danger");
                 }
             } catch (err) {
                 clearInterval(logInterval);
@@ -618,16 +620,10 @@
             section.style.display = 'block';
 
             // Get local wound translation details
-            const woundInfo = WOUND_DATA[result.woundId];
-            if (woundInfo) {
-                document.getElementById('res-icon').innerText = woundInfo.icon;
-                document.getElementById('res-name-th').innerText = woundInfo.name_th;
-                document.getElementById('res-name-en').innerText = `${woundInfo.name_en} (${woundInfo.severity})`;
-            } else {
-                document.getElementById('res-icon').innerText = '🩹';
-                document.getElementById('res-name-th').innerText = 'แผลวิเคราะห์ผิดพลาด';
-                document.getElementById('res-name-en').innerText = result.woundId;
-            }
+            const woundInfo = WOUND_DATA[result.woundId] || WOUND_DATA['unknown'];
+            document.getElementById('res-icon').innerText = woundInfo.icon;
+            document.getElementById('res-name-th').innerText = woundInfo.name_th;
+            document.getElementById('res-name-en').innerText = `${woundInfo.name_en} (${woundInfo.severity})`;
 
             // Confidence progress bar
             document.getElementById('res-confidence-label').innerText = `${result.confidence}%`;
@@ -647,6 +643,25 @@
                 reasoningContainer.style.display = 'none';
             }
 
+            // Issue #4: Low confidence (< 70%) or unknown wound handling
+            const isLowConfidence = result.confidence < 70 || result.woundId === 'unknown';
+            const confirmBtn = document.getElementById('btn-confirm-wound');
+
+            if (isLowConfidence) {
+                confirmBtn.innerText = "⚠️ ความมั่นใจต่ำ — โปรดเลือกประเภทบาดแผลด้วยตนเอง";
+                confirmBtn.style.background = "linear-gradient(135deg, #D97706 0%, #B45309 100%)";
+                NotificationService.showToast("ระบบไม่แน่ใจประเภทแผล โปรดระบุด้วยตนเองเพื่อความปลอดภัย", "warning");
+                confirmBtn.onclick = () => {
+                    location.href = `index.html`;
+                };
+            } else {
+                confirmBtn.innerText = "ยืนยันและรับคำแนะนำปฐมพยาบาล ➔";
+                confirmBtn.style.background = "";
+                confirmBtn.onclick = () => {
+                    location.href = `first-aid-guide.html?wound=${result.woundId}&source=ai-scan`;
+                };
+            }
+
             // Trigger animation delay
             setTimeout(() => {
                 bar.style.width = `${result.confidence}%`;
@@ -660,12 +675,6 @@
                     bar.style.background = 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)'; // Red
                 }
             }, 100);
-
-            // Set Action confirm link
-            const confirmBtn = document.getElementById('btn-confirm-wound');
-            confirmBtn.onclick = () => {
-                location.href = `first-aid-guide.html?wound=${result.woundId}&source=ai-scan`;
-            };
         }
 
         // Return from results to scanner input
