@@ -138,9 +138,10 @@ const StorageService = {
 
         // Clean trailing slashes from URL
         baseUrl = baseUrl.replace(/\/+$/, '');
-
         const endpoint = `${baseUrl}/rest/v1/treatment_history`;
-        const payload = {
+
+        // Build full payload matching full schema
+        const fullPayload = {
             student_id: entry.studentId || '12345',
             student_name: entry.studentName || 'นักเรียนทั่วไป',
             student_class: entry.studentClass || '-',
@@ -151,29 +152,19 @@ const StorageService = {
             created_at: entry.timestamp || new Date().toISOString()
         };
 
-        try {
-            // Check if global supabase client library is available
-            if (window.supabase && typeof window.supabase.createClient === 'function') {
-                if (!window._supabaseClientInstance) {
-                    window._supabaseClientInstance = window.supabase.createClient(baseUrl, anonKey);
-                }
-                const { data, error } = await window._supabaseClientInstance
-                    .from('treatment_history')
-                    .insert([payload]);
+        // Fallback payload without wound_type (in case table was created with base schema)
+        const fallbackPayload = {
+            student_id: entry.studentId || '12345',
+            student_name: entry.studentName || 'นักเรียนทั่วไป',
+            student_class: entry.studentClass || '-',
+            wound_name: entry.woundNameTh || 'มีดบาด / แผลถลอก',
+            method: entry.method || 'เลือกประเภทแผลเอง',
+            items_used: Array.isArray(entry.itemsUsed) ? entry.itemsUsed.join(', ') : (entry.itemsUsed || ''),
+            created_at: entry.timestamp || new Date().toISOString()
+        };
 
-                if (error) {
-                    console.error('[Supabase Client Error]', error);
-                    throw error;
-                }
-                console.log('[Supabase] Inserted successfully via JS Client!');
-                if (window.NotificationService) {
-                    window.NotificationService.showToast('☁️ บันทึกลง Supabaseสำเร็จเรียบร้อย!', 'success');
-                }
-                return;
-            }
-
-            // Fallback REST API POST endpoint
-            const response = await fetch(endpoint, {
+        const sendRequest = async (payloadToSend) => {
+            const resp = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -181,11 +172,26 @@ const StorageService = {
                     'Authorization': `Bearer ${anonKey}`,
                     'Prefer': 'return=minimal'
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payloadToSend)
             });
+            return resp;
+        };
 
-            if (response.ok) {
-                console.log('[Supabase] Successfully inserted record into Supabase!');
+        try {
+            // First attempt: try full payload
+            let response = await sendRequest(fullPayload);
+
+            // If 400 Bad Request (PGRST204 - missing column), retry with fallback payload
+            if (!response.ok && response.status === 400) {
+                const errText = await response.clone().text().catch(() => '');
+                if (errText.includes('wound_type') || errText.includes('PGRST204')) {
+                    console.warn('[Supabase Sync] wound_type column not found in schema. Retrying with base schema payload...');
+                    response = await sendRequest(fallbackPayload);
+                }
+            }
+
+            if (response.ok || response.status === 201 || response.status === 200) {
+                console.log('[Supabase] ✅ Successfully inserted record into Supabase!');
                 if (window.NotificationService) {
                     window.NotificationService.showToast('☁️ บันทึกลง Supabase สำเร็จเรียบร้อย!', 'success');
                 }
