@@ -13,8 +13,9 @@
  *
  * 2) HTTP บนวง LAN (เส้นสำรอง) — ของเดิม ไม่พึ่งอินเทอร์เน็ต
  *    - GET /status          -> Returns JSON status of controller & micro:bit
- *    - GET /open?drawer=1   -> Sends OPEN1 command to micro:bit over UART (Serial2)
- *    - GET /buzzer?state=1  -> Sends BUZZ1 command to micro:bit over UART (Serial2)
+ *    - GET /open?drawer=1&id=... -> Sends OPEN1 once, then waits for UART ACK
+ *    - GET /command-status?id=... -> Reports whether that UART command completed
+ *    - GET /buzzer?state=1&id=... -> Sends BUZZ1 once over UART (Serial2)
  *
  * ห้ามลบเส้นที่ 2 ทิ้ง วันแข่งถ้าเน็ตล่ม MQTT ตายทันทีแต่ตู้ยายังต้องเปิดได้
  *
@@ -30,6 +31,8 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <time.h>
+#include <sys/time.h>
+#include <ctype.h>
 
 const char* ssid = "YOUR_WIFI_SSID";
 const char* password = "YOUR_WIFI_PASSWORD";
@@ -45,6 +48,10 @@ const char* BASE_TOPIC = "crms6/firstaidbox/box1";
 
 // คำสั่งที่เก่ากว่านี้จะถูกทิ้ง กันคำสั่งค้างคิวตอนเน็ตหลุดแล้วเด้งกลับมาเปิดตู้เองตอนไม่มีคนอยู่
 const uint32_t MAX_CMD_AGE_MS = 30000;
+const uint32_t POST_SUBSCRIBE_GUARD_MS = 500;
+const uint8_t COMMAND_HISTORY_SIZE = 8;
+const uint8_t EVENT_QUEUE_SIZE = 8;
+const size_t MAX_COMMAND_ID_LENGTH = 64;
 
 // Hardware Serial 2 pins connected to micro:bit (P14/P15)
 #define RXD2 16
@@ -61,19 +68,119 @@ char statusTopic[128];
 unsigned long lastMqttAttempt = 0;
 unsigned long mqttSubscribedAt = 0;
 
+struct CommandRecord {
+  bool used;
+  char id[MAX_COMMAND_ID_LENGTH + 1];
+  uint8_t drawer;
+  bool completed;
+  uint32_t sequence;
+};
+
+struct PendingMqttEvent {
+  char eventName[24];
+  char commandId[MAX_COMMAND_ID_LENGTH + 1];
+  char reason[24];
+  int drawer;
+};
+
+CommandRecord commandHistory[COMMAND_HISTORY_SIZE] = {};
+uint8_t commandHistoryNext = 0;
+uint32_t commandSequence = 0;
+
+PendingMqttEvent eventQueue[EVENT_QUEUE_SIZE] = {};
+uint8_t eventQueueHead = 0;
+uint8_t eventQueueTail = 0;
+uint8_t eventQueueCount = 0;
+
 // ---------- MQTT helpers ----------
 
-void publishEvent(const char* eventName, int drawer) {
+uint64_t utcNowMs() {
+  struct timeval now;
+  gettimeofday(&now, nullptr);
+  return (uint64_t)now.tv_sec * 1000ULL + (uint64_t)now.tv_usec / 1000ULL;
+}
+
+bool commandIdIsValid(const char* commandId) {
+  if (commandId == nullptr) return false;
+  size_t length = strlen(commandId);
+  if (length < 8 || length > MAX_COMMAND_ID_LENGTH) return false;
+
+  for (size_t i = 0; i < length; i++) {
+    char c = commandId[i];
+    if (!isalnum((unsigned char)c) && c != '-' && c != '_') return false;
+  }
+  return true;
+}
+
+CommandRecord* findCommand(const char* commandId) {
+  for (uint8_t i = 0; i < COMMAND_HISTORY_SIZE; i++) {
+    if (commandHistory[i].used && strcmp(commandHistory[i].id, commandId) == 0) {
+      return &commandHistory[i];
+    }
+  }
+  return nullptr;
+}
+
+CommandRecord* rememberCommand(const char* commandId, uint8_t drawer, bool completed) {
+  CommandRecord* record = &commandHistory[commandHistoryNext];
+  // ห้ามทับรายการที่ยังรอ OK ไม่เช่นนั้น OK จะถูกผูกกับ id ถัดไปและเกิด false ACK
+  if (record->used && !record->completed) return nullptr;
+  record->used = true;
+  strlcpy(record->id, commandId, sizeof(record->id));
+  record->drawer = drawer;
+  record->completed = completed;
+  record->sequence = ++commandSequence;
+  commandHistoryNext = (commandHistoryNext + 1) % COMMAND_HISTORY_SIZE;
+  return record;
+}
+
+CommandRecord* findOldestPendingDrawer(uint8_t drawer) {
+  CommandRecord* oldest = nullptr;
+  for (uint8_t i = 0; i < COMMAND_HISTORY_SIZE; i++) {
+    CommandRecord* record = &commandHistory[i];
+    if (!record->used || record->completed || record->drawer != drawer) continue;
+    if (oldest == nullptr || record->sequence < oldest->sequence) oldest = record;
+  }
+  return oldest;
+}
+
+void publishEvent(const char* eventName, int drawer, const char* commandId = nullptr, const char* reason = nullptr) {
   if (!mqtt.connected()) return;
 
   JsonDocument doc;
   doc["event"] = eventName;
   if (drawer > 0) doc["drawer"] = drawer;
-  doc["ts"] = (uint64_t)time(nullptr) * 1000ULL;
+  if (commandId != nullptr && commandId[0] != '\0') doc["id"] = commandId;
+  if (reason != nullptr && reason[0] != '\0') doc["reason"] = reason;
+  doc["ts"] = utcNowMs();
 
-  char buf[192];
+  char buf[256];
   size_t n = serializeJson(doc, buf);
   mqtt.publish(evtTopic, (const uint8_t*)buf, n, false);
+}
+
+void enqueueEvent(const char* eventName, int drawer, const char* commandId = nullptr, const char* reason = nullptr) {
+  if (eventQueueCount >= EVENT_QUEUE_SIZE) {
+    Serial.println("[MQTT] event queue เต็ม ทิ้ง event เพื่อไม่ให้ callback ค้าง");
+    return;
+  }
+
+  PendingMqttEvent* event = &eventQueue[eventQueueTail];
+  strlcpy(event->eventName, eventName, sizeof(event->eventName));
+  strlcpy(event->commandId, commandId == nullptr ? "" : commandId, sizeof(event->commandId));
+  strlcpy(event->reason, reason == nullptr ? "" : reason, sizeof(event->reason));
+  event->drawer = drawer;
+  eventQueueTail = (eventQueueTail + 1) % EVENT_QUEUE_SIZE;
+  eventQueueCount++;
+}
+
+void flushPendingEvents() {
+  while (mqtt.connected() && eventQueueCount > 0) {
+    PendingMqttEvent* event = &eventQueue[eventQueueHead];
+    publishEvent(event->eventName, event->drawer, event->commandId, event->reason);
+    eventQueueHead = (eventQueueHead + 1) % EVENT_QUEUE_SIZE;
+    eventQueueCount--;
+  }
 }
 
 void publishOnlineStatus() {
@@ -81,7 +188,7 @@ void publishOnlineStatus() {
   doc["online"] = true;
   doc["ip"] = WiFi.localIP().toString();
   doc["rssi"] = WiFi.RSSI();
-  doc["ts"] = (uint64_t)time(nullptr) * 1000ULL;
+  doc["ts"] = utcNowMs();
 
   char buf[192];
   size_t n = serializeJson(doc, buf);
@@ -98,57 +205,105 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
   }
 
   const char* action = doc["action"] | "";
-  const char* cmdId = doc["id"] | "-";
+  if (!doc["id"].is<const char*>()) {
+    Serial.println("[MQTT] ทิ้งคำสั่งที่ไม่มี id แบบข้อความ");
+    enqueueEvent("cmd_rejected", 0, nullptr, "invalid_id");
+    return;
+  }
+
+  const char* cmdId = doc["id"].as<const char*>();
+  if (!commandIdIsValid(cmdId)) {
+    Serial.println("[MQTT] ทิ้งคำสั่งที่ id ไม่ถูกต้อง");
+    enqueueEvent("cmd_rejected", 0, nullptr, "invalid_id");
+    return;
+  }
+
+  // ตรวจซ้ำก่อน guard อายุ: redelivery ของคำสั่งที่ทำเสร็จแล้วปลอดภัยที่จะ ACK ซ้ำ
+  // แต่ห้ามส่ง UART ซ้ำเด็ดขาด เพราะ browser อาจกำลัง fallback มาทาง LAN ด้วย id เดิม
+  CommandRecord* duplicate = findCommand(cmdId);
+  if (duplicate != nullptr) {
+    Serial.printf("[MQTT] ไม่ทำคำสั่ง %s ซ้ำ\n", cmdId);
+    if (duplicate->completed && duplicate->drawer > 0) {
+      enqueueEvent("drawer_opened", duplicate->drawer, duplicate->id);
+    }
+    return;
+  }
 
   // ด่านที่ 1: ทิ้งทุกคำสั่งที่เข้ามาทันทีหลัง subscribe
   // PubSubClient ไม่บอกเราว่าข้อความไหนเป็น retained ถ้ามีใครเผลอ publish คำสั่งแบบ
   // retain ไว้ broker จะยัดให้เราทันทีที่ต่อติด แปลว่าตู้ยาจะเปิดเองทุกครั้งที่รีบูต
-  if (millis() - mqttSubscribedAt < 2000) {
+  if (millis() - mqttSubscribedAt < POST_SUBSCRIBE_GUARD_MS) {
     Serial.printf("[MQTT] ทิ้งคำสั่ง %s (เข้ามาเร็วผิดปกติหลังเชื่อมต่อ อาจเป็น retained)\n", cmdId);
-    publishEvent("cmd_rejected", 0);
+    enqueueEvent("cmd_rejected", 0, cmdId, "post_subscribe");
     return;
   }
 
-  // ด่านที่ 2: ทิ้งคำสั่งที่เก่าเกินไป
-  // เช็คได้เฉพาะตอนนาฬิกาตรงแล้ว ถ้า NTP ยังไม่สำเร็จให้ปล่อยผ่าน
-  // ไม่งั้นตู้ยาจะปฏิเสธทุกคำสั่งเพราะคิดว่าทุกอย่างเก่า = กล่องใช้ไม่ได้เลย
-  time_t nowSec = time(nullptr);
-  bool clockReady = nowSec > 1700000000;
-  if (clockReady && doc["ts"].is<uint64_t>()) {
-    uint64_t nowMs = (uint64_t)nowSec * 1000ULL;
-    uint64_t cmdMs = doc["ts"].as<uint64_t>();
-    if (nowMs > cmdMs && (nowMs - cmdMs) > MAX_CMD_AGE_MS) {
-      Serial.printf("[MQTT] ทิ้งคำสั่ง %s (เก่าเกิน %lu ms)\n", cmdId, MAX_CMD_AGE_MS);
-      publishEvent("cmd_rejected", 0);
-      return;
-    }
+  // ด่านที่ 2: เวลาเป็น field บังคับและต้องเป็นตัวเลข ห้าม fail-open ตอน NTP ยังไม่พร้อม
+  if (!doc["ts"].is<uint64_t>()) {
+    Serial.printf("[MQTT] ทิ้งคำสั่ง %s (ts หายหรือไม่ใช่ตัวเลข)\n", cmdId);
+    enqueueEvent("cmd_rejected", 0, cmdId, "invalid_ts");
+    return;
+  }
+
+  uint64_t nowMs = utcNowMs();
+  uint64_t cmdMs = doc["ts"].as<uint64_t>();
+  if (nowMs < 1700000000000ULL) {
+    Serial.printf("[MQTT] ทิ้งคำสั่ง %s (นาฬิกายังไม่พร้อม)\n", cmdId);
+    enqueueEvent("cmd_rejected", 0, cmdId, "clock_not_ready");
+    return;
+  }
+  if (cmdMs > nowMs) {
+    Serial.printf("[MQTT] ทิ้งคำสั่ง %s (เวลาอยู่ในอนาคต)\n", cmdId);
+    enqueueEvent("cmd_rejected", 0, cmdId, "future_ts");
+    return;
+  }
+  if ((nowMs - cmdMs) > MAX_CMD_AGE_MS) {
+    Serial.printf("[MQTT] ทิ้งคำสั่ง %s (เก่าเกิน %lu ms)\n", cmdId, MAX_CMD_AGE_MS);
+    enqueueEvent("cmd_rejected", 0, cmdId, "stale_ts");
+    return;
   }
 
   if (strcmp(action, "open") == 0) {
     int drawerNum = doc["drawer"] | 0;
-    if (drawerNum == 1) {
-      Serial2.println("OPEN1");
-    } else if (drawerNum == 2) {
-      Serial2.println("OPEN2");
-    } else {
+    if (drawerNum != 1 && drawerNum != 2) {
       Serial.printf("[MQTT] คำสั่ง %s ระบุลิ้นชักไม่ถูกต้อง\n", cmdId);
+      enqueueEvent("cmd_rejected", 0, cmdId, "invalid_drawer");
       return;
     }
+
+    // จำ id ก่อนส่ง UART: ต่อให้ event ขาขึ้นหาย retry/fallback ก็จะไม่หมุนเซอร์โวซ้ำ
+    if (rememberCommand(cmdId, drawerNum, false) == nullptr) {
+      Serial.printf("[MQTT] ทิ้งคำสั่ง %s (คิว ACK เต็ม)\n", cmdId);
+      enqueueEvent("cmd_rejected", 0, cmdId, "queue_full");
+      return;
+    }
+    Serial2.println(drawerNum == 1 ? "OPEN1" : "OPEN2");
     Serial.printf("[MQTT] %s -> เปิดลิ้นชัก %d\n", cmdId, drawerNum);
   } else if (strcmp(action, "buzzer") == 0) {
-    const char* state = doc["state"] | "off";
+    const char* state = doc["state"] | "";
+    if (strcmp(state, "on") != 0 && strcmp(state, "off") != 0) {
+      Serial.printf("[MQTT] คำสั่ง %s ระบุสถานะ buzzer ไม่ถูกต้อง\n", cmdId);
+      enqueueEvent("cmd_rejected", 0, cmdId, "invalid_state");
+      return;
+    }
+    if (rememberCommand(cmdId, 0, true) == nullptr) {
+      Serial.printf("[MQTT] ทิ้งคำสั่ง %s (คิว ACK เต็ม)\n", cmdId);
+      enqueueEvent("cmd_rejected", 0, cmdId, "queue_full");
+      return;
+    }
     Serial2.println(strcmp(state, "on") == 0 ? "BUZZ1" : "BUZZ0");
     Serial.printf("[MQTT] %s -> เสียงแจ้งเตือน %s\n", cmdId, state);
   } else {
     Serial.printf("[MQTT] ไม่รู้จักคำสั่ง: %s\n", action);
+    enqueueEvent("cmd_rejected", 0, cmdId, "invalid_action");
   }
 }
 
-// เชื่อมต่อแบบไม่บล็อก — ห้ามใช้ while(!connected){delay()} เด็ดขาด
-// ถ้า broker ล่มแล้วเราวนรอตรงนั้น server.handleClient() จะไม่ได้ทำงาน
-// เส้นสำรอง LAN จะตายไปพร้อมกับ MQTT ทั้งที่มันควรจะรอด
+// PubSubClient::connect เป็น synchronous จึงไม่ควรเรียกว่า non-blocking:
+// ทำเพียงหนึ่งครั้งต่อรอบและจำกัด socket timeout สั้น ๆ เพื่อให้เส้น LAN หยุดรอน้อยที่สุด
 void mqttEnsureConnected() {
   if (strlen(MQTT_HOST) == 0 || mqtt.connected()) return;
+  if (WiFi.status() != WL_CONNECTED) return;
   if (millis() - lastMqttAttempt < 5000) return;
   lastMqttAttempt = millis();
 
@@ -183,31 +338,102 @@ void handleStatus() {
   server.send(200, "application/json", json);
 }
 
+void sendDrawerCommandState(CommandRecord* record) {
+  if (record->completed) {
+    String json = String("{\"success\":true,\"acknowledged\":true,\"event\":\"drawer_opened\",\"id\":\"") +
+                  record->id + "\",\"drawer\":" + String(record->drawer) + "}";
+    server.send(200, "application/json", json);
+  } else {
+    String json = String("{\"success\":false,\"accepted\":true,\"acknowledged\":false,\"id\":\"") +
+                  record->id + "\",\"drawer\":" + String(record->drawer) + "}";
+    server.send(202, "application/json", json);
+  }
+}
+
 void handleOpen() {
   server.sendHeader("Access-Control-Allow-Origin", "*");
-  if (!server.hasArg("drawer")) {
-    server.send(400, "application/json", "{\"success\":false,\"error\":\"Missing drawer parameter\"}");
+  if (!server.hasArg("drawer") || !server.hasArg("id")) {
+    server.send(400, "application/json", "{\"success\":false,\"error\":\"Missing drawer or id parameter\"}");
     return;
   }
 
   String drawerStr = server.arg("drawer");
+  String commandId = server.arg("id");
   int drawerNum = drawerStr.toInt();
 
-  if (drawerNum == 1) {
-    Serial2.println("OPEN1");
-  } else if (drawerNum == 2) {
-    Serial2.println("OPEN2");
-  } else {
+  if (drawerNum != 1 && drawerNum != 2) {
     server.send(400, "application/json", "{\"success\":false,\"error\":\"Invalid drawer number\"}");
     return;
   }
+  if (!commandIdIsValid(commandId.c_str())) {
+    server.send(400, "application/json", "{\"success\":false,\"error\":\"Invalid command id\"}");
+    return;
+  }
 
-  server.send(200, "application/json", "{\"success\":true,\"drawer\":" + String(drawerNum) + "}");
+  CommandRecord* duplicate = findCommand(commandId.c_str());
+  if (duplicate != nullptr) {
+    if (duplicate->drawer != drawerNum) {
+      server.send(409, "application/json", "{\"success\":false,\"error\":\"Command id belongs to another action\"}");
+      return;
+    }
+    if (duplicate->completed) publishEvent("drawer_opened", duplicate->drawer, duplicate->id);
+    sendDrawerCommandState(duplicate);
+    return;
+  }
+
+  CommandRecord* record = rememberCommand(commandId.c_str(), drawerNum, false);
+  if (record == nullptr) {
+    server.send(503, "application/json", "{\"success\":false,\"error\":\"Command acknowledgement queue is full\"}");
+    return;
+  }
+  Serial2.println(drawerNum == 1 ? "OPEN1" : "OPEN2");
+  Serial.printf("[LAN] %s -> เปิดลิ้นชัก %d\n", record->id, drawerNum);
+  sendDrawerCommandState(record);
+}
+
+void handleCommandStatus() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  if (!server.hasArg("id") || !commandIdIsValid(server.arg("id").c_str())) {
+    server.send(400, "application/json", "{\"success\":false,\"error\":\"Missing or invalid command id\"}");
+    return;
+  }
+
+  CommandRecord* record = findCommand(server.arg("id").c_str());
+  if (record == nullptr || record->drawer == 0) {
+    server.send(404, "application/json", "{\"success\":false,\"error\":\"Command id not found\"}");
+    return;
+  }
+  sendDrawerCommandState(record);
 }
 
 void handleBuzzer() {
   server.sendHeader("Access-Control-Allow-Origin", "*");
+  if (!server.hasArg("id") || !commandIdIsValid(server.arg("id").c_str())) {
+    server.send(400, "application/json", "{\"success\":false,\"error\":\"Missing or invalid command id\"}");
+    return;
+  }
+
   String stateStr = server.arg("state");
+  if (stateStr != "1" && stateStr != "0") {
+    server.send(400, "application/json", "{\"success\":false,\"error\":\"Invalid buzzer state\"}");
+    return;
+  }
+
+  String commandId = server.arg("id");
+  CommandRecord* duplicate = findCommand(commandId.c_str());
+  if (duplicate != nullptr) {
+    if (duplicate->drawer != 0) {
+      server.send(409, "application/json", "{\"success\":false,\"error\":\"Command id belongs to another action\"}");
+      return;
+    }
+    server.send(200, "application/json", "{\"success\":true,\"duplicate\":true}");
+    return;
+  }
+
+  if (rememberCommand(commandId.c_str(), 0, true) == nullptr) {
+    server.send(503, "application/json", "{\"success\":false,\"error\":\"Command acknowledgement queue is full\"}");
+    return;
+  }
   if (stateStr == "1") {
     Serial2.println("BUZZ1");
   } else {
@@ -219,6 +445,8 @@ void handleBuzzer() {
 void setup() {
   Serial.begin(115200);
   Serial2.begin(115200, SERIAL_8N1, RXD2, TXD2);
+  // readStringUntil ต้องไม่หยุด HTTP/MQTT loop นานเมื่อ UART ได้ข้อมูลไม่ครบหนึ่งบรรทัด
+  Serial2.setTimeout(100);
 
   snprintf(cmdTopic, sizeof(cmdTopic), "%s/cmd", BASE_TOPIC);
   snprintf(evtTopic, sizeof(evtTopic), "%s/evt", BASE_TOPIC);
@@ -248,10 +476,13 @@ void setup() {
   // ค่าเริ่มต้นของ PubSubClient คือ 256 ไบต์ ข้อความที่ยาวกว่านั้นจะหายเงียบ ๆ ไม่มี error
   mqtt.setBufferSize(512);
   mqtt.setKeepAlive(30);
+  // mqtt.connect ยัง synchronous แต่ broker ล่มแล้วจะขวางเส้น LAN ไม่เกินช่วงสั้นนี้
+  mqtt.setSocketTimeout(2);
 
   server.on("/", handleRoot);
   server.on("/status", handleStatus);
   server.on("/open", handleOpen);
+  server.on("/command-status", handleCommandStatus);
   server.on("/buzzer", handleBuzzer);
 
   server.begin();
@@ -263,6 +494,8 @@ void loop() {
 
   mqttEnsureConnected();
   mqtt.loop();
+  // ห้าม publish จาก PubSubClient callback โดยตรง เพราะใช้ packet buffer ชุดเดียวกัน
+  flushPendingEvents();
 
   // Read incoming events from micro:bit via Serial2
   if (Serial2.available()) {
@@ -281,7 +514,14 @@ void loop() {
       // micro:bit ตอบกลับหลังหมุนเซอร์โวเสร็จ = ยืนยันว่าลิ้นชักเปิดจริง ไม่ใช่แค่ส่งคำสั่งออกไป
       int drawerNum = (line == "OK1") ? 1 : 2;
       Serial.printf("[EVENT] Drawer %d opened and closed on micro:bit\n", drawerNum);
-      publishEvent("drawer_opened", drawerNum);
+      CommandRecord* command = findOldestPendingDrawer(drawerNum);
+      if (command != nullptr) {
+        command->completed = true;
+        publishEvent("drawer_opened", drawerNum, command->id);
+      } else {
+        // เก็บ event sensor ไว้สำหรับ dashboard แต่ไม่มี id จึงใช้ยืนยันคำสั่งเว็บไม่ได้
+        publishEvent("drawer_opened", drawerNum);
+      }
     }
   }
 }

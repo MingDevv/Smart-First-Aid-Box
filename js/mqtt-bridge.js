@@ -13,6 +13,7 @@ const MqttBridge = {
     lastStatus: { online: false, receivedAt: 0, payload: null },
     eventHandlers: [],
     statusHandlers: [],
+    drawerAckWaiters: new Map(),
 
     getConfig() {
         const settings = window.StorageService ? window.StorageService.getSettings() : {};
@@ -40,6 +41,44 @@ const MqttBridge = {
 
     onStatus(handler) {
         if (typeof handler === 'function') this.statusHandlers.push(handler);
+    },
+
+    waitForDrawerOpened(commandId, drawer, timeoutMs = 5500) {
+        if (!this.connect()) return Promise.resolve(null);
+
+        return new Promise((resolve) => {
+            const waiter = {
+                drawer: Number(drawer),
+                finish: (value) => {
+                    clearTimeout(waiter.timer);
+                    const waiters = this.drawerAckWaiters.get(commandId);
+                    if (waiters) {
+                        waiters.delete(waiter);
+                        if (waiters.size === 0) this.drawerAckWaiters.delete(commandId);
+                    }
+                    resolve(value);
+                },
+                timer: null
+            };
+
+            let waiters = this.drawerAckWaiters.get(commandId);
+            if (!waiters) {
+                waiters = new Set();
+                this.drawerAckWaiters.set(commandId, waiters);
+            }
+            waiters.add(waiter);
+            waiter.timer = setTimeout(() => waiter.finish(null), timeoutMs);
+        });
+    },
+
+    settleDrawerOpened(data) {
+        if (!data || data.event !== 'drawer_opened' || typeof data.id !== 'string') return;
+        const waiters = this.drawerAckWaiters.get(data.id);
+        if (!waiters) return;
+
+        for (const waiter of [...waiters]) {
+            if (Number(data.drawer) === waiter.drawer) waiter.finish(data);
+        }
     },
 
     connect() {
@@ -86,6 +125,7 @@ const MqttBridge = {
                 this.lastStatus = { online: data.online === true, receivedAt: Date.now(), payload: data };
                 this.statusHandlers.forEach(h => h(this.lastStatus));
             } else if (topic === `${cfg.baseTopic}/evt`) {
+                this.settleDrawerOpened(data);
                 this.eventHandlers.forEach(h => h(data));
             }
         });
@@ -108,6 +148,10 @@ const MqttBridge = {
             this.client = null;
             this.lastStatus = { online: false, receivedAt: 0, payload: null };
         }
+        for (const waiters of this.drawerAckWaiters.values()) {
+            for (const waiter of [...waiters]) waiter.finish(null);
+        }
+        this.drawerAckWaiters.clear();
     }
 };
 
@@ -117,7 +161,7 @@ MqttBridge.EVENT_LABELS = {
     confirm_a: 'ผู้ใช้กดยืนยัน (ปุ่ม A)',
     cancel_b: 'ผู้ใช้กดยกเลิก (ปุ่ม B)',
     drawer_opened: 'ลิ้นชักเปิดสำเร็จ',
-    cmd_rejected: 'ตู้ยาปฏิเสธคำสั่ง (คำสั่งเก่าเกินไป)',
+    cmd_rejected: 'ตู้ยาปฏิเสธคำสั่ง (ไม่ผ่านด่านความปลอดภัย)',
     boot: 'บอร์ดควบคุมเริ่มทำงานใหม่'
 };
 

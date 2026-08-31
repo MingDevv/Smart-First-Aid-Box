@@ -4,6 +4,10 @@
   "description": "Smart First Aid Box — IoT Healthcare System for Schools",
   "private": true,
   "type": "module",
+  "scripts": {
+    "test": "node tests/local.test.mjs",
+    "test:mqtt": "node tests/mqtt-e2e.mjs"
+  },
   "dependencies": {
     "mqtt": "5.15.2"
   }
