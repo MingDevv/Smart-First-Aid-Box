@@ -585,7 +585,8 @@ CREATE POLICY "Allow Public Read" ON treatment_history FOR SELECT USING (true);<
             MqttBridge.onEvent((data) => {
                 const label = MqttBridge.EVENT_LABELS[data.event] || data.event;
                 const suffix = data.drawer ? ` (ช่อง #${data.drawer})` : '';
-                NotificationService.showToast(`📡 ตู้ยาแจ้ง: ${label}${suffix}`, 'info');
+                const type = data.event === 'ack_timeout' ? 'danger' : 'info';
+                NotificationService.showToast(`📡 ตู้ยาแจ้ง: ${label}${suffix}`, type);
             });
 
             MqttBridge.connect();

@@ -6,6 +6,7 @@ const root = new URL('../', import.meta.url);
 const apiBridgeSource = await readFile(new URL('js/api-bridge.js', root), 'utf8');
 const mqttBridgeSource = await readFile(new URL('js/mqtt-bridge.js', root), 'utf8');
 const firmwareSource = await readFile(new URL('firmware/esp32_smart_box.ino', root), 'utf8');
+const commandHistorySource = await readFile(new URL('firmware/command_history.h', root), 'utf8');
 const commandApiSource = await readFile(new URL('api/command.js', root), 'utf8');
 
 function response(status, data) {
@@ -145,7 +146,11 @@ function loadApiBridge(settings, fetchImpl, mqttBridge = null) {
 }
 
 // These are static firmware invariants only; the Arduino sketch is not compiled by this test.
-assert.match(firmwareSource, /COMMAND_HISTORY_SIZE = 8/);
+assert.match(commandHistorySource, /COMMAND_HISTORY_SIZE = 8/);
+assert.match(commandHistorySource, /offset < COMMAND_HISTORY_SIZE/);
+assert.match(commandHistorySource, /record->expired = true/);
+assert.match(firmwareSource, /COMMAND_ACK_TIMEOUT_MS = 15000/);
+assert.match(firmwareSource, /enqueueEvent\("ack_timeout"/);
 assert.match(firmwareSource, /POST_SUBSCRIBE_GUARD_MS = 500/);
 assert.match(firmwareSource, /if \(!doc\["ts"\]\.is<uint64_t>\(\)\)/);
 assert.match(firmwareSource, /if \(cmdMs > nowMs\)/);
@@ -164,6 +169,7 @@ assert.match(commandApiSource, /if \(activeClientState === state\) activeClientS
 assert.match(commandApiSource, /reconnectPeriod: 0/);
 assert.match(commandApiSource, /MQTT_CONNECT_TIMEOUT_MS = 2500/);
 assert.match(commandApiSource, /DEFAULT_DRAWER_ACK_TIMEOUT_MS = 5500/);
+assert.match(commandApiSource, /'ack_timeout'/);
 
 for (const page of ['student/first-aid-guide.html', 'student/index.html', 'student/kiosk.html']) {
     const html = await readFile(new URL(page, root), 'utf8');

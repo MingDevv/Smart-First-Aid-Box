@@ -75,7 +75,7 @@ let clientCreationCount = 0;
 const drawerAckWaiters = new Map();
 
 function settleDrawerAck(data) {
-    if (!data || (data.event !== 'drawer_opened' && data.event !== 'cmd_rejected')) return;
+    if (!data || !['drawer_opened', 'cmd_rejected', 'ack_timeout'].includes(data.event)) return;
     if (!commandIdIsValid(data.id)) return;
 
     const waiters = drawerAckWaiters.get(data.id);
@@ -373,13 +373,16 @@ export default async function handler(req, res) {
             const ack = await ackWaiter.promise;
             if (!ack || ack.event !== 'drawer_opened') {
                 const rejected = ack?.event === 'cmd_rejected';
+                const uartTimedOut = ack?.event === 'ack_timeout';
                 return res.status(rejected ? 409 : 504).json({
                     success: false,
                     mqttConfigured: true,
                     commandId,
-                    error: rejected
-                        ? `ตู้ยาปฏิเสธคำสั่ง${ack.reason ? ` (${ack.reason})` : ''}`
-                        : 'ไม่พบคำยืนยันจากลิ้นชักภายในเวลาที่กำหนด — ระบบจะลองสั่งผ่านสาย LAN แทน'
+                    error: uartTimedOut
+                        ? 'ตู้ยาไม่ได้รับคำยืนยันจาก micro:bit ทาง UART'
+                        : rejected
+                            ? `ตู้ยาปฏิเสธคำสั่ง${ack.reason ? ` (${ack.reason})` : ''}`
+                            : 'ไม่พบคำยืนยันจากลิ้นชักภายในเวลาที่กำหนด — ระบบจะลองสั่งผ่านสาย LAN แทน'
                 });
             }
 

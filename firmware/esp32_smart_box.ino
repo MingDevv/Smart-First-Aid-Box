@@ -33,6 +33,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <ctype.h>
+#include "command_history.h"
 
 const char* ssid = "YOUR_WIFI_SSID";
 const char* password = "YOUR_WIFI_PASSWORD";
@@ -48,10 +49,10 @@ const char* BASE_TOPIC = "crms6/firstaidbox/box1";
 
 // คำสั่งที่เก่ากว่านี้จะถูกทิ้ง กันคำสั่งค้างคิวตอนเน็ตหลุดแล้วเด้งกลับมาเปิดตู้เองตอนไม่มีคนอยู่
 const uint32_t MAX_CMD_AGE_MS = 30000;
+// micro:bit ตอบหลังรอบเซอร์โวปกติประมาณ 4 วินาที ห้ามลดจน OK เก่าชนคำสั่งใหม่
+const uint32_t COMMAND_ACK_TIMEOUT_MS = 15000;
 const uint32_t POST_SUBSCRIBE_GUARD_MS = 500;
-const uint8_t COMMAND_HISTORY_SIZE = 8;
-const uint8_t EVENT_QUEUE_SIZE = 8;
-const size_t MAX_COMMAND_ID_LENGTH = 64;
+const uint8_t EVENT_QUEUE_SIZE = 16;
 
 // Hardware Serial 2 pins connected to micro:bit (P14/P15)
 #define RXD2 16
@@ -68,14 +69,6 @@ char statusTopic[128];
 unsigned long lastMqttAttempt = 0;
 unsigned long mqttSubscribedAt = 0;
 
-struct CommandRecord {
-  bool used;
-  char id[MAX_COMMAND_ID_LENGTH + 1];
-  uint8_t drawer;
-  bool completed;
-  uint32_t sequence;
-};
-
 struct PendingMqttEvent {
   char eventName[24];
   char commandId[MAX_COMMAND_ID_LENGTH + 1];
@@ -83,9 +76,7 @@ struct PendingMqttEvent {
   int drawer;
 };
 
-CommandRecord commandHistory[COMMAND_HISTORY_SIZE] = {};
-uint8_t commandHistoryNext = 0;
-uint32_t commandSequence = 0;
+CommandHistory commandHistory;
 
 PendingMqttEvent eventQueue[EVENT_QUEUE_SIZE] = {};
 uint8_t eventQueueHead = 0;
@@ -113,35 +104,15 @@ bool commandIdIsValid(const char* commandId) {
 }
 
 CommandRecord* findCommand(const char* commandId) {
-  for (uint8_t i = 0; i < COMMAND_HISTORY_SIZE; i++) {
-    if (commandHistory[i].used && strcmp(commandHistory[i].id, commandId) == 0) {
-      return &commandHistory[i];
-    }
-  }
-  return nullptr;
+  return commandHistory.find(commandId);
 }
 
 CommandRecord* rememberCommand(const char* commandId, uint8_t drawer, bool completed) {
-  CommandRecord* record = &commandHistory[commandHistoryNext];
-  // ห้ามทับรายการที่ยังรอ OK ไม่เช่นนั้น OK จะถูกผูกกับ id ถัดไปและเกิด false ACK
-  if (record->used && !record->completed) return nullptr;
-  record->used = true;
-  strlcpy(record->id, commandId, sizeof(record->id));
-  record->drawer = drawer;
-  record->completed = completed;
-  record->sequence = ++commandSequence;
-  commandHistoryNext = (commandHistoryNext + 1) % COMMAND_HISTORY_SIZE;
-  return record;
+  return commandHistory.remember(commandId, drawer, completed, millis());
 }
 
 CommandRecord* findOldestPendingDrawer(uint8_t drawer) {
-  CommandRecord* oldest = nullptr;
-  for (uint8_t i = 0; i < COMMAND_HISTORY_SIZE; i++) {
-    CommandRecord* record = &commandHistory[i];
-    if (!record->used || record->completed || record->drawer != drawer) continue;
-    if (oldest == nullptr || record->sequence < oldest->sequence) oldest = record;
-  }
-  return oldest;
+  return commandHistory.findOldestPendingDrawer(drawer);
 }
 
 void publishEvent(const char* eventName, int drawer, const char* commandId = nullptr, const char* reason = nullptr) {
@@ -180,6 +151,14 @@ void flushPendingEvents() {
     publishEvent(event->eventName, event->drawer, event->commandId, event->reason);
     eventQueueHead = (eventQueueHead + 1) % EVENT_QUEUE_SIZE;
     eventQueueCount--;
+  }
+}
+
+void expirePendingCommands() {
+  CommandRecord* expired;
+  while ((expired = commandHistory.expireNext(millis(), COMMAND_ACK_TIMEOUT_MS)) != nullptr) {
+    Serial.printf("[UART] คำสั่ง %s ไม่ได้รับ OK ภายใน %lu ms\n", expired->id, COMMAND_ACK_TIMEOUT_MS);
+    enqueueEvent("ack_timeout", expired->drawer, expired->id, "uart_timeout");
   }
 }
 
@@ -223,7 +202,9 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
   CommandRecord* duplicate = findCommand(cmdId);
   if (duplicate != nullptr) {
     Serial.printf("[MQTT] ไม่ทำคำสั่ง %s ซ้ำ\n", cmdId);
-    if (duplicate->completed && duplicate->drawer > 0) {
+    if (duplicate->expired) {
+      enqueueEvent("ack_timeout", duplicate->drawer, duplicate->id, "uart_timeout");
+    } else if (duplicate->completed && duplicate->drawer > 0) {
       enqueueEvent("drawer_opened", duplicate->drawer, duplicate->id);
     }
     return;
@@ -339,7 +320,11 @@ void handleStatus() {
 }
 
 void sendDrawerCommandState(CommandRecord* record) {
-  if (record->completed) {
+  if (record->expired) {
+    String json = String("{\"success\":false,\"acknowledged\":false,\"event\":\"ack_timeout\",\"id\":\"") +
+                  record->id + "\",\"drawer\":" + String(record->drawer) + "}";
+    server.send(504, "application/json", json);
+  } else if (record->completed) {
     String json = String("{\"success\":true,\"acknowledged\":true,\"event\":\"drawer_opened\",\"id\":\"") +
                   record->id + "\",\"drawer\":" + String(record->drawer) + "}";
     server.send(200, "application/json", json);
@@ -490,6 +475,8 @@ void setup() {
 }
 
 void loop() {
+  // ปลด record ที่ micro:bit ไม่ตอบ เพื่อไม่ให้ ring ค้างจนต้อง power-cycle ESP32
+  expirePendingCommands();
   server.handleClient();
 
   mqttEnsureConnected();

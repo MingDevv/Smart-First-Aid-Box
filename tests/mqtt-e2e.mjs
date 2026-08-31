@@ -85,6 +85,7 @@ function invoke(method, body = {}) {
 const actuations = new Map();
 const ignoredIds = new Set();
 const wrongDrawerFirstIds = new Set();
+const uartTimeoutIds = new Set();
 
 device.on('message', (_topic, bytes) => {
     const command = JSON.parse(bytes.toString());
@@ -93,6 +94,19 @@ device.on('message', (_topic, bytes) => {
 
     const seen = actuations.get(command.id) || 0;
     if (seen === 0) actuations.set(command.id, 1);
+
+    if (uartTimeoutIds.has(command.id)) {
+        setTimeout(() => {
+            void publishEvent({
+                event: 'ack_timeout',
+                id: command.id,
+                drawer: command.drawer,
+                reason: 'uart_timeout',
+                ts: Date.now()
+            });
+        }, 140);
+        return;
+    }
 
     if (seen > 0) {
         setTimeout(() => {
@@ -148,6 +162,12 @@ try {
     assert.equal(rightAck.status, 200);
     assert.equal(rightAck.body.ack.drawer, 2);
     assert.ok(Date.now() - wrongStarted >= 220, 'wrong-drawer event incorrectly satisfied the waiter');
+
+    const uartTimeoutId = 'c-e2e-uart-timeout';
+    uartTimeoutIds.add(uartTimeoutId);
+    const uartTimedOut = await invoke('POST', { action: 'open', drawer: 1, id: uartTimeoutId });
+    assert.equal(uartTimedOut.status, 504);
+    assert.match(uartTimedOut.body.error, /UART/);
 
     const timeoutId = 'c-e2e-timeout-003';
     ignoredIds.add(timeoutId);
