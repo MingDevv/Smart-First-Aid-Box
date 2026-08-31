@@ -3,5 +3,8 @@
   "version": "1.0.0",
   "description": "Smart First Aid Box — IoT Healthcare System for Schools",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "mqtt": "5.15.2"
+  }
 }

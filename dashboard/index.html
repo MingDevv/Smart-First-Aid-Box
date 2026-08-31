@@ -316,7 +316,9 @@ CREATE POLICY "Allow Public Read" ON treatment_history FOR SELECT USING (true);<
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mqtt@5.15.2/dist/mqtt.min.js"></script>
     <script src="../js/storage.js"></script>
+    <script src="../js/mqtt-bridge.js"></script>
     <script src="../js/api-bridge.js"></script>
     <script src="../js/notification.js"></script>
     <script>
@@ -564,9 +566,35 @@ CREATE POLICY "Allow Public Read" ON treatment_history FOR SELECT USING (true);<
             document.getElementById('cloud-settings-modal').style.display = 'none';
         }
 
+        // เปิดการฟัง MQTT — สถานะกล่องจะอัปเดตเองโดยไม่ต้องกดรีเฟรช
+        function startMqttListener() {
+            if (!window.MqttBridge || !MqttBridge.isConfigured()) return;
+
+            MqttBridge.onStatus((status) => {
+                const hwElem = document.getElementById('stat-hw-status');
+                if (!hwElem) return;
+                if (status.online) {
+                    hwElem.innerText = "Online";
+                    hwElem.style.color = "var(--success)";
+                } else {
+                    hwElem.innerText = "ออฟไลน์";
+                    hwElem.style.color = "var(--danger)";
+                }
+            });
+
+            MqttBridge.onEvent((data) => {
+                const label = MqttBridge.EVENT_LABELS[data.event] || data.event;
+                const suffix = data.drawer ? ` (ช่อง #${data.drawer})` : '';
+                NotificationService.showToast(`📡 ตู้ยาแจ้ง: ${label}${suffix}`, 'info');
+            });
+
+            MqttBridge.connect();
+        }
+
         // Run check on load
         window.onload = () => {
             checkAuth();
+            startMqttListener();
         };
     </script>
 </body>

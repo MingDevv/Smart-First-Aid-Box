@@ -31,7 +31,14 @@ const DEFAULT_SETTINGS = {
     dashboardPin: '1234',
     esp32Url: 'http://192.168.1.100',
     supabaseUrl: '',
-    supabaseAnonKey: ''
+    supabaseAnonKey: '',
+    // MQTT: ค่าชุดนี้ใช้ "ฟัง" อย่างเดียว รหัสที่สั่งเปิดตู้ยาได้อยู่ใน env ของ Vercel
+    // ต้องเป็น wss:// เท่านั้น เพราะหน้าเว็บเสิร์ฟด้วย https
+    mqttWsUrl: '',
+    mqttUsername: '',
+    mqttPassword: '',
+    // ต้องตรงกับ MQTT_BASE_TOPIC บน Vercel และ BASE_TOPIC ในเฟิร์มแวร์ ESP32
+    mqttBaseTopic: 'crms6/firstaidbox/box1'
 };
 
 const StorageService = {
