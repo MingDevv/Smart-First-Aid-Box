@@ -337,8 +337,8 @@ def reset_to_welcome():
     update_display()
 
 
-# ---------- UART SERIAL CONFIG & HANDLER (เชื่อมต่อ ESP32: P2=TX, P3=RX) ----------
-serial.redirect(SerialPin.P2, SerialPin.P3, BaudRate.BAUD_RATE115200)
+# ---------- UART SERIAL CONFIG & HANDLER (เชื่อมต่อ ESP32: P2=TX, USB_RX=RX) ----------
+serial.redirect(SerialPin.P2, SerialPin.USB_RX, BaudRate.BAUD_RATE115200)
 def check_serial_commands():
     cmd = serial.read_string()
     if len(cmd) > 0:
