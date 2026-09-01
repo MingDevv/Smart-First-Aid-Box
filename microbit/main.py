@@ -14,7 +14,7 @@ OLED:
 I2C (P19/P20 auto - ห้ามใช้พินนี้กับอุปกรณ์อื่น)
 
 UART Serial (เชื่อมต่อ ESP32):
-P2 = TX (Baud rate 115200)
+P2 = TX, P3 = RX (หรือ P2=TX, P10=RX) (Baud rate 115200)
 
 มอเตอร์สเต็ปเปอร์ 4 สาย (28BYJ-48 style):
 มอเตอร์ 1 (Insect Bite / แดง) : P4, P5, P6, P7    + 5V, GND
@@ -89,8 +89,7 @@ insectEdge = False
 # ---------- ฟังก์ชันตรวจจับ "ขอบขาขึ้น" ของปุ่ม (กดครั้งเดียว = ทำงานครั้งเดียว) ----------
 def start_pressed():
     global current, edge, startPrev
-    # เช็คทั้งพิน P16 และปุ่ม A บนบอร์ด micro:bit เพื่อความชัวร์ 100%
-    current = pins.digital_read_pin(PIN_START) == 1 or input.button_is_pressed(Button.A)
+    current = pins.digital_read_pin(PIN_START) == 1
     edge = current and not (startPrev)
     startPrev = current
     if edge:
@@ -337,10 +336,12 @@ def reset_to_welcome():
     update_display()
 
 
-# ---------- UART SERIAL CONFIG & HANDLER (เชื่อมต่อ ESP32 ผ่านพิน P2 ไม่ทับพินมอเตอร์ P14) ----------
-serial.redirect(SerialPin.P2, SerialPin.P2, BaudRate.BAUD_RATE115200)
+# ---------- UART SERIAL CONFIG & HANDLER (เชื่อมต่อ ESP32: P2=TX, P3=RX) ----------
+serial.redirect(SerialPin.P2, SerialPin.P3, BaudRate.BAUD_RATE115200)
+
+
 def check_serial_commands():
-    cmd = serial.read_string()
+    cmd = serial.read_line()
     if len(cmd) > 0:
         global lastAction
         lastAction = input.running_time()
@@ -356,7 +357,7 @@ leds_off()
 motor_stop(MOTOR1_PINS)
 motor_stop(MOTOR2_PINS)
 lastAction = input.running_time()
-startPrev = pins.digital_read_pin(PIN_START) == 1 or input.button_is_pressed(Button.A)
+startPrev = pins.digital_read_pin(PIN_START) == 1
 abrasionPrev = pins.digital_read_pin(PIN_ABRASION) == 1
 insectPrev = pins.digital_read_pin(PIN_INSECT) == 1
 update_display()
@@ -367,7 +368,7 @@ update_leds()
 def on_forever():
     global startEdge, abrasionEdge, insectEdge
 
-    # 1. ตรวจสอบคำสั่งส่งมาจากหน้าเว็บ/ESP32 ผ่าน Serial
+    # 1. ตรวจสอบคำสั่งส่งมาจากหน้าเว็บ/ESP32 ผ่าน UART
     check_serial_commands()
 
     # 2. อ่านปุ่มกดปุ่มหน้าตู้ทุกตัว
