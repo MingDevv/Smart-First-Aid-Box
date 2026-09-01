@@ -68,6 +68,7 @@ STEP_SEQUENCE = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
 state = STATE_WELCOME   # สถานะปัจจุบันของระบบ
 lastState = -1           # สถานะก่อนหน้า ใช้เช็คว่าต้อง Refresh OLED หรือไม่
 lastAction = 0            # เวลาล่าสุดที่มีการกดปุ่ม ใช้จับเวลา Sleep (ดู SLEEP_TIMEOUT)
+uartStarted = False       # ป้องกันเรียก serial.redirect ซ้ำหลายครั้ง
 
 # เก็บสถานะปุ่มของรอบก่อนหน้า ใช้เช็คขอบขาขึ้น (0 -> 1 = เพิ่งถูกกด)
 startPrev = False
@@ -310,6 +311,14 @@ def dispense_insect():
     reset_to_welcome()
 
 
+# ---------- ฟังก์ชันเปิด UART เชื่อมต่อ ESP32 (เรียกครั้งเดียวหลังกด START) ----------
+def enable_uart():
+    global uartStarted
+    if not uartStarted:
+        serial.redirect(SerialPin.P2, SerialPin.P16, BaudRate.BAUD_RATE115200)
+        uartStarted = True
+
+
 # ---------- ฟังก์ชันเปลี่ยน STATE ----------
 def go_to_state(new_state: number):
     global state, lastAction
@@ -317,7 +326,9 @@ def go_to_state(new_state: number):
     lastAction = input.running_time()
     update_leds()
     update_display()
-    if new_state == STATE_ABRASION:
+    if new_state == STATE_MENU:
+        enable_uart()  # เปิด UART หลังกด START แล้ว (P16 จะเปลี่ยนเป็น RX จากจุดนี้เป็นต้นไป)
+    elif new_state == STATE_ABRASION:
         dispense_abrasion()
     elif new_state == STATE_INSECT:
         dispense_insect()
@@ -336,8 +347,9 @@ def reset_to_welcome():
     update_display()
 
 
-# ---------- UART SERIAL CONFIG & HANDLER (เชื่อมต่อ ESP32: P2=TX, P16=RX) ----------
-serial.redirect(SerialPin.P2, SerialPin.P16, BaudRate.BAUD_RATE115200)
+# ---------- UART SERIAL HANDLER (เชื่อมต่อ ESP32: P2=TX, P16=RX) ----------
+# หมายเหตุ: serial.redirect จะถูกเรียกทีหลังใน enable_uart() หลังจากกดปุ่ม START แล้ว
+# เพื่อให้พิน P16 ยังทำงานเป็นปุ่ม START ได้ก่อน
 
 
 def check_serial_commands():
@@ -368,8 +380,9 @@ update_leds()
 def on_forever():
     global startEdge, abrasionEdge, insectEdge
 
-    # 1. ตรวจสอบคำสั่งส่งมาจากหน้าเว็บ/ESP32 ผ่าน UART
-    check_serial_commands()
+    # 1. ตรวจสอบคำสั่งส่งมาจากหน้าเว็บ/ESP32 ผ่าน UART (เฉพาะเมื่อ UART เปิดแล้ว)
+    if uartStarted:
+        check_serial_commands()
 
     # 2. อ่านปุ่มกดปุ่มหน้าตู้ทุกตัว
     startEdge = start_pressed()
