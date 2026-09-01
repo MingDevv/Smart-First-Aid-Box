@@ -89,7 +89,7 @@ insectEdge = False
 # ---------- ฟังก์ชันตรวจจับ "ขอบขาขึ้น" ของปุ่ม (กดครั้งเดียว = ทำงานครั้งเดียว) ----------
 def start_pressed():
     global current, edge, startPrev
-    current = pins.digital_read_pin(PIN_START) == 1
+    current = pins.digital_read_pin(PIN_START) == 1 or input.button_is_pressed(Button.A)
     edge = current and not (startPrev)
     startPrev = current
     if edge:
@@ -341,7 +341,7 @@ serial.redirect(SerialPin.P2, SerialPin.P16, BaudRate.BAUD_RATE115200)
 
 
 def check_serial_commands():
-    cmd = serial.read_line()
+    cmd = serial.read_string()
     if len(cmd) > 0:
         global lastAction
         lastAction = input.running_time()
