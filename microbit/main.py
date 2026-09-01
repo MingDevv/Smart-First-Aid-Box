@@ -1,13 +1,15 @@
 """
 ============================================================
-MINIMAL MICRO:BIT V2 FIRMWARE — 2 STEPPER MOTORS ONLY
+SMART FIRST AID BOX - COMPLETE MICRO:BIT V2 FIRMWARE
 ============================================================
 Hardware Connections:
 - มอเตอร์ 1 (แมลงกัด / ช่อง 2) : P4, P5, P6, P7
 - มอเตอร์ 2 (แผลถลอก   / ช่อง 1) : P11, P13, P14, P15
-- ปุ่มกดกดมือ P8               : แผลถลอก -> หมุนมอเตอร์ 2
-- ปุ่มกดกดมือ P12              : แมลงกัด -> หมุนมอเตอร์ 1
-- Serial UART (P0=TX, P1=RX)   : เชื่อมต่อ ESP32 (115200 baud)
+- ปุ่มกดหน้าตู้ P8              : แผลถลอก -> หมุนมอเตอร์ 2 (ช่อง 1)
+- ปุ่มกดหน้าตู้ P12             : แมลงกัด -> หมุนมอเตอร์ 1 (ช่อง 2)
+- ปุ่ม A บนบอร์ด micro:bit       : ส่ง CONFIRM_A (ยืนยัน) หา ESP32 / LINE
+- ปุ่ม B บนบอร์ด micro:bit       : ส่ง CANCEL_B (ยกเลิก) หา ESP32 / LINE
+- Serial UART (P0=TX, P1=RX)  : เชื่อมต่อ ESP32 (115200 baud)
 ============================================================
 """
 
@@ -49,12 +51,20 @@ def motor_stop(motor_pins: any):
 def dispense_compartment(num: number):
     if num == 1:
         # ช่อง 1 (แผลถลอก / มอเตอร์ 2)
+        basic.show_number(1)
         serial.write_line("OK1")
         motor_run(MOTOR2_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
+        basic.show_icon(IconNames.YES)
+        basic.pause(800)
+        basic.show_icon(IconNames.HEART)
     elif num == 2:
         # ช่อง 2 (แมลงกัด / มอเตอร์ 1)
+        basic.show_number(2)
         serial.write_line("OK2")
         motor_run(MOTOR1_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
+        basic.show_icon(IconNames.YES)
+        basic.pause(800)
+        basic.show_icon(IconNames.HEART)
 
 
 # ---------- UART SERIAL CONFIG (P0=TX, P1=RX) ----------
@@ -73,14 +83,14 @@ def check_serial_commands():
 def check_buttons():
     global abrasionPrev, insectPrev
 
-    # ปุ่ม P8 : สั่งเปิดช่อง 1 (แผลถลอก)
+    # ปุ่ม P8 : สั่งเปิดช่อง 1 (แผลถลอก) หน้าตู้
     curr_ab = pins.digital_read_pin(PIN_ABRASION) == 1
     if curr_ab and not (abrasionPrev):
         basic.pause(50)
         dispense_compartment(1)
     abrasionPrev = curr_ab
 
-    # ปุ่ม P12 : สั่งเปิดช่อง 2 (แมลงกัด)
+    # ปุ่ม P12 : สั่งเปิดช่อง 2 (แมลงกัด) หน้าตู้
     curr_in = pins.digital_read_pin(PIN_INSECT) == 1
     if curr_in and not (insectPrev):
         basic.pause(50)
@@ -88,16 +98,35 @@ def check_buttons():
     insectPrev = curr_in
 
 
-# สั่งหยุดมอเตอร์ก่อนเริ่มต้นใช้งาน
+# ---------- EVENT BUTTONS A & B ON MICRO:BIT ----------
+def on_button_pressed_a():
+    basic.show_string("A")
+    serial.write_line("CONFIRM_A")
+    basic.pause(500)
+    basic.show_icon(IconNames.HEART)
+
+
+def on_button_pressed_b():
+    basic.show_string("B")
+    serial.write_line("CANCEL_B")
+    basic.pause(500)
+    basic.show_icon(IconNames.HEART)
+
+
+input.on_button_pressed(Button.A, on_button_pressed_a)
+input.on_button_pressed(Button.B, on_button_pressed_b)
+
+# สั่งหยุดมอเตอร์และแสดงไอคอนเริ่มต้น
 motor_stop(MOTOR1_PINS)
 motor_stop(MOTOR2_PINS)
+basic.show_icon(IconNames.HEART)
 
 
 # ---------- MAIN LOOP ----------
 def on_forever():
     # ตรวจสอบคำสั่งจากหน้าเว็บ/ESP32
     check_serial_commands()
-    # ตรวจสอบการกดปุ่มสั่งมือที่ตัวกล่อง
+    # ตรวจสอบการกดปุ่มสั่งมือที่หน้าตู้ยา (P8 & P12)
     check_buttons()
     basic.pause(20)
 
