@@ -44,8 +44,8 @@ STATE_SLEEP = 4
 PIN_START = DigitalPin.P16
 PIN_ABRASION = DigitalPin.P8
 PIN_INSECT = DigitalPin.P12
-PIN_LED_GREEN = DigitalPin.P0
-PIN_LED_RED = DigitalPin.P1
+PIN_LED_GREEN = DigitalPin.P9
+PIN_LED_RED = DigitalPin.P10
 
 # มอเตอร์ 1 : Insect Bite (แดง)
 MOTOR1_PINS = [DigitalPin.P4, DigitalPin.P5, DigitalPin.P6, DigitalPin.P7]
@@ -337,7 +337,7 @@ def reset_to_welcome():
 
 
 # ---------- UART SERIAL CONFIG & HANDLER (เชื่อมต่อ ESP32) ----------
-serial.redirect(SerialPin.P2, SerialPin.P3, BaudRate.BAUD_RATE115200)
+serial.redirect(SerialPin.P0, SerialPin.P1, BaudRate.BAUD_RATE115200)
 
 
 def check_serial_commands():
