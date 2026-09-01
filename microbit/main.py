@@ -5,9 +5,9 @@ SMART FIRST AID BOX - Final Complete Version (+ ESP32 Web Bridge & Care Steps)
 Hardware: micro:bit V2 + INEX Activity:Bit + KittenBot OLED 128x64
 
 ปุ่มกดหน้าตู้:
-- P16 / ปุ่ม A = START/RESET (ปุ่มเริ่มทำงาน)
-- P8  / ปุ่ม A = Abrasion (แผลถลอก)
-- P12 / ปุ่ม B = Insect Bite (แมลงกัด)
+- P16 = START/RESET (ปุ่มเริ่มทำงาน)
+- P8  = Abrasion (แผลถลอก)
+- P12 = Insect Bite (แมลงกัด)
 
 LED:
 - P0 = Green LED (แผลถลอก)
@@ -17,8 +17,8 @@ OLED:
 - I2C (P19/P20 auto)
 
 UART Serial (เชื่อมต่อ ESP32):
-- P2 = TX (ส่งสัญญาณ ACK OK1/OK2 กลับไป ESP32 และเว็บ)
-- USB_RX / P3 = RX (รับคำสั่ง OPEN1/OPEN2 จากเว็บ)
+- P2 = TX (ส่งสัญญาณตอบกลับ OK1/OK2 ไปหา ESP32)
+- P3 = RX (รับคำสั่ง OPEN1/OPEN2 จาก ESP32)
 
 มอเตอร์สเต็ปเปอร์ 4 สาย (28BYJ-48 style):
 - มอเตอร์ 1 (Insect Bite / แดง) : P4, P5, P6, P7    + 5V, GND
@@ -51,7 +51,7 @@ STEP_DELAY_MS = 2            # ความเร็วหมุน
 SYMPTOM_DISPLAY_MS = 2500    # เวลาที่โชว์หน้าอาการ + LED ก่อนมอเตอร์เริ่มหมุน
 CARE_DONE_MS = 3000          # เวลาที่โชว์ข้อความ "Complete!" ค้างไว้ก่อนกลับ Welcome
 RESET_DELAY_MS = 300         # หน่วงเวลาก่อนกลับ Welcome หลังมอเตอร์หมุนเสร็จ
-SLEEP_TIMEOUT = 15000        # 15 วินาที (ms) ไม่มีการกดปุ่ม -> เข้า Sleep
+SLEEP_TIMEOUT = 10000        # 10 วินาที (ms) ไม่มีการกดปุ่ม -> เข้า Sleep
 BOUNCE_DELAY = 50            # ms หน่วงกันสัญญาณกระเพื่อมของปุ่ม (contact bounce)
 
 # ลำดับ Full-Step มาตรฐานของสเต็ปเปอร์ 4 สาย
@@ -226,7 +226,7 @@ def motor_run(motor_pins2: any, steps: number, delay_ms: number):
     motor_stop(motor_pins2)
 
 
-# ---------- ฟังก์ชัน RESET (ต้องนิยามก่อน dispense_abrasion/dispense_insect) ----------
+# ---------- ฟังก์ชัน RESET ----------
 def reset_to_welcome():
     global lastState, state, lastAction
     pins.digital_write_pin(PIN_LED_GREEN, 0)
@@ -240,22 +240,22 @@ def reset_to_welcome():
     update_display()
 
 
-# ---------- ฟังก์ชันรอกดปุ่มเพื่อไปขั้นตอนถัดไป (มี timeout 6 วินาที ป้องกันค้าง) ----------
+# ---------- ฟังก์ชันรอกดปุ่มเดิมซ้ำ ----------
 def wait_for_button_again(pin: DigitalPin):
-    basic.pause(500)
-    start_t = input.running_time()
-    while input.running_time() - start_t < 6000:
-        if pins.digital_read_pin(pin) == 1 or input.button_is_pressed(Button.A) or input.button_is_pressed(Button.B):
+    while pins.digital_read_pin(pin) == 1:
+        basic.pause(10)
+    confirmed = False
+    while not (confirmed):
+        if pins.digital_read_pin(pin) == 1:
             basic.pause(BOUNCE_DELAY)
-            break
-        basic.pause(50)
+            confirmed = pins.digital_read_pin(pin) == 1
+        else:
+            basic.pause(10)
 
 
 # ---------- ฟังก์ชันจ่ายยา/สเปรย์ ----------
 def dispense_abrasion():
     serial.write_line("OK1")  # ตอบกลับ ACK แจ้ง ESP32/Web ทันที
-    basic.pause(50)
-    serial.write_line("OK1")
     basic.pause(SYMPTOM_DISPLAY_MS)
     show_running()
     motor_run(MOTOR2_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
@@ -270,8 +270,6 @@ def dispense_abrasion():
 
 def dispense_insect():
     serial.write_line("OK2")  # ตอบกลับ ACK แจ้ง ESP32/Web ทันที
-    basic.pause(50)
-    serial.write_line("OK2")
     basic.pause(SYMPTOM_DISPLAY_MS)
     show_running()
     motor_run(MOTOR1_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
@@ -284,7 +282,7 @@ def dispense_insect():
     reset_to_welcome()
 
 
-# ---------- ฟังก์ชันเปลี่ยน STATE (ต้องนิยามก่อน check_serial_commands) ----------
+# ---------- ฟังก์ชันเปลี่ยน STATE ----------
 def go_to_state(new_state: number):
     global state, lastAction
     state = new_state
@@ -297,25 +295,25 @@ def go_to_state(new_state: number):
         dispense_insect()
 
 
-# ---------- UART SERIAL CONFIG & HANDLER (เชื่อมต่อ ESP32: P2=TX, USB_RX=RX) ----------
-serial.redirect(SerialPin.P2, SerialPin.USB_RX, BaudRate.BAUD_RATE115200)
+# ---------- UART SERIAL CONFIG & HANDLER (เชื่อมต่อ ESP32: P2=TX, 3=RX) ----------
+serial.redirect(SerialPin.P2, 3, BaudRate.BAUD_RATE115200)
 
 
 def check_serial_commands():
-    cmd = serial.read_string()  # read_string แบบ non-blocking ไม่แช่ค้างลูป
+    cmd = serial.read_string()  # read_string แบบ non-blocking เพื่อไม่ให้ลูปค้าง
     if len(cmd) > 0:
         global lastAction
         lastAction = input.running_time()
-        if "OPEN1" in cmd or "1" in cmd or "ABRASION" in cmd:
+        if "OPEN1" in cmd or "ABRASION" in cmd:
             go_to_state(STATE_ABRASION)
-        elif "OPEN2" in cmd or "2" in cmd or "INSECT" in cmd:
+        elif "OPEN2" in cmd or "INSECT" in cmd:
             go_to_state(STATE_INSECT)
 
 
 # ---------- ฟังก์ชันตรวจจับ "ขอบขาขึ้น" ของปุ่ม ----------
 def start_pressed():
     global current, edge, startPrev
-    # เช็คพิน P16 และปุ่ม A บนตัวบอร์ด micro:bit (รองรับการกดทั้งสองช่องทาง)
+    # ตรวจจับพิน P16 และปุ่ม A สำรองบนบอร์ด
     current = pins.digital_read_pin(PIN_START) == 1 or input.button_is_pressed(Button.A)
     edge = current and not (startPrev)
     startPrev = current
@@ -326,7 +324,7 @@ def start_pressed():
 
 def abrasion_pressed():
     global current2, edge2, abrasionPrev
-    current2 = pins.digital_read_pin(PIN_ABRASION) == 1 or input.button_is_pressed(Button.A)
+    current2 = pins.digital_read_pin(PIN_ABRASION) == 1
     edge2 = current2 and not (abrasionPrev)
     abrasionPrev = current2
     if edge2:
@@ -336,7 +334,7 @@ def abrasion_pressed():
 
 def insect_pressed():
     global current3, edge3, insectPrev
-    current3 = pins.digital_read_pin(PIN_INSECT) == 1 or input.button_is_pressed(Button.B)
+    current3 = pins.digital_read_pin(PIN_INSECT) == 1
     edge3 = current3 and not (insectPrev)
     insectPrev = current3
     if edge3:
@@ -352,8 +350,8 @@ motor_stop(MOTOR2_PINS)
 
 lastAction = input.running_time()
 startPrev = pins.digital_read_pin(PIN_START) == 1 or input.button_is_pressed(Button.A)
-abrasionPrev = pins.digital_read_pin(PIN_ABRASION) == 1 or input.button_is_pressed(Button.A)
-insectPrev = pins.digital_read_pin(PIN_INSECT) == 1 or input.button_is_pressed(Button.B)
+abrasionPrev = pins.digital_read_pin(PIN_ABRASION) == 1
+insectPrev = pins.digital_read_pin(PIN_INSECT) == 1
 update_display()
 update_leds()
 
@@ -365,7 +363,7 @@ def on_forever():
     # 1. ตรวจสอบคำสั่งส่งมาจากหน้าเว็บ/ESP32 ผ่าน Serial
     check_serial_commands()
 
-    # 2. อ่านปุ่มกด (รองรับทั้งปุ่มกดหน้าตู้ P16/P8/P12 และปุ่ม A/B บนตัว micro:bit)
+    # 2. อ่านปุ่มกดปุ่มหน้าตู้ทุกตัว
     startEdge = start_pressed()
     abrasionEdge = abrasion_pressed()
     insectEdge = insect_pressed()
@@ -389,7 +387,7 @@ def on_forever():
         elif insectEdge:
             go_to_state(STATE_INSECT)
 
-    # ----- Sleep Mode : ปลุกด้วยปุ่ม START หรือ ปุ่ม A -----
+    # ----- Sleep Mode : ปลุกด้วยปุ่ม START -----
     elif state == STATE_SLEEP:
         if startEdge:
             reset_to_welcome()
