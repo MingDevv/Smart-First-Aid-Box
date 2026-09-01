@@ -1,28 +1,34 @@
 """
 ============================================================
-SMART FIRST AID BOX - Non-Blocking State Machine Firmware (v2.0)
+SMART FIRST AID BOX - Synchronized 5-Step Firmware (v3.0)
 ============================================================
 Hardware: micro:bit V2 + INEX Activity:Bit + KittenBot OLED 128x64
 
-ปุ่มหน้าตู้ & ปุ่มสำรองบนบอร์ด:
-- P16 หรือ ปุ่ม A บน micro:bit = START / RESET / เปลี่ยนหน้า
-- P8  หรือ ปุ่ม A บน micro:bit = Abrasion (แผลถลอก) / เปลี่ยนหน้า
-- P12 หรือ ปุ่ม B บน micro:bit = Insect Bite (แมลงกัด) / เปลี่ยนหน้า
+ปุ่ม:
+P16 = START/RESET | P8 = Abrasion | P12 = Insect Bite (Active HIGH)
 
 LED:
-- P0 = Green LED (แผลถลอก)
-- P1 = Red LED (แมลงกัด)
+P0 = Green LED | P1 = Red LED
 
 OLED:
-- I2C (P19/P20 auto)
+I2C (P19/P20 auto - ห้ามใช้พินนี้กับอุปกรณ์อื่น)
 
-Serial Communication (เชื่อมต่อ ESP32 / Web):
-- Default Serial (Baud rate 115200) - ไม่ต้องใช้ serial.redirect ให้พินชน
-- คำสั่งที่รองรับ: OPEN1, OPEN2, NEXT, FINISH
+UART Serial (เชื่อมต่อ ESP32):
+P2 = TX, P2 = RX (Baud rate 115200)
 
 มอเตอร์สเต็ปเปอร์ 4 สาย (28BYJ-48 style):
-- มอเตอร์ 1 (Insect Bite / แดง) : P4, P5, P6, P7    + 5V, GND
-- มอเตอร์ 2 (Abrasion   / เขียว): P11, P13, P14, P15 + 5V, GND
+มอเตอร์ 1 (Insect Bite / แดง) : P4, P5, P6, P7    + 5V, GND
+มอเตอร์ 2 (Abrasion   / เขียว): P11, P13, P14, P15 + 5V, GND
+
+Flow ระบบซิงค์ 5 ขั้นตอน (Web & Physical Buttons):
+1. ปุ่มเป็น Edge-Triggered (กดครั้งเดียว = ทำงานครั้งเดียว)
+2. สั่งงานได้ทั้งจากปุ่มกดหน้าตู้ และคำสั่งจากหน้าเว็บผ่าน ESP32 UART (OPEN1/OPEN2)
+3. เลือกอาการ -> โชว์อาการ + LED ค้าง ~2.5 วิ -> "System is running..."
+   -> หมุนมอเตอร์ส่งยา (DISPENSE_STEPS = 2048) และส่ง OK1/OK2 แจ้งเว็บ
+4. แสดงวิธีทำแผล 5 ขั้นตอนบนจอ OLED:
+   - กดปุ่มหน้าตู้ (P8/P12/P16) หรือกด "ขั้นตอนถัดไป" บนเว็บ (ยิง NEXT) -> เปลี่ยนหน้า OLED
+   - กด "เสร็จสิ้น" บนเว็บ (ยิง FINISH) หรือทำครบ 5 ขั้นตอน -> โชว์ "Complete!" -> ดับ LED -> กลับ Welcome
+5. อยู่หน้า Welcome -> นับเวลาครบ SLEEP_TIMEOUT (15s) -> เข้า Sleep Mode
 ============================================================
 """
 
@@ -40,16 +46,23 @@ PIN_INSECT = DigitalPin.P12
 PIN_LED_GREEN = DigitalPin.P0
 PIN_LED_RED = DigitalPin.P1
 
+# มอเตอร์ 1 : Insect Bite (แดง)
 MOTOR1_PINS = [DigitalPin.P4, DigitalPin.P5, DigitalPin.P6, DigitalPin.P7]
+# มอเตอร์ 2 : Abrasion (เขียว)
 MOTOR2_PINS = [DigitalPin.P11, DigitalPin.P13, DigitalPin.P14, DigitalPin.P15]
 
+# ---------- MOTOR / TIMING CONFIG ----------
 DISPENSE_STEPS = 2048        # ~1 รอบเพลาส่งออกของสเต็ปเปอร์ 28BYJ-48
 STEP_DELAY_MS = 2            # ความเร็วหมุน (ms)
+SYMPTOM_DISPLAY_MS = 2500    # เวลาโชว์หน้าอาการก่อนหมุนมอเตอร์
+CARE_DONE_MS = 2500          # เวลาโชว์ข้อความ "Complete!" ค้างไว้ก่อนกลับ Welcome
+RESET_DELAY_MS = 300         # หน่วงเวลาก่อนกลับ Welcome
 SLEEP_TIMEOUT = 15000        # 15 วินาที ไม่มีการกดปุ่ม -> เข้า Sleep Mode
 BOUNCE_DELAY = 50            # หน่วงกันปุ่มกระพือ
 
 STEP_SEQUENCE = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
 
+# ---------- GLOBAL VARIABLES ----------
 state = STATE_WELCOME
 lastState = -1
 lastAction = 0
@@ -66,8 +79,12 @@ edge2 = False
 current3 = False
 edge3 = False
 
+startEdge = False
+abrasionEdge = False
+insectEdge = False
 
-# ---------- BUTTON SENSING ----------
+
+# ---------- BUTTON SENSING (Edge-Triggered) ----------
 def start_pressed():
     global current, edge, startPrev
     current = pins.digital_read_pin(PIN_START) == 1 or input.button_is_pressed(Button.A)
@@ -80,7 +97,7 @@ def start_pressed():
 
 def abrasion_pressed():
     global current2, edge2, abrasionPrev
-    current2 = pins.digital_read_pin(PIN_ABRASION) == 1 or input.button_is_pressed(Button.A)
+    current2 = pins.digital_read_pin(PIN_ABRASION) == 1
     edge2 = current2 and not (abrasionPrev)
     abrasionPrev = current2
     if edge2:
@@ -98,7 +115,7 @@ def insect_pressed():
     return edge3
 
 
-# ---------- LED & MOTOR ----------
+# ---------- LED CONTROL ----------
 def leds_off():
     pins.digital_write_pin(PIN_LED_GREEN, 0)
     pins.digital_write_pin(PIN_LED_RED, 0)
@@ -130,21 +147,6 @@ def update_leds():
         leds_insect()
 
 
-def motor_run(motor_pins2: any, steps: number, delay_ms: number):
-    seq_len = len(STEP_SEQUENCE)
-    for i in range(steps):
-        pattern = STEP_SEQUENCE[i % seq_len]
-        for j in range(4):
-            pins.digital_write_pin(motor_pins2[j], pattern[j])
-        basic.pause(delay_ms)
-    motor_stop(motor_pins2)
-
-
-def motor_stop(motor_pins: List[number]):
-    for p in motor_pins:
-        pins.digital_write_pin(p, 0)
-
-
 # ---------- OLED DISPLAY ----------
 def show_welcome():
     OLED12864_I2C.clear()
@@ -161,6 +163,12 @@ def show_menu():
 
 def show_sleep():
     OLED12864_I2C.clear()
+
+
+def show_running():
+    OLED12864_I2C.clear()
+    OLED12864_I2C.show_string(0, 0, "System is", 1)
+    OLED12864_I2C.show_string(0, 2, "running...", 1)
 
 
 def show_abrasion_step(step: number):
@@ -235,13 +243,42 @@ def update_care_display():
         show_insect_step(careStep)
 
 
+def update_display():
+    global lastState
+    if state == lastState:
+        return
+    if state == STATE_WELCOME:
+        show_welcome()
+    elif state == STATE_MENU:
+        show_menu()
+    elif state == STATE_SLEEP:
+        show_sleep()
+    lastState = state
+
+
+# ---------- MOTOR CONTROL ----------
+def motor_run(motor_pins2: any, steps: number, delay_ms: number):
+    seq_len = len(STEP_SEQUENCE)
+    for i in range(steps):
+        pattern = STEP_SEQUENCE[i % seq_len]
+        for j in range(4):
+            pins.digital_write_pin(motor_pins2[j], pattern[j])
+        basic.pause(delay_ms)
+    motor_stop(motor_pins2)
+
+
+def motor_stop(motor_pins: List[number]):
+    for p in motor_pins:
+        pins.digital_write_pin(p, 0)
+
+
+# ---------- CARE FLOW & STATE TRANSITION ----------
 def reset_to_welcome():
     global lastState, state, lastAction, careStep
-    pins.digital_write_pin(PIN_LED_GREEN, 0)
-    pins.digital_write_pin(PIN_LED_RED, 0)
+    leds_off()
     motor_stop(MOTOR1_PINS)
     motor_stop(MOTOR2_PINS)
-    basic.pause(300)
+    basic.pause(RESET_DELAY_MS)
     careStep = 1
     lastState = -1
     state = STATE_WELCOME
@@ -251,40 +288,48 @@ def reset_to_welcome():
 
 def finish_care_session():
     show_care_done()
-    basic.pause(2500)
+    basic.pause(CARE_DONE_MS)
     reset_to_welcome()
 
 
 def start_abrasion_dispense():
     global state, careStep, lastAction
+    for i in range(3):
+        serial.write_line("OK1")
+        basic.pause(50)
+
     state = STATE_ABRASION
     careStep = 1
     lastAction = input.running_time()
     update_leds()
-    serial.write_string("OK1\n")
 
     OLED12864_I2C.clear()
-    OLED12864_I2C.show_string(0, 0, "Abrasion", 1)
-    OLED12864_I2C.show_string(0, 2, "System running...", 1)
-    basic.pause(1500)
+    OLED12864_I2C.show_string(0, 0, "Abrasion Care", 1)
+    OLED12864_I2C.show_string(0, 2, "Green LED ON", 1)
+    basic.pause(SYMPTOM_DISPLAY_MS)
 
+    show_running()
     motor_run(MOTOR2_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
     show_abrasion_step(1)
 
 
 def start_insect_dispense():
     global state, careStep, lastAction
+    for i in range(3):
+        serial.write_line("OK2")
+        basic.pause(50)
+
     state = STATE_INSECT
     careStep = 1
     lastAction = input.running_time()
     update_leds()
-    serial.write_string("OK2\n")
 
     OLED12864_I2C.clear()
-    OLED12864_I2C.show_string(0, 0, "Insect Bite", 1)
-    OLED12864_I2C.show_string(0, 2, "System running...", 1)
-    basic.pause(1500)
+    OLED12864_I2C.show_string(0, 0, "Insect Care", 1)
+    OLED12864_I2C.show_string(0, 2, "Red LED ON", 1)
+    basic.pause(SYMPTOM_DISPLAY_MS)
 
+    show_running()
     motor_run(MOTOR1_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
     show_insect_step(1)
 
@@ -300,26 +345,14 @@ def advance_step():
             finish_care_session()
 
 
-# ---------- SETUP ----------
-OLED12864_I2C.init(60)
-leds_off()
-motor_stop(MOTOR1_PINS)
-motor_stop(MOTOR2_PINS)
-
-lastAction = input.running_time()
-startPrev = pins.digital_read_pin(PIN_START) == 1 or input.button_is_pressed(Button.A)
-abrasionPrev = pins.digital_read_pin(PIN_ABRASION) == 1
-insectPrev = pins.digital_read_pin(PIN_INSECT) == 1
-show_welcome()
+# ---------- UART SERIAL CONFIG & HANDLER ----------
+serial.redirect(SerialPin.P2, SerialPin.P2, BaudRate.BAUD_RATE115200)
 
 
-# ---------- MAIN LOOP (100% Non-Blocking State Machine) ----------
-def on_forever():
-    global state, lastAction
-
-    # 1. อ่านคำสั่ง Serial จากเว็บ/ESP32 (แบบ Non-Blocking ทำงานทันที 0ms)
+def check_serial_commands():
     cmd = serial.read_string()
     if len(cmd) > 0:
+        global lastAction
         lastAction = input.running_time()
         if "OPEN1" in cmd or "ABRASION" in cmd:
             if state != STATE_ABRASION:
@@ -332,10 +365,31 @@ def on_forever():
         elif "FINISH" in cmd:
             finish_care_session()
 
-    # 2. อ่านปุ่มกดหน้าตู้ทุกปุ่ม (แบบ Non-Blocking อ่านทุกรอบลูป)
-    s_edge = start_pressed()
-    a_edge = abrasion_pressed()
-    i_edge = insect_pressed()
+
+# ---------- SETUP ----------
+OLED12864_I2C.init(60)
+leds_off()
+motor_stop(MOTOR1_PINS)
+motor_stop(MOTOR2_PINS)
+lastAction = input.running_time()
+startPrev = pins.digital_read_pin(PIN_START) == 1 or input.button_is_pressed(Button.A)
+abrasionPrev = pins.digital_read_pin(PIN_ABRASION) == 1
+insectPrev = pins.digital_read_pin(PIN_INSECT) == 1 or input.button_is_pressed(Button.B)
+show_welcome()
+update_leds()
+
+
+# ---------- MAIN LOOP (100% Non-Blocking State Machine) ----------
+def on_forever():
+    global state, lastAction, startEdge, abrasionEdge, insectEdge
+
+    # 1. อ่านคำสั่ง Serial จากเว็บ/ESP32 (แบบ Non-Blocking)
+    check_serial_commands()
+
+    # 2. อ่านปุ่มกดหน้าตู้ทุกปุ่ม
+    startEdge = start_pressed()
+    abrasionEdge = abrasion_pressed()
+    insectEdge = insect_pressed()
 
     # ----- ตรวจสอบ Sleep Timeout (15 วินาทีไม่มีการกดอะไร) -----
     if state != STATE_SLEEP:
@@ -346,11 +400,12 @@ def on_forever():
                 state = STATE_SLEEP
                 leds_off()
                 show_sleep()
+            basic.pause(20)
             return
 
     # ----- STATE 0 : Welcome -----
     if state == STATE_WELCOME:
-        if s_edge:
+        if startEdge:
             state = STATE_MENU
             lastAction = input.running_time()
             update_leds()
@@ -358,23 +413,23 @@ def on_forever():
 
     # ----- STATE 1 : Menu (เลือกชนิดบาดแผล) -----
     elif state == STATE_MENU:
-        if a_edge:
+        if abrasionEdge:
             start_abrasion_dispense()
-        elif i_edge:
+        elif insectEdge:
             start_insect_dispense()
 
     # ----- STATE 2 & 3 : Care Steps (กำลังทำแผล 5 ขั้นตอน) -----
     elif state == STATE_ABRASION:
-        if a_edge or s_edge:
+        if abrasionEdge or startEdge:
             advance_step()
 
     elif state == STATE_INSECT:
-        if i_edge or s_edge:
+        if insectEdge or startEdge:
             advance_step()
 
     # ----- SLEEP MODE (ปลุกด้วยปุ่มใดก็ได้) -----
     elif state == STATE_SLEEP:
-        if s_edge or a_edge or i_edge:
+        if startEdge or abrasionEdge or insectEdge:
             reset_to_welcome()
 
     basic.pause(20)

@@ -306,10 +306,10 @@ export default async function handler(req, res) {
 
     const { action, woundId, drawer, state, id } = req.body || {};
 
-    if (action !== 'open' && action !== 'buzzer' && action !== 'next' && action !== 'finish') {
+    if (action !== 'open' && action !== 'buzzer') {
         return res.status(400).json({
             success: false,
-            error: 'คำสั่งไม่ถูกต้อง (action ต้องเป็น open, buzzer, next หรือ finish)',
+            error: 'คำสั่งไม่ถูกต้อง (action ต้องเป็น open หรือ buzzer)',
             mqttConfigured: mqttConfigured()
         });
     }
@@ -334,8 +334,6 @@ export default async function handler(req, res) {
             });
         }
         payload = { action: 'open', drawer: compartment };
-    } else if (action === 'next' || action === 'finish') {
-        payload = { action, drawer: Number(drawer) || 1 };
     } else {
         if (state !== 'on' && state !== 'off') {
             return res.status(400).json({
