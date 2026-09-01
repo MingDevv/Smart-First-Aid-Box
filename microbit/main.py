@@ -341,7 +341,7 @@ serial.redirect(SerialPin.P2, SerialPin.USB_RX, BaudRate.BAUD_RATE115200)
 
 
 def check_serial_commands():
-    cmd = serial.read_line()
+    cmd = serial.read_string()
     if len(cmd) > 0:
         global lastAction
         lastAction = input.running_time()
