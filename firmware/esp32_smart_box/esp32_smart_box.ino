@@ -35,16 +35,16 @@
 #include <ctype.h>
 #include "command_history.h"
 
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
+const char* ssid = "iPhone";
+const char* password = "thawin123";
 
 // ---------- MQTT config ----------
 // เอาค่าจากหน้า cluster ของ HiveMQ Cloud (ดู MQTT_SETUP.md)
 // ปล่อย MQTT_HOST ว่างไว้ = ปิด MQTT ใช้เฉพาะเส้น LAN
-const char* MQTT_HOST = "";                          // เช่น "abc123.s1.eu.hivemq.cloud"
+const char* MQTT_HOST = "dd1fd4b3ede345959ee8abd925ddb1f9.s1.eu.hivemq.cloud";                          // เช่น "abc123.s1.eu.hivemq.cloud"
 const uint16_t MQTT_PORT = 8883;                     // TLS
 const char* MQTT_USER = "esp32-box1";
-const char* MQTT_PASS = "YOUR_DEVICE_PASSWORD";
+const char* MQTT_PASS = "WW9XmbRdtK@GVJq";
 const char* BASE_TOPIC = "crms6/firstaidbox/box1";
 
 // คำสั่งที่เก่ากว่านี้จะถูกทิ้ง กันคำสั่งค้างคิวตอนเน็ตหลุดแล้วเด้งกลับมาเปิดตู้เองตอนไม่มีคนอยู่

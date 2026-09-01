@@ -1,97 +1,105 @@
-# ==============================================================================
-# MICRO:BIT V2 FIRMWARE — SMART FIRST AID BOX (micro:bit Thailand Challenge 2026)
-# ==============================================================================
-# Hardware Connections:
-# - Pin P0 : Reed Switch Sensor (Door Sensor - Pull Up, Low when door opened)
-# - Pin P1 : Servo Motor 1 (Compartment #1: Cut / Abrasion - 0° closed, 90° open)
-# - Pin P2 : Servo Motor 2 (Compartment #2: Insect Bite / Rash - 0° closed, 90° open)
-# - Pin P14: UART RX (Connected to ESP32 TX2)
-# - Pin P15: UART TX (Connected to ESP32 RX2)
-# - Built-in Speaker / Music: SOS Emergency Siren
-# ==============================================================================
+"""
+============================================================
+MINIMAL MICRO:BIT V2 FIRMWARE — 2 STEPPER MOTORS ONLY
+============================================================
+Hardware Connections:
+- มอเตอร์ 1 (แมลงกัด / ช่อง 2) : P4, P5, P6, P7
+- มอเตอร์ 2 (แผลถลอก   / ช่อง 1) : P11, P13, P14, P15
+- ปุ่มกดกดมือ P8               : แผลถลอก -> หมุนมอเตอร์ 2
+- ปุ่มกดกดมือ P12              : แมลงกัด -> หมุนมอเตอร์ 1
+- Serial UART (P2=TX, P1=RX)   : เชื่อมต่อ ESP32 (115200 baud)
+============================================================
+"""
 
-from microbit import *
-import music
+# ---------- PIN CONFIG ----------
+PIN_ABRASION = DigitalPin.P8
+PIN_INSECT = DigitalPin.P12
 
-# Initialize Serial UART Communication at 115200 baud
-uart.init(baudrate=115200, tx=pin15, rx=pin14)
+# มอเตอร์ 1 : Insect Bite (แมลงกัด / ช่อง 2)
+MOTOR1_PINS = [DigitalPin.P4, DigitalPin.P5, DigitalPin.P6, DigitalPin.P7]
+# มอเตอร์ 2 : Abrasion (แผลถลอก / ช่อง 1)
+MOTOR2_PINS = [DigitalPin.P11, DigitalPin.P13, DigitalPin.P14, DigitalPin.P15]
 
-# Set initial servo positions to 0 degrees (closed)
-pin1.set_analog_period(20)
-pin2.set_analog_period(20)
+# ---------- MOTOR CONFIG ----------
+DISPENSE_STEPS = 2048        # 1 รอบเพลาสเต็ปเปอร์ 28BYJ-48
+STEP_DELAY_MS = 2            # ความเร็วหมุน (ms)
+STEP_SEQUENCE = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
 
-def set_servo_angle(pin, angle):
-    # Convert angle 0-180 to duty cycle (approx 2.5% to 12.5% of 20ms)
-    duty = int(25 + (angle / 180.0) * 100)
-    pin.write_analog(duty)
+abrasionPrev = False
+insectPrev = False
 
-set_servo_angle(pin1, 0)
-set_servo_angle(pin2, 0)
 
-# System State Variables
-last_door_state = 1
-display.show(Image.HAPPY)
+# ---------- ฟังก์ชันสั่งหมุนสเต็ปเปอร์มอเตอร์ ----------
+def motor_run(motor_pins: any, steps: number, delay_ms: number):
+    seq_len = len(STEP_SEQUENCE)
+    for i in range(steps):
+        pattern = STEP_SEQUENCE[i % seq_len]
+        for j in range(4):
+            pins.digital_write_pin(motor_pins[j], pattern[j])
+        basic.pause(delay_ms)
+    motor_stop(motor_pins)
 
-def play_sos_siren():
-    display.show(Image.SKULL)
-    for _ in range(3):
-        music.play(["C5:2", "G5:2", "C5:2", "G5:2"])
-    display.show(Image.HAPPY)
 
-def open_compartment(num):
-    display.show(str(num))
-    target_pin = pin1 if num == 1 else pin2
-    
-    # Open servo to 90 degrees
-    set_servo_angle(target_pin, 90)
-    sleep(3000) # Keep open for 3 seconds
-    
-    # Close servo back to 0 degrees
-    set_servo_angle(target_pin, 0)
-    display.show(Image.YES)
-    sleep(1000)
-    display.show(Image.HAPPY)
-    
-    # Send confirmation back to ESP32
-    uart.write("OK" + str(num) + "\n")
+def motor_stop(motor_pins: any):
+    for p in motor_pins:
+        pins.digital_write_pin(p, 0)
 
-# Main Hardware Loop
-while True:
-    # 1. Read Reed Switch Sensor (Door Sensor on Pin 0)
-    door_state = pin0.read_digital()
-    if door_state == 0 and last_door_state == 1:
-        # Door opened! Send event to ESP32
-        uart.write("DOOR_OPEN\n")
-        display.show(Image.SURPRISED)
-        sleep(1000)
-        display.show(Image.HAPPY)
-    last_door_state = door_state
 
-    # 2. Check Button A / B for Kiosk User Confirmation
-    if button_a.was_pressed():
-        uart.write("CONFIRM_A\n")
-        display.show(Image.YES)
-        sleep(500)
-        display.show(Image.HAPPY)
-        
-    if button_b.was_pressed():
-        uart.write("CANCEL_B\n")
-        display.show(Image.NO)
-        sleep(500)
-        display.show(Image.HAPPY)
+# ---------- ฟังก์ชันสั่งจ่ายยา ----------
+def dispense_compartment(num: number):
+    if num == 1:
+        # ช่อง 1 (แผลถลอก / มอเตอร์ 2)
+        motor_run(MOTOR2_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
+        serial.write_line("OK1")
+    elif num == 2:
+        # ช่อง 2 (แมลงกัด / มอเตอร์ 1)
+        motor_run(MOTOR1_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
+        serial.write_line("OK2")
 
-    # 3. Read incoming UART commands from ESP32
-    if uart.any():
-        command = str(uart.read(), 'utf-8').strip()
-        
-        if command == "OPEN1":
-            open_compartment(1)
-        elif command == "OPEN2":
-            open_compartment(2)
-        elif command == "BUZZ1":
-            play_sos_siren()
-        elif command == "BUZZ0":
-            music.stop()
-            display.show(Image.HAPPY)
 
-    sleep(100)
+# ---------- UART SERIAL CONFIG (P2=TX, P1=RX) ----------
+serial.redirect(SerialPin.P2, SerialPin.P1, BaudRate.BAUD_RATE115200)
+
+
+def check_serial_commands():
+    cmd = serial.read_line()
+    if len(cmd) > 0:
+        if cmd == "OPEN1" or cmd == "ABRASION":
+            dispense_compartment(1)
+        elif cmd == "OPEN2" or cmd == "INSECT":
+            dispense_compartment(2)
+
+
+def check_buttons():
+    global abrasionPrev, insectPrev
+
+    # ปุ่ม P8 : สั่งเปิดช่อง 1 (แผลถลอก)
+    curr_ab = pins.digital_read_pin(PIN_ABRASION) == 1
+    if curr_ab and not (abrasionPrev):
+        basic.pause(50)
+        dispense_compartment(1)
+    abrasionPrev = curr_ab
+
+    # ปุ่ม P12 : สั่งเปิดช่อง 2 (แมลงกัด)
+    curr_in = pins.digital_read_pin(PIN_INSECT) == 1
+    if curr_in and not (insectPrev):
+        basic.pause(50)
+        dispense_compartment(2)
+    insectPrev = curr_in
+
+
+# สั่งหยุดมอเตอร์ก่อนเริ่มต้นใช้งาน
+motor_stop(MOTOR1_PINS)
+motor_stop(MOTOR2_PINS)
+
+
+# ---------- MAIN LOOP ----------
+def on_forever():
+    # ตรวจสอบคำสั่งจากหน้าเว็บ/ESP32
+    check_serial_commands()
+    # ตรวจสอบการกดปุ่มสั่งมือที่ตัวกล่อง
+    check_buttons()
+    basic.pause(20)
+
+
+basic.forever(on_forever)

@@ -18,8 +18,8 @@ const MAX_REQUESTS_GLOBAL = 12;
 
 // micro:bit หมุนเซอร์โวและ sleep 3 วินาทีก่อนตอบ OK จึงต้องเผื่อเวลารับ event
 // แต่ยังคุมงบรวมฝั่งเซิร์ฟเวอร์ให้สั้นกว่า timeout 9.5 วินาทีของเบราว์เซอร์
-const MQTT_CONNECT_TIMEOUT_MS = 2500;
-const MQTT_PUBLISH_TIMEOUT_MS = 1500;
+const MQTT_CONNECT_TIMEOUT_MS = 4500;
+const MQTT_PUBLISH_TIMEOUT_MS = 2500;
 const DEFAULT_DRAWER_ACK_TIMEOUT_MS = 5500;
 
 const rateLimitMap = new Map();

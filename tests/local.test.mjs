@@ -5,7 +5,7 @@ import vm from 'node:vm';
 const root = new URL('../', import.meta.url);
 const apiBridgeSource = await readFile(new URL('js/api-bridge.js', root), 'utf8');
 const mqttBridgeSource = await readFile(new URL('js/mqtt-bridge.js', root), 'utf8');
-const firmwareSource = await readFile(new URL('firmware/esp32_smart_box.ino', root), 'utf8');
+const firmwareSource = await readFile(new URL('firmware/esp32_smart_box/esp32_smart_box.ino', root), 'utf8');
 const commandHistorySource = await readFile(new URL('firmware/command_history.h', root), 'utf8');
 const commandApiSource = await readFile(new URL('api/command.js', root), 'utf8');
 
@@ -167,7 +167,7 @@ assert.doesNotMatch(callbackBody, /publishEvent\s*\(/);
 assert.match(callbackBody, /enqueueEvent\s*\(/);
 assert.match(commandApiSource, /if \(activeClientState === state\) activeClientState = null/);
 assert.match(commandApiSource, /reconnectPeriod: 0/);
-assert.match(commandApiSource, /MQTT_CONNECT_TIMEOUT_MS = 2500/);
+assert.match(commandApiSource, /MQTT_CONNECT_TIMEOUT_MS = 4500/);
 assert.match(commandApiSource, /DEFAULT_DRAWER_ACK_TIMEOUT_MS = 5500/);
 assert.match(commandApiSource, /'ack_timeout'/);
 
