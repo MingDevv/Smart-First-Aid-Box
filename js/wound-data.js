@@ -6,8 +6,15 @@ const WOUND_DATA = {
         "name_en": "Cut & Abrasion",
         "severity": "ทั่วไป (Minor)",
         "icon": "🩹",
+        "image": "../images/wound_cut_abrasion.jpg",
+        "drawer": 1,
         "description": "เกิดจากของมีคมบาด หรือผิวหนังถลอกจากการล้มเสียดสีกับพื้น มีเลือดซึมหรือไหลเล็กน้อย",
         "items": ["น้ำเกลือล้างแผล (Normal Saline)", "สำลี/ผ้าก๊อซสะอาด", "ยาเบตาดีน (Antiseptic)", "พลาสเตอร์ยา"],
+        "itemDetails": [
+            { "name": "น้ำเกลือล้างแผล (Normal Saline)", "image": "../images/med_saline.jpg", "drawer": 1 },
+            { "name": "ยาเบตาดีน (Antiseptic)", "image": "../images/med_betadine.jpg", "drawer": 1 },
+            { "name": "พลาสเตอร์ยา & ผ้าก๊อซ", "image": "../images/med_bandage.jpg", "drawer": 1 }
+        ],
         "steps": [
             "ล้างมือผู้ปฐมพยาบาลให้สะอาดด้วยสบู่และน้ำสะอาด",
             "ล้างทำความสะอาดแผลด้วยน้ำเกลือล้างแผล (NSS) เพื่อล้างสิ่งสกปรกออก",
@@ -23,8 +30,13 @@ const WOUND_DATA = {
         "name_en": "Insect Bite",
         "severity": "ทั่วไป (Minor)",
         "icon": "🐝",
+        "image": "../images/wound_insect_bite.jpg",
+        "drawer": 2,
         "description": "เกิดจากมด ผึ้ง ต่อ แตน หรือแมลงอื่นๆ กัดต่อย ทำให้ผิวหนังบวม แดง คัน หรือแสบร้อน",
         "items": ["สบู่และน้ำสะอาด", "คีมคีบ (ถ้ามีเหล็กใน)", "ยาคารามายด์ หรือ ยาหม่อง", "ถุงน้ำแข็งประคบ"],
+        "itemDetails": [
+            { "name": "ยาคารามายด์ / ยาหม่อง", "image": "../images/med_betadine.jpg", "drawer": 2 }
+        ],
         "steps": [
             "หากถูกผึ้งต่อแตนต่อย ให้ใช้ขอบการ์ดแข็งขูดเอาเหล็กในออกเบาๆ (ห้ามบีบถุงพิษ)",
             "ล้างทำความสะอาดบริเวณที่ถูกกัดด้วยน้ำและสบู่",
@@ -39,8 +51,11 @@ const WOUND_DATA = {
         "name_en": "Unknown",
         "severity": "ไม่ระบุ (Unspecified)",
         "icon": "❓",
+        "image": "",
+        "drawer": 0,
         "description": "ระบบไม่สามารถแยกแยะประเภทแผลจากภาพถ่ายได้ โปรดเลือกประเภทแผลด้วยตนเอง",
         "items": [],
+        "itemDetails": [],
         "steps": [
             "โปรดตรวจสอบว่าภาพถ่ายมีความสว่างเพียงพอ",
             "เลือกประเภทแผลจาก 2 รายการด้านบนด้วยตนเอง",

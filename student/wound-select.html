@@ -145,13 +145,17 @@
                             location.href = `/student/first-aid-guide?wound=${wound.id}`;
                         };
 
+                        const avatarHtml = wound.image 
+                            ? `<img src="${wound.image}" style="width:64px; height:64px; object-fit:cover; border-radius:14px; border:1px solid #E2E8F0; box-shadow:0 2px 8px rgba(0,0,0,0.06); flex-shrink:0;" alt="${wound.name_th}">`
+                            : `<div class="wound-list-icon">${wound.icon}</div>`;
+
                         card.innerHTML = `
-                            <div class="wound-list-icon">${wound.icon}</div>
-                            <div class="wound-list-info">
-                                <div class="wound-list-name-th">${wound.name_th}</div>
-                                <div class="wound-list-name-en">${wound.description}</div>
+                            ${avatarHtml}
+                            <div class="wound-list-info" style="margin-left:14px; flex:1;">
+                                <div class="wound-list-name-th" style="font-size:16px; font-weight:700;">${wound.name_th}</div>
+                                <div class="wound-list-name-en" style="font-size:13px; color:var(--text-muted); margin-top:2px;">${wound.description}</div>
                             </div>
-                            <div style="color:var(--text-muted); font-size:18px; margin-left: 8px;">→</div>
+                            <div style="color:var(--primary); font-size:20px; font-weight:bold; margin-left: 8px;">➔</div>
                         `;
                         list.appendChild(card);
                     }

@@ -220,10 +220,14 @@
     <div class="container animate-slide-up">
         <!-- Main guide layout -->
         <div id="guide-layout" style="display:none;">
-            <div class="guide-header-card">
-                <div class="guide-header-icon" id="wound-icon">🤕</div>
-                <div class="guide-header-title" id="wound-title-th">โหลดข้อมูล...</div>
-                <div class="guide-header-subtitle" id="wound-title-en">Loading...</div>
+            <div class="guide-header-card" style="display:flex; align-items:center; gap:16px; padding:20px; text-align:left;">
+                <div id="wound-image-container" style="width:84px; height:84px; border-radius:18px; overflow:hidden; background:#F1F5F9; flex-shrink:0; display:flex; align-items:center; justify-content:center; border:2px solid var(--primary-light, #E0F2FE); box-shadow:0 4px 12px rgba(0,0,0,0.06);">
+                    <div class="guide-header-icon" id="wound-icon" style="font-size:38px; margin:0;">🤕</div>
+                </div>
+                <div>
+                    <div class="guide-header-title" id="wound-title-th" style="margin:0; font-size:22px;">โหลดข้อมูล...</div>
+                    <div class="guide-header-subtitle" id="wound-title-en" style="margin-top:4px; font-size:14px;">Loading...</div>
+                </div>
             </div>
 
             <!-- Hardware controller interaction status -->
@@ -357,21 +361,44 @@
             document.getElementById("guide-layout").style.display = "block";
 
             // Render view elements
-            document.getElementById("wound-icon").innerText = wound.icon;
+            if (wound.image) {
+                document.getElementById("wound-image-container").innerHTML = `<img src="${wound.image}" style="width:100%; height:100%; object-fit:cover;" alt="${wound.name_th}">`;
+            } else {
+                document.getElementById("wound-icon").innerText = wound.icon;
+            }
             document.getElementById("wound-title-th").innerText = wound.name_th;
             document.getElementById("wound-title-en").innerText = wound.name_en;
             document.getElementById("warning-text").innerText = wound.warnings;
 
-            // Render items
+            // Render items with rich visual cards
             const itemsContainer = document.getElementById("items-list");
+            itemsContainer.style.display = "flex";
+            itemsContainer.style.flexWrap = "wrap";
+            itemsContainer.style.gap = "12px";
+
             if (!wound.items || wound.items.length === 0) {
                 itemsContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 13px; font-style: italic;">ไม่ต้องใช้อุปกรณ์เวชภัณฑ์สำหรับขั้นตอนนี้</span>';
             } else {
-                wound.items.forEach(item => {
-                    const tag = document.createElement("span");
-                    tag.className = "item-tag";
-                    tag.innerText = item;
-                    itemsContainer.appendChild(tag);
+                itemsContainer.innerHTML = "";
+                const details = wound.itemDetails || [];
+                wound.items.forEach((item, index) => {
+                    const detail = details[index] || {};
+                    const card = document.createElement("div");
+                    card.className = "med-item-card";
+                    card.style.cssText = "background:#F8FAFC; border:1px solid #E2E8F0; border-radius:16px; padding:12px 14px; display:flex; align-items:center; gap:12px; flex:1 1 220px; box-shadow:0 2px 6px rgba(0,0,0,0.03);";
+                    
+                    const imgHtml = detail.image 
+                        ? `<img src="${detail.image}" style="width:56px; height:56px; object-fit:contain; border-radius:10px; background:white; padding:4px; border:1px solid #E2E8F0;" alt="${item}">`
+                        : `<div style="width:56px; height:56px; background:#E0F2FE; color:#0284C7; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:26px;">💊</div>`;
+
+                    card.innerHTML = `
+                        ${imgHtml}
+                        <div>
+                            <div style="font-weight:700; font-size:13px; color:#1E293B; line-height:1.3;">${item}</div>
+                            <div style="font-size:11px; color:#0284C7; font-weight:600; margin-top:4px;">📍 ลิ้นชักตู้ยาช่องที่ ${wound.drawer || 1}</div>
+                        </div>
+                    `;
+                    itemsContainer.appendChild(card);
                 });
             }
 
