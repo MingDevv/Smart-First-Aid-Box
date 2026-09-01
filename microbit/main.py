@@ -5,7 +5,7 @@ SMART FIRST AID BOX - Final Complete Version (+ ESP32 Web Bridge & Care Steps)
 Hardware: micro:bit V2 + INEX Activity:Bit + KittenBot OLED 128x64
 
 ปุ่ม:
-P16 = START/RESET | P8 = Abrasion | P12 = Insect Bite (Active HIGH)
+P16 / ปุ่ม A = START/RESET | P8 = Abrasion | P12 = Insect Bite (Active HIGH)
 
 LED:
 P0 = Green LED | P1 = Red LED
@@ -14,7 +14,7 @@ OLED:
 I2C (P19/P20 auto - ห้ามใช้พินนี้กับอุปกรณ์อื่น)
 
 UART Serial (เชื่อมต่อ ESP32):
-P2 = TX, P3 = RX (หรือ P2=TX, P10=RX) (Baud rate 115200)
+P2 = TX, P16 = RX (Baud rate 115200)
 
 มอเตอร์สเต็ปเปอร์ 4 สาย (28BYJ-48 style):
 มอเตอร์ 1 (Insect Bite / แดง) : P4, P5, P6, P7    + 5V, GND
@@ -89,7 +89,8 @@ insectEdge = False
 # ---------- ฟังก์ชันตรวจจับ "ขอบขาขึ้น" ของปุ่ม (กดครั้งเดียว = ทำงานครั้งเดียว) ----------
 def start_pressed():
     global current, edge, startPrev
-    current = pins.digital_read_pin(PIN_START) == 1
+    # เช็คพิน P16 และปุ่ม A บนบอร์ด micro:bit (รองรับการกดทั้งสองช่องทาง)
+    current = pins.digital_read_pin(PIN_START) == 1 or input.button_is_pressed(Button.A)
     edge = current and not (startPrev)
     startPrev = current
     if edge:
@@ -283,7 +284,7 @@ def wait_for_button_again(pin: DigitalPin):
 
 # ---------- ฟังก์ชันจ่ายยา/สเปรย์ ----------
 def dispense_abrasion():
-    serial.write_line("OK1")  # ตอบกลับสัญญาณ ACK ไปยัง ESP32 และหน้าเว็บ
+    serial.write_line("OK1")  # ตอบกลับสัญญาณ ACK ไปยัง ESP32 และหน้าเว็บทันที
     basic.pause(50)
     serial.write_line("OK1")
     basic.pause(SYMPTOM_DISPLAY_MS)
@@ -299,7 +300,7 @@ def dispense_abrasion():
 
 
 def dispense_insect():
-    serial.write_line("OK2")  # ตอบกลับสัญญาณ ACK ไปยัง ESP32 และหน้าเว็บ
+    serial.write_line("OK2")  # ตอบกลับสัญญาณ ACK ไปยัง ESP32 และหน้าเว็บทันที
     basic.pause(50)
     serial.write_line("OK2")
     basic.pause(SYMPTOM_DISPLAY_MS)
@@ -340,18 +341,18 @@ def reset_to_welcome():
     update_display()
 
 
-# ---------- UART SERIAL CONFIG & HANDLER (เชื่อมต่อ ESP32: P2=TX, USB_RX=RX) ----------
-serial.redirect(SerialPin.P2, SerialPin.USB_RX, BaudRate.BAUD_RATE115200)
+# ---------- UART SERIAL CONFIG & HANDLER (อิงจากโค้ดตัวอย่างที่เว็บพบสัญญาณ 100%) ----------
+serial.redirect(SerialPin.P2, SerialPin.P16, BaudRate.BAUD_RATE115200)
 
 
 def check_serial_commands():
-    cmd = serial.read_string()
+    cmd = serial.read_string()  # ใช้ read_string แบบ non-blocking เพื่อไม่ให้ลูปค้าง
     if len(cmd) > 0:
         global lastAction
         lastAction = input.running_time()
-        if "OPEN1" in cmd or "1" in cmd or "ABRASION" in cmd:
+        if "OPEN1" in cmd or "ABRASION" in cmd:
             go_to_state(STATE_ABRASION)
-        elif "OPEN2" in cmd or "2" in cmd or "INSECT" in cmd:
+        elif "OPEN2" in cmd or "INSECT" in cmd:
             go_to_state(STATE_INSECT)
 
 
@@ -361,7 +362,7 @@ leds_off()
 motor_stop(MOTOR1_PINS)
 motor_stop(MOTOR2_PINS)
 lastAction = input.running_time()
-startPrev = pins.digital_read_pin(PIN_START) == 1
+startPrev = pins.digital_read_pin(PIN_START) == 1 or input.button_is_pressed(Button.A)
 abrasionPrev = pins.digital_read_pin(PIN_ABRASION) == 1
 insectPrev = pins.digital_read_pin(PIN_INSECT) == 1
 update_display()
