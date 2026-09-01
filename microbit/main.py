@@ -283,7 +283,9 @@ def wait_for_button_again(pin: DigitalPin):
 
 # ---------- ฟังก์ชันจ่ายยา/สเปรย์ ----------
 def dispense_abrasion():
-    serial.write_line("OK1")  # ตอบกลับสัญญาณ ACK ไปยัง ESP32 และหน้าเว็บทันที
+    serial.write_line("OK1")  # ตอบกลับสัญญาณ ACK ไปยัง ESP32 และหน้าเว็บ
+    basic.pause(50)
+    serial.write_line("OK1")
     basic.pause(SYMPTOM_DISPLAY_MS)
     show_running()
     motor_run(MOTOR2_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
@@ -297,7 +299,9 @@ def dispense_abrasion():
 
 
 def dispense_insect():
-    serial.write_line("OK2")  # ตอบกลับสัญญาณ ACK ไปยัง ESP32 และหน้าเว็บทันที
+    serial.write_line("OK2")  # ตอบกลับสัญญาณ ACK ไปยัง ESP32 และหน้าเว็บ
+    basic.pause(50)
+    serial.write_line("OK2")
     basic.pause(SYMPTOM_DISPLAY_MS)
     show_running()
     motor_run(MOTOR1_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
@@ -336,8 +340,8 @@ def reset_to_welcome():
     update_display()
 
 
-# ---------- UART SERIAL CONFIG & HANDLER (เชื่อมต่อ ESP32 ผ่านพิน P2 พินเดียว ไม่ทับปุ่ม P8/P12/P16) ----------
-serial.redirect(SerialPin.P2, SerialPin.P2, BaudRate.BAUD_RATE115200)
+# ---------- UART SERIAL CONFIG & HANDLER (เชื่อมต่อ ESP32: P2=TX, USB_RX=RX) ----------
+serial.redirect(SerialPin.P2, SerialPin.USB_RX, BaudRate.BAUD_RATE115200)
 
 
 def check_serial_commands():
@@ -345,9 +349,9 @@ def check_serial_commands():
     if len(cmd) > 0:
         global lastAction
         lastAction = input.running_time()
-        if "OPEN1" in cmd or "ABRASION" in cmd:
+        if "OPEN1" in cmd or "1" in cmd or "ABRASION" in cmd:
             go_to_state(STATE_ABRASION)
-        elif "OPEN2" in cmd or "INSECT" in cmd:
+        elif "OPEN2" in cmd or "2" in cmd or "INSECT" in cmd:
             go_to_state(STATE_INSECT)
 
 
