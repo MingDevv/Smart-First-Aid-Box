@@ -131,6 +131,33 @@
                     <input type="text" id="cfg-pin" class="form-input" style="background:#1E293B; border-color:#334155; color:white;" maxlength="4" placeholder="1234">
                 </div>
 
+                <hr style="border-color:#1E293B; margin: 20px 0;">
+                <h4 style="font-size: 14px; margin-bottom: 4px;">📡 การเชื่อมต่อ MQTT (รับสถานะและเหตุการณ์สด)</h4>
+                <p style="font-size: 12px; color:#64748B; margin-bottom: 16px;">
+                    ใช้บัญชีที่ตั้งสิทธิ์ให้ <strong>subscribe ได้อย่างเดียว</strong> เพราะทุกอย่างในหน้านี้เปิดอ่านได้จากเบราว์เซอร์
+                    ส่วนรหัสที่สั่งเปิดตู้ยาได้ต้องอยู่ในตัวแปรสภาพแวดล้อมบน Vercel เท่านั้น
+                </p>
+
+                <div class="form-group">
+                    <label class="form-label" style="color: #94A3B8;">MQTT WebSocket URL (ต้องขึ้นต้นด้วย wss://):</label>
+                    <input type="text" id="cfg-mqtt-url" class="form-input" style="background:#1E293B; border-color:#334155; color:white;" placeholder="wss://your-cluster.s1.eu.hivemq.cloud:8884/mqtt">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" style="color: #94A3B8;">ชื่อผู้ใช้ MQTT (สิทธิ์อ่านอย่างเดียว):</label>
+                    <input type="text" id="cfg-mqtt-user" class="form-input" style="background:#1E293B; border-color:#334155; color:white;" placeholder="web-viewer">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" style="color: #94A3B8;">รหัสผ่าน MQTT (สิทธิ์อ่านอย่างเดียว):</label>
+                    <input type="password" id="cfg-mqtt-pass" class="form-input" style="background:#1E293B; border-color:#334155; color:white;">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" style="color: #94A3B8;">Base Topic (ต้องตรงกับ ESP32 และ Vercel):</label>
+                    <input type="text" id="cfg-mqtt-topic" class="form-input" style="background:#1E293B; border-color:#334155; color:white;" placeholder="crms6/firstaidbox/box1">
+                </div>
+
                 <button type="submit" class="btn btn-primary" style="margin-top: 10px;">💾 บันทึกการตั้งค่าระบบ</button>
             </form>
         </div>
@@ -352,6 +379,15 @@
             const pinElem = document.getElementById("cfg-pin");
             if (espElem) espElem.value = settings.esp32Url || settings.esp8266Url || "http://192.168.1.100";
             if (pinElem) pinElem.value = settings.dashboardPin || "1234";
+
+            const mqttUrlElem = document.getElementById("cfg-mqtt-url");
+            const mqttUserElem = document.getElementById("cfg-mqtt-user");
+            const mqttPassElem = document.getElementById("cfg-mqtt-pass");
+            const mqttTopicElem = document.getElementById("cfg-mqtt-topic");
+            if (mqttUrlElem) mqttUrlElem.value = settings.mqttWsUrl || "";
+            if (mqttUserElem) mqttUserElem.value = settings.mqttUsername || "";
+            if (mqttPassElem) mqttPassElem.value = settings.mqttPassword || "";
+            if (mqttTopicElem) mqttTopicElem.value = settings.mqttBaseTopic || "crms6/firstaidbox/box1";
         }
 
         function saveSystemConfig(event) {
@@ -365,10 +401,26 @@
                 return;
             }
 
+            const mqttWsUrl = (document.getElementById("cfg-mqtt-url")?.value || "").trim();
+            const mqttUsername = (document.getElementById("cfg-mqtt-user")?.value || "").trim();
+            const mqttPassword = (document.getElementById("cfg-mqtt-pass")?.value || "").trim();
+            const mqttBaseTopic = (document.getElementById("cfg-mqtt-topic")?.value || "crms6/firstaidbox/box1").trim();
+
+            // ws:// จากหน้า https จะถูกเบราว์เซอร์บล็อกเงียบ ๆ แบบเดียวกับ http:// ดักไว้ตั้งแต่ตอนกรอก
+            // จะได้ไม่ต้องไปนั่งหาสาเหตุว่าทำไมต่อไม่ติดทั้งที่ค่าดูถูกทุกอย่าง
+            if (mqttWsUrl && !mqttWsUrl.startsWith("wss://")) {
+                NotificationService.showToast("MQTT WebSocket URL ต้องขึ้นต้นด้วย wss:// เท่านั้น", "danger");
+                return;
+            }
+
             StorageService.saveSettings({
                 ...settings,
                 esp32Url,
-                dashboardPin
+                dashboardPin,
+                mqttWsUrl,
+                mqttUsername,
+                mqttPassword,
+                mqttBaseTopic
             });
 
             NotificationService.showToast("บันทึกการตั้งค่าระบบเรียบร้อยแล้ว", "success");
