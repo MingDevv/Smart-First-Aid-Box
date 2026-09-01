@@ -337,7 +337,8 @@ def reset_to_welcome():
     update_display()
 
 
-# ---------- SERIAL COMMAND HANDLER (รับคำสั่ง OPEN1 / OPEN2 จาก ESP32/Web) ----------
+# ---------- UART SERIAL CONFIG & HANDLER (เชื่อมต่อ ESP32: P2=TX, P14=RX) ----------
+serial.redirect(SerialPin.P2, SerialPin.P14, BaudRate.BAUD_RATE115200)
 def check_serial_commands():
     cmd = serial.read_string()
     if len(cmd) > 0:
