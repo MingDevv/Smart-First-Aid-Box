@@ -350,8 +350,10 @@ def check_serial_commands():
         global lastAction
         lastAction = input.running_time()
         if "OPEN1" in cmd or "ABRASION" in cmd:
+            serial.write_string("OK1\n")  # ตอบกลับ OK1 ทันที เพื่อให้เว็บขึ้น "เปิดตู้สำเร็จ" ภายใน 0.5 วิ
             go_to_state(STATE_ABRASION)
         elif "OPEN2" in cmd or "INSECT" in cmd:
+            serial.write_string("OK2\n")  # ตอบกลับ OK2 ทันที เพื่อให้เว็บขึ้น "เปิดตู้สำเร็จ" ภายใน 0.5 วิ
             go_to_state(STATE_INSECT)
 
 
