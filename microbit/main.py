@@ -13,8 +13,10 @@ P0 = Green LED | P1 = Red LED
 OLED:
 I2C (P19/P20 auto - ห้ามใช้พินนี้กับอุปกรณ์อื่น)
 
-UART Serial (เชื่อมต่อ ESP32):
-P2 = TX+RX (Half-Duplex ผ่านพินเดียว) (Baud rate 115200)
+ESP32 GPIO สั่งงาน (ไม่ใช้ UART - ใช้ Digital GPIO แทน):
+P2 = รับสัญญาณ OPEN1 จาก ESP32 (ESP32 GPIO 25 → P2)
+P3 = รับสัญญาณ OPEN2 จาก ESP32 (ESP32 GPIO 26 → P3)
+P9 = ส่งสัญญาณ ACK กลับ ESP32  (P9 → ESP32 GPIO 27)
 
 มอเตอร์สเต็ปเปอร์ 4 สาย (28BYJ-48 style):
 มอเตอร์ 1 (Insect Bite / แดง) : P4, P5, P6, P7    + 5V, GND
@@ -46,6 +48,11 @@ PIN_ABRASION = DigitalPin.P8
 PIN_INSECT = DigitalPin.P12
 PIN_LED_GREEN = DigitalPin.P0
 PIN_LED_RED = DigitalPin.P1
+
+# ESP32 GPIO สั่งงาน (ไม่ใช้ serial.redirect จึงไม่มีปัญหาพินชน)
+PIN_ESP_CMD1 = DigitalPin.P2    # ESP32 ส่ง HIGH = สั่งเปิดตู้แผลถลอก (OPEN1)
+PIN_ESP_CMD2 = DigitalPin.P3    # ESP32 ส่ง HIGH = สั่งเปิดตู้แมลงกัด (OPEN2)
+PIN_ESP_ACK = DigitalPin.P9     # micro:bit ส่ง HIGH กลับไป ESP32 = ทำงานสำเร็จ
 
 # มอเตอร์ 1 : Insect Bite (แดง)
 MOTOR1_PINS = [DigitalPin.P4, DigitalPin.P5, DigitalPin.P6, DigitalPin.P7]
@@ -283,7 +290,10 @@ def wait_for_button_again(pin: DigitalPin):
 
 # ---------- ฟังก์ชันจ่ายยา/สเปรย์ ----------
 def dispense_abrasion():
-    serial.write_line("OK1")  # ตอบกลับสัญญาณ ACK ไปยัง ESP32 และหน้าเว็บทันที
+    # ส่งสัญญาณ ACK กลับไป ESP32 (กระพือ HIGH 200ms)
+    pins.digital_write_pin(PIN_ESP_ACK, 1)
+    basic.pause(200)
+    pins.digital_write_pin(PIN_ESP_ACK, 0)
     basic.pause(SYMPTOM_DISPLAY_MS)
     show_running()
     motor_run(MOTOR2_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
@@ -297,7 +307,10 @@ def dispense_abrasion():
 
 
 def dispense_insect():
-    serial.write_line("OK2")  # ตอบกลับสัญญาณ ACK ไปยัง ESP32 และหน้าเว็บทันที
+    # ส่งสัญญาณ ACK กลับไป ESP32 (กระพือ HIGH 200ms)
+    pins.digital_write_pin(PIN_ESP_ACK, 1)
+    basic.pause(200)
+    pins.digital_write_pin(PIN_ESP_ACK, 0)
     basic.pause(SYMPTOM_DISPLAY_MS)
     show_running()
     motor_run(MOTOR1_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
@@ -336,19 +349,20 @@ def reset_to_welcome():
     update_display()
 
 
-# ---------- UART SERIAL CONFIG (เชื่อมต่อ ESP32 ผ่าน P2 เท่านั้น ไม่ทับพิน P16) ----------
-serial.redirect(SerialPin.P2, SerialPin.P2, BaudRate.BAUD_RATE115200)
-
-
-def check_serial_commands():
-    cmd = serial.read_string()
-    if len(cmd) > 0:
-        global lastAction
-        lastAction = input.running_time()
-        if "OPEN1" in cmd or "ABRASION" in cmd:
+# ---------- ESP32 GPIO COMMAND HANDLER (ไม่ใช้ serial จึงไม่มีปัญหาพินชนกับปุ่มกด) ----------
+def check_esp_commands():
+    if pins.digital_read_pin(PIN_ESP_CMD1) == 1:
+        basic.pause(BOUNCE_DELAY)
+        if pins.digital_read_pin(PIN_ESP_CMD1) == 1:
             go_to_state(STATE_ABRASION)
-        elif "OPEN2" in cmd or "INSECT" in cmd:
+            while pins.digital_read_pin(PIN_ESP_CMD1) == 1:
+                basic.pause(10)
+    elif pins.digital_read_pin(PIN_ESP_CMD2) == 1:
+        basic.pause(BOUNCE_DELAY)
+        if pins.digital_read_pin(PIN_ESP_CMD2) == 1:
             go_to_state(STATE_INSECT)
+            while pins.digital_read_pin(PIN_ESP_CMD2) == 1:
+                basic.pause(10)
 
 
 # ---------- SETUP ----------
@@ -368,8 +382,8 @@ update_leds()
 def on_forever():
     global startEdge, abrasionEdge, insectEdge
 
-    # 1. ตรวจสอบคำสั่งส่งมาจากหน้าเว็บ/ESP32 ผ่าน UART
-    check_serial_commands()
+    # 1. ตรวจสอบคำสั่งจาก ESP32 ผ่าน GPIO
+    check_esp_commands()
 
     # 2. อ่านปุ่มกดปุ่มหน้าตู้ทุกตัว
     startEdge = start_pressed()
