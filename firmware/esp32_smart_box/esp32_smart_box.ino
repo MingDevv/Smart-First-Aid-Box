@@ -275,6 +275,12 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
     }
     Serial2.println(strcmp(state, "on") == 0 ? "BUZZ1" : "BUZZ0");
     Serial.printf("[MQTT] %s -> เสียงแจ้งเตือน %s\n", cmdId, state);
+  } else if (strcmp(action, "next") == 0) {
+    Serial2.println("NEXT");
+    Serial.printf("[MQTT] %s -> เปลี่ยนหน้าถัดไป (NEXT)\n", cmdId);
+  } else if (strcmp(action, "finish") == 0) {
+    Serial2.println("FINISH");
+    Serial.printf("[MQTT] %s -> จบการดูแลแผล (FINISH)\n", cmdId);
   } else {
     Serial.printf("[MQTT] ไม่รู้จักคำสั่ง: %s\n", action);
     enqueueEvent("cmd_rejected", 0, cmdId, "invalid_action");

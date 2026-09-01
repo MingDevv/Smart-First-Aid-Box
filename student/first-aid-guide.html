@@ -457,6 +457,10 @@
                 if (newIdx >= 0 && newIdx < totalSteps) {
                     currentStepIdx = newIdx;
                     renderSteps();
+                    // Sync step advance with micro:bit cabinet OLED display
+                    if (direction > 0 && typeof ApiBridge !== 'undefined') {
+                        ApiBridge.sendMqttCommand({ action: 'next', drawer: wound.drawer, id: ApiBridge.createCommandId() }).catch(() => {});
+                    }
                 }
             };
 
@@ -668,6 +672,11 @@
                 // Cancel speaking if active
                 if (synth.speaking) {
                     synth.cancel();
+                }
+
+                // Sync FINISH with micro:bit cabinet OLED display
+                if (typeof ApiBridge !== 'undefined') {
+                    ApiBridge.sendMqttCommand({ action: 'finish', drawer: wound.drawer, id: ApiBridge.createCommandId() }).catch(() => {});
                 }
 
                 finishBtn.disabled = true;
