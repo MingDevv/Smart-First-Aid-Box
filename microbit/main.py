@@ -7,7 +7,7 @@ Hardware Connections:
 - มอเตอร์ 2 (แผลถลอก   / ช่อง 1) : P11, P13, P14, P15
 - ปุ่มกดกดมือ P8               : แผลถลอก -> หมุนมอเตอร์ 2
 - ปุ่มกดกดมือ P12              : แมลงกัด -> หมุนมอเตอร์ 1
-- Serial UART (P2=TX, P1=RX)   : เชื่อมต่อ ESP32 (115200 baud)
+- Serial UART (P0=TX, P1=RX)   : เชื่อมต่อ ESP32 (115200 baud)
 ============================================================
 """
 
@@ -49,24 +49,24 @@ def motor_stop(motor_pins: any):
 def dispense_compartment(num: number):
     if num == 1:
         # ช่อง 1 (แผลถลอก / มอเตอร์ 2)
-        motor_run(MOTOR2_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
         serial.write_line("OK1")
+        motor_run(MOTOR2_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
     elif num == 2:
         # ช่อง 2 (แมลงกัด / มอเตอร์ 1)
-        motor_run(MOTOR1_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
         serial.write_line("OK2")
+        motor_run(MOTOR1_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
 
 
-# ---------- UART SERIAL CONFIG (P2=TX, P1=RX) ----------
-serial.redirect(SerialPin.P2, SerialPin.P1, BaudRate.BAUD_RATE115200)
+# ---------- UART SERIAL CONFIG (P0=TX, P1=RX) ----------
+serial.redirect(SerialPin.P0, SerialPin.P1, BaudRate.BAUD_RATE115200)
 
 
 def check_serial_commands():
     cmd = serial.read_line()
     if len(cmd) > 0:
-        if cmd == "OPEN1" or cmd == "ABRASION":
+        if "OPEN1" in cmd or "ABRASION" in cmd:
             dispense_compartment(1)
-        elif cmd == "OPEN2" or cmd == "INSECT":
+        elif "OPEN2" in cmd or "INSECT" in cmd:
             dispense_compartment(2)
 
 

@@ -9,7 +9,7 @@ const ApiBridge = {
     // 2.5s connect + 5.5s device ACK = server budget สูงสุดราว 8s
     // browser ต้องรอนานกว่านั้นเสมอ ไม่เช่นนั้น server อาจ publish หลัง browser fallback ไปแล้ว
     BROWSER_COMMAND_TIMEOUT_MS: 9500,
-    DRAWER_ACK_TIMEOUT_MS: 5500,
+    DRAWER_ACK_TIMEOUT_MS: 7500,
 
     // Check if hardware URL is configured and valid
     isHardwareConfigured(settings) {

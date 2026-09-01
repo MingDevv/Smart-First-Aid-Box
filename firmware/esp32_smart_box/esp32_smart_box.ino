@@ -44,7 +44,7 @@ const char* password = "thawin123";
 const char* MQTT_HOST = "dd1fd4b3ede345959ee8abd925ddb1f9.s1.eu.hivemq.cloud";                          // เช่น "abc123.s1.eu.hivemq.cloud"
 const uint16_t MQTT_PORT = 8883;                     // TLS
 const char* MQTT_USER = "esp32-box1";
-const char* MQTT_PASS = "WW9XmbRdtK@GVJq";
+const char* MQTT_PASS = "THAWIN123";
 const char* BASE_TOPIC = "crms6/firstaidbox/box1";
 
 // คำสั่งที่เก่ากว่านี้จะถูกทิ้ง กันคำสั่งค้างคิวตอนเน็ตหลุดแล้วเด้งกลับมาเปิดตู้เองตอนไม่มีคนอยู่

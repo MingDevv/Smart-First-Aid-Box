@@ -229,10 +229,13 @@
             <!-- Hardware controller interaction status -->
             <div class="hw-status-card" id="hardware-panel">
                 <div class="hw-status-title">
-                    <span id="hardware-indicator-icon">🔌</span>
-                    <span id="hardware-status-label">กำลังเชื่อมต่อตู้ยา Smart Box...</span>
+                    <span id="hardware-indicator-icon">🛡️</span>
+                    <span id="hardware-status-label">รอยืนยันการเปิดตู้ยา...</span>
                 </div>
-                <div class="hw-status-text" id="hardware-log">ระบบกำลังประมวลผลคำสั่งไปยังบอร์ดควบคุม micro:bit</div>
+                <div class="hw-status-text" id="hardware-log">กรุณายืนยันการเปิดตู้ยาเพื่อรับเวชภัณฑ์การปฐมพยาบาล</div>
+                <button id="manual-open-drawer-btn" onclick="openConfirmModal()" style="display:none; margin-top:10px; font-size:13px; padding:8px 16px; border-radius:10px;" class="btn btn-primary">
+                    🔓 กดยืนยันเพื่อเปิดตู้ยา
+                </button>
             </div>
 
             <!-- Items needed -->
@@ -297,6 +300,32 @@
             <h2>ไม่พบประเภทบาดแผล</h2>
             <p style="color:var(--text-muted); margin-bottom:20px; font-size:14px;">ไม่พบข้อมูลและแนวทางการปฐมพยาบาลสำหรับแผลที่คุณระบุ</p>
             <button class="btn btn-primary" onclick="location.href='/student/'">กลับสู่หน้าหลัก</button>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal Overlay -->
+    <div id="confirm-modal-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(6px); z-index:9999; justify-content:center; align-items:center; padding:20px;">
+        <div class="card animate-slide-up" style="max-width:420px; width:100%; text-align:center; padding:28px 24px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); border-radius:24px; border:2px solid var(--primary-light, #E0F2FE); background:#FFFFFF;">
+            <div style="font-size:48px; margin-bottom:10px;" id="modal-wound-icon">🤕</div>
+            <h3 style="margin:0 0 4px 0; color:var(--text-main, #0F172A); font-size:20px; font-weight:700;" id="modal-wound-title">ยืนยันการเปิดตู้ยา</h3>
+            <p style="color:var(--primary, #0284C7); font-weight:600; font-size:13px; margin:0 0 16px 0;" id="modal-source-label">วิเคราะห์โดยระบบ AI</p>
+
+            <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:16px; padding:14px; margin-bottom:20px; text-align:left;">
+                <div style="font-size:12px; color:#64748B; font-weight:600;">📍 ลิ้นชักที่จะเปิด:</div>
+                <div style="font-size:15px; font-weight:700; color:#1E293B; margin-top:4px;" id="modal-drawer-info">ลิ้นชักช่องที่ 1 (ยาทาแผลถลอก)</div>
+                <div style="font-size:12px; color:#EF4444; margin-top:8px; display:flex; align-items:center; gap:4px; font-weight:500;">
+                    <span>⚠️</span> <span>คำเตือน: โปรดยืนยันเฉพาะเมื่อต้องการหยิบยาไปรักษาจริงเท่านั้น (ป้องกันยาทะลัก)</span>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button class="btn btn-outline" style="flex:1; border-radius:14px; font-size:13px; padding:12px 10px;" id="btn-cancel-modal" onclick="closeConfirmModal(false)">
+                    ❌ ไม่เปิดตู้ยา
+                </button>
+                <button class="btn btn-primary" style="flex:1.2; border-radius:14px; font-size:13px; padding:12px 10px; background:linear-gradient(135deg, #10B981 0%, #059669 100%); border:none; color:white; font-weight:600; box-shadow:0 4px 12px rgba(16,185,129,0.3);" id="btn-confirm-modal" onclick="confirmOpenDrawer()">
+                    🔓 ยืนยันเปิดตู้ยา
+                </button>
+            </div>
         </div>
     </div>
 
@@ -474,6 +503,56 @@
             const hardwareLabel = document.getElementById("hardware-status-label");
             const hardwareLog = document.getElementById("hardware-log");
 
+            let drawerOpened = false;
+
+            function getDrawerName(wId) {
+                const map = {
+                    cut_abrasion: "ลิ้นชักช่องที่ 1 (ยาทาแผลถลอก / Cut & Abrasion)",
+                    abrasion: "ลิ้นชักช่องที่ 1 (ยาทาแผลถลอก / Abrasion)",
+                    cut: "ลิ้นชักช่องที่ 1 (ยาทาแผลถลอก / Cut)",
+                    insect: "ลิ้นชักช่องที่ 2 (ยาทาแผลแมลงสัตว์กัดต่อย / Insect Bite)"
+                };
+                return map[wId] || "ลิ้นชักช่องที่ 1";
+            }
+
+            window.openConfirmModal = function() {
+                if (drawerOpened) return;
+                const isAi = urlParams.get('source') === 'ai-scan';
+                document.getElementById("modal-wound-icon").innerText = wound.icon || "🤕";
+                document.getElementById("modal-wound-title").innerText = `ยืนยันเปิดตู้ยา: ${wound.name_th}`;
+                document.getElementById("modal-source-label").innerText = isAi ? "🤖 วิเคราะห์โดยระบบ AI" : "📋 เลือกประเภทบาดแผลโดยผู้ใช้";
+                document.getElementById("modal-drawer-info").innerText = getDrawerName(wound.id);
+
+                const modal = document.getElementById("confirm-modal-overlay");
+                modal.style.display = "flex";
+            };
+
+            window.closeConfirmModal = function(accepted = false) {
+                const modal = document.getElementById("confirm-modal-overlay");
+                modal.style.display = "none";
+
+                if (!accepted && !drawerOpened) {
+                    hardwareIndicator.innerText = "⏸️";
+                    hardwareLabel.innerText = "ยังไม่ได้เปิดตู้ยา (ผู้ใช้ยกเลิกการเปิดตู้)";
+                    hardwareLabel.style.color = "var(--text-main)";
+                    hardwareLog.innerText = "คุณยกเลิกการเปิดตู้ยาในขั้นตอนนี้ หากต้องการเปิดตู้ยาเพื่อรับเวชภัณฑ์ภายหลัง สามารถกดปุ่มด้านล่างได้ตลอดเวลา";
+                    document.getElementById("manual-open-drawer-btn").style.display = "inline-flex";
+                }
+            };
+
+            window.confirmOpenDrawer = async function() {
+                const btnConfirm = document.getElementById("btn-confirm-modal");
+                if (btnConfirm) {
+                    btnConfirm.disabled = true;
+                    btnConfirm.innerText = "⏳ กำลังส่งคำสั่ง...";
+                }
+
+                closeConfirmModal(true);
+                drawerOpened = true;
+                document.getElementById("manual-open-drawer-btn").style.display = "none";
+                await triggerHardware();
+            };
+
             async function triggerHardware() {
                 if (wound.id === 'unknown') {
                     hardwareIndicator.innerText = "🔒";
@@ -508,6 +587,10 @@
                 }
 
                 try {
+                    hardwareIndicator.innerText = "⏳";
+                    hardwareLabel.innerText = "กำลังสั่งเปิดตู้ยา...";
+                    hardwareLog.innerText = "กำลังส่งสัญญาณปลดล็อกลิ้นชักตู้ยาผ่าน MQTT/บอร์ดควบคุม...";
+
                     // Send command to open drawer
                     const response = await ApiBridge.openCompartment(wound.id);
                     if (response.success) {
@@ -527,17 +610,23 @@
                         hardwareLabel.style.color = "#DC2626";
                         hardwareLog.innerText = `❌ ${response.error || 'ไม่สามารถสั่งเปิดตู้ยาได้'} — คุณสามารถหยิบยาดำเนินการด้วยตนเองหรือแจ้งครูพยาบาล`;
                         NotificationService.showToast(response.error || "การเปิดตู้ยาขัดข้อง", "danger");
+                        document.getElementById("manual-open-drawer-btn").style.display = "inline-flex";
+                        drawerOpened = false;
                     }
                 } catch(err) {
                     hardwareIndicator.innerText = "❌";
                     hardwareLabel.innerText = "การเชื่อมตู้ยาขัดข้อง";
                     hardwareLog.innerText = "ไม่สามารถเชื่อมต่อกับบอร์ดควบคุมได้ แต่คุณสามารถเปิดตู้เพื่อใช้ยาได้ด้วยตนเอง";
                     NotificationService.showToast("ไม่สามารถเชื่อมต่อตู้ยาได้", "danger");
+                    document.getElementById("manual-open-drawer-btn").style.display = "inline-flex";
+                    drawerOpened = false;
                 }
             }
 
-            // Fire hardware trigger
-            triggerHardware();
+            // Open confirmation modal automatically if valid wound
+            if (wound.id !== 'unknown') {
+                setTimeout(() => openConfirmModal(), 300);
+            }
 
             // Finish button flow
             const finishBtn = document.getElementById("finish-btn");
