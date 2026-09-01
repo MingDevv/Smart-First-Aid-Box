@@ -283,7 +283,9 @@ def wait_for_button_again(pin: DigitalPin):
 
 # ---------- ฟังก์ชันจ่ายยา/สเปรย์ ----------
 def dispense_abrasion():
-    serial.write_line("OK1")  # ตอบกลับสัญญาณ ACK ไปยัง ESP32 และหน้าเว็บทันที
+    for i in range(3):
+        serial.write_line("OK1")  # ส่ง ACK 3 ครั้งกันสัญญาณหล่น เพื่อให้เว็บขึ้นเปิดสำเร็จ 100%
+        basic.pause(50)
     basic.pause(SYMPTOM_DISPLAY_MS)
     show_running()
     motor_run(MOTOR2_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
@@ -297,7 +299,9 @@ def dispense_abrasion():
 
 
 def dispense_insect():
-    serial.write_line("OK2")  # ตอบกลับสัญญาณ ACK ไปยัง ESP32 และหน้าเว็บทันที
+    for i in range(3):
+        serial.write_line("OK2")  # ส่ง ACK 3 ครั้งกันสัญญาณหล่น เพื่อให้เว็บขึ้นเปิดสำเร็จ 100%
+        basic.pause(50)
     basic.pause(SYMPTOM_DISPLAY_MS)
     show_running()
     motor_run(MOTOR1_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
