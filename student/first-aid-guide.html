@@ -415,16 +415,26 @@
                     const stepItem = document.createElement("div");
                     stepItem.className = `step-item ${idx === currentStepIdx ? 'active-step' : ''}`;
                     stepItem.id = `step-node-${idx}`;
-                    
+
                     if (isSingleStepMode && idx !== currentStepIdx) {
                         stepItem.style.display = "none";
                     } else {
                         stepItem.style.display = "flex";
                     }
 
+                    const details = wound.stepDetails || [];
+                    const detail = details[idx] || {};
+                    const stepImgHtml = detail.image
+                        ? `<img src="${detail.image}" style="width:76px; height:76px; object-fit:cover; border-radius:12px; border:1px solid #E2E8F0; background:white; padding:4px; flex-shrink:0;" alt="${detail.title || step}">`
+                        : '';
+
                     stepItem.innerHTML = `
-                        <div class="step-number">${idx + 1}</div>
-                        <div class="step-text">${step}</div>
+                        <div class="step-number" style="margin-top:2px;">${idx + 1}</div>
+                        <div style="flex:1;">
+                            <div style="font-weight:700; font-size:14px; color:#1E293B; margin-bottom:4px;">${detail.title || ('ขั้นตอนที่ ' + (idx + 1))}</div>
+                            <div class="step-text" style="font-size:13px; color:#475569; line-height:1.5;">${detail.desc || step}</div>
+                        </div>
+                        ${stepImgHtml}
                     `;
                     stepsContainer.appendChild(stepItem);
                 });
@@ -457,9 +467,6 @@
                 if (newIdx >= 0 && newIdx < totalSteps) {
                     currentStepIdx = newIdx;
                     renderSteps();
-                    if (direction > 0 && window.ApiBridge) {
-                        window.ApiBridge.sendStepNext();
-                    }
                 }
             };
 
@@ -675,11 +682,6 @@
 
                 finishBtn.disabled = true;
                 finishBtn.innerText = "กำลังบันทึกประวัติการใช้ยา...";
-
-                // Sync cabinet OLED display to Finish and return to Welcome
-                if (window.ApiBridge) {
-                    window.ApiBridge.sendCareFinish();
-                }
 
                 // 1. Get current logged in student info
                 const currentStudent = StorageService.getCurrentStudent() || { studentId: '12345', name: 'นายหมิง พัฒนาการ', class: 'ม.4/1' };

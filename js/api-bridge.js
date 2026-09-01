@@ -306,26 +306,6 @@ const ApiBridge = {
             console.warn(`[ApiBridge Error] ESP32 Buzzer link failed at ${url}:`, err);
             return { success: false, mode: 'error', error: 'ไม่สามารถส่งสัญญาณไซเรนไปยังอุปกรณ์ได้' };
         }
-    },
-
-    // Sync OLED Display to Next Step
-    async sendStepNext() {
-        const commandId = this.createCommandId();
-        return this.sendMqttCommand({
-            action: 'next',
-            id: commandId,
-            ts: Date.now()
-        });
-    },
-
-    // Sync OLED Display to Finish Session
-    async sendCareFinish() {
-        const commandId = this.createCommandId();
-        return this.sendMqttCommand({
-            action: 'finish',
-            id: commandId,
-            ts: Date.now()
-        });
     }
 };
 
