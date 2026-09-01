@@ -533,10 +533,13 @@
 
                 if (!accepted && !drawerOpened) {
                     hardwareIndicator.innerText = "⏸️";
-                    hardwareLabel.innerText = "ยังไม่ได้เปิดตู้ยา (ผู้ใช้ยกเลิกการเปิดตู้)";
+                    hardwareLabel.innerText = "ยกเลิกการเปิดตู้ยา";
                     hardwareLabel.style.color = "var(--text-main)";
-                    hardwareLog.innerText = "คุณยกเลิกการเปิดตู้ยาในขั้นตอนนี้ หากต้องการเปิดตู้ยาเพื่อรับเวชภัณฑ์ภายหลัง สามารถกดปุ่มด้านล่างได้ตลอดเวลา";
-                    document.getElementById("manual-open-drawer-btn").style.display = "inline-flex";
+                    hardwareLog.innerText = "ผู้ใช้ยกเลิกการเปิดตู้ยา กำลังพากลับสู่หน้าเลือกประเภทบาดแผล...";
+                    NotificationService.showToast("ยกเลิกการเปิดตู้ยา — กำลังกลับสู่หน้าเลือกแผล", "warning");
+                    setTimeout(() => {
+                        location.href = "/student/";
+                    }, 600);
                 }
             };
 
@@ -611,7 +614,6 @@
                         hardwareLog.innerText = `❌ ${response.error || 'ไม่สามารถสั่งเปิดตู้ยาได้'} — คุณสามารถหยิบยาดำเนินการด้วยตนเองหรือแจ้งครูพยาบาล`;
                         NotificationService.showToast(response.error || "การเปิดตู้ยาขัดข้อง", "danger");
                         document.getElementById("manual-open-drawer-btn").style.display = "inline-flex";
-                        drawerOpened = false;
                     }
                 } catch(err) {
                     hardwareIndicator.innerText = "❌";
@@ -619,7 +621,6 @@
                     hardwareLog.innerText = "ไม่สามารถเชื่อมต่อกับบอร์ดควบคุมได้ แต่คุณสามารถเปิดตู้เพื่อใช้ยาได้ด้วยตนเอง";
                     NotificationService.showToast("ไม่สามารถเชื่อมต่อตู้ยาได้", "danger");
                     document.getElementById("manual-open-drawer-btn").style.display = "inline-flex";
-                    drawerOpened = false;
                 }
             }
 
@@ -631,6 +632,12 @@
             // Finish button flow
             const finishBtn = document.getElementById("finish-btn");
             finishBtn.addEventListener("click", async () => {
+                // Security check: Don't allow saving history if drawer was never opened / user cancelled
+                if (!drawerOpened) {
+                    NotificationService.showToast("🚨 ไม่สามารถบันทึกประวัติได้ เนื่องจากไม่ได้มีการเปิดตู้ยาจริง", "danger");
+                    openConfirmModal();
+                    return;
+                }
                 // Cancel speaking if active
                 if (synth.speaking) {
                     synth.cancel();
