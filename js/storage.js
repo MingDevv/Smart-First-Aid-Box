@@ -148,7 +148,7 @@ const StorageService = {
         if (!baseUrl || !anonKey) {
             console.log('[Supabase] URL or Anon Key not configured in settings. Local fallback active.');
             if (window.NotificationService) {
-                window.NotificationService.showToast('💡 คุณสามารถตั้งค่า Supabase URL & Key ในตั้งค่าเพื่อบันทึกลง Database ออนไลน์ได้', 'info');
+                window.NotificationService.showToast('คุณสามารถตั้งค่า Supabase URL และ Key เพื่อบันทึกลงฐานข้อมูลออนไลน์ได้', 'info');
             }
             return;
         }
@@ -183,7 +183,7 @@ const StorageService = {
             if (response.ok || response.status === 201 || response.status === 200) {
                 console.log('[Supabase] ✅ Successfully inserted record into Supabase!');
                 if (window.NotificationService) {
-                    window.NotificationService.showToast('☁️ บันทึกลง Supabase สำเร็จเรียบร้อย!', 'success');
+                    window.NotificationService.showToast('บันทึกลง Supabase สำเร็จเรียบร้อย', 'success');
                 }
             } else {
                 const errText = await response.text();

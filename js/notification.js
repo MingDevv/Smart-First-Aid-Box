@@ -14,7 +14,6 @@ const NotificationService = {
     // Show a beautiful, floating toast notification
     showToast(message, type = 'info') {
         const safeMessage = this.escapeHtml(String(message));
-        // Create container if it doesn't exist
         let container = document.getElementById('toast-container');
         if (!container) {
             container = document.createElement('div');
@@ -29,22 +28,24 @@ const NotificationService = {
             container.style.gap = '10px';
             container.style.width = '90%';
             container.style.maxWidth = '360px';
+            container.style.pointerEvents = 'none';
             document.body.appendChild(container);
         }
 
-        // Create toast element
         const toast = document.createElement('div');
-        toast.style.padding = '12px 16px';
-        toast.style.borderRadius = '8px';
-        toast.style.fontSize = '14px';
-        toast.style.fontWeight = '500';
+        toast.style.padding = '13px 16px';
+        toast.style.border = '1px solid rgba(255, 255, 255, 0.18)';
+        toast.style.borderRadius = '16px';
+        toast.style.fontSize = '13px';
+        toast.style.fontWeight = '600';
         toast.style.color = '#FFFFFF';
-        toast.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
+        toast.style.boxShadow = '0 18px 36px -24px rgba(20, 55, 58, 0.8)';
         toast.style.display = 'flex';
         toast.style.alignItems = 'center';
-        toast.style.gap = '8px';
+        toast.style.gap = '10px';
         toast.style.animation = 'slideUpToast 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards';
-        toast.style.fontFamily = 'Sarabun, sans-serif';
+        toast.style.fontFamily = '"IBM Plex Sans Thai", sans-serif';
+        toast.style.lineHeight = '1.45';
 
         // Add CSS keyframes dynamically if not present
         if (!document.getElementById('toast-animation-style')) {
@@ -63,22 +64,15 @@ const NotificationService = {
             document.head.appendChild(style);
         }
 
-        // Color theme mapping
-        let icon = 'ℹ️';
-        if (type === 'success') {
-            toast.style.backgroundColor = '#059669'; // success (Emerald)
-            icon = '✅';
-        } else if (type === 'danger') {
-            toast.style.backgroundColor = '#DC2626'; // danger (Crimson)
-            icon = '🚨';
-        } else if (type === 'warning') {
-            toast.style.backgroundColor = '#D97706'; // warning (Amber)
-            icon = '⚠️';
-        } else {
-            toast.style.backgroundColor = '#1E3A8A'; // info (Navy)
-        }
-
-        toast.innerHTML = `<span>${icon}</span> <span>${safeMessage}</span>`;
+        const themes = {
+            success: { background: 'oklch(0.48 0.11 165)', icon: 'check_circle' },
+            danger: { background: 'oklch(0.55 0.18 28)', icon: 'error' },
+            warning: { background: 'oklch(0.57 0.14 55)', icon: 'warning' },
+            info: { background: 'oklch(0.44 0.09 195)', icon: 'info' }
+        };
+        const theme = themes[type] || themes.info;
+        toast.style.backgroundColor = theme.background;
+        toast.innerHTML = `<span class="material-symbols-rounded" aria-hidden="true" style="font-size:20px; flex:0 0 auto;">${theme.icon}</span><span>${safeMessage}</span>`;
         container.appendChild(toast);
 
         // Auto remove toast
@@ -339,15 +333,15 @@ const NotificationService = {
         modal.style.position = 'fixed';
         modal.style.top = '20px';
         modal.style.right = '20px';
-        modal.style.backgroundColor = '#0F172A'; // Deep Slate background
-        modal.style.color = '#FFFFFF';
+        modal.style.backgroundColor = 'oklch(0.985 0.008 165)';
+        modal.style.color = 'oklch(0.27 0.025 210)';
         modal.style.padding = '0';
-        modal.style.borderRadius = '16px';
-        modal.style.boxShadow = '0 25px 40px -10px rgba(0,0,0,0.4), 0 10px 15px -5px rgba(0,0,0,0.2)';
-        modal.style.width = '350px';
+        modal.style.borderRadius = '24px';
+        modal.style.boxShadow = '0 28px 60px -34px rgba(20,55,58,0.65)';
+        modal.style.width = 'min(350px, calc(100vw - 32px))';
         modal.style.zIndex = '10000';
-        modal.style.fontFamily = 'Sarabun, Prompt, sans-serif';
-        modal.style.border = '1px solid rgba(255,255,255,0.15)';
+        modal.style.fontFamily = '"IBM Plex Sans Thai", sans-serif';
+        modal.style.border = '1px solid oklch(0.88 0.018 190)';
         modal.style.overflow = 'hidden';
         modal.style.animation = 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards';
 
@@ -450,7 +444,7 @@ const NotificationService = {
                 </div>
                 <div style="padding:16px; background:#FFFFFF; color:#1E293B;">
                     ${bodyContentBlocks}
-                    <button style="width:100%; margin-top:10px; padding:10px; background:${btnBg}; color:white; border:none; border-radius:8px; font-weight:600; font-size:13px; cursor:pointer; font-family:Prompt; transition:opacity 0.2s;">
+                    <button style="width:100%; margin-top:10px; padding:11px; background:${btnBg}; color:white; border:none; border-radius:14px; font-weight:700; font-size:13px; cursor:pointer; font-family:Anuphan, sans-serif; transition:opacity 0.2s;">
                         ${btnLabel}
                     </button>
                 </div>
@@ -460,7 +454,7 @@ const NotificationService = {
             const safeMsg = this.escapeHtml(typeof payload === 'string' ? payload : JSON.stringify(payload));
             innerContentHtml = `
                 <div style="background:#06C755; padding:14px 16px; color:white; display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:18px;">💬</span>
+                    <span class="material-symbols-rounded" aria-hidden="true" style="font-size:20px;">chat</span>
                     <strong style="font-size:14px; font-weight:600;">LINE Notification (จำลอง)</strong>
                     <span style="margin-left:auto; font-size:11px; opacity:0.85;">เมื่อสักครู่</span>
                 </div>
@@ -470,9 +464,9 @@ const NotificationService = {
 
         modal.innerHTML = `
             ${innerContentHtml}
-            <div style="background:#0F172A; padding:10px 14px; display:flex; align-items:center; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.1);">
-                <span style="font-size:11px; color:#94A3B8;">✨ LINE Flex Message (ดูง่าย เด่นชัด)</span>
-                <button onclick="this.parentElement.parentElement.remove()" style="background:rgba(255,255,255,0.15); border:none; border-radius:6px; color:#F8FAFC; padding:4px 12px; font-size:11px; cursor:pointer; font-family:Prompt; font-weight:500;">ปิด</button>
+            <div style="background:oklch(0.94 0.035 180); padding:10px 14px; display:flex; align-items:center; justify-content:space-between; border-top:1px solid oklch(0.88 0.018 190);">
+                <span style="display:flex; align-items:center; gap:5px; font-size:11px; color:oklch(0.45 0.03 200);"><span class="material-symbols-rounded" aria-hidden="true" style="font-size:16px;">forum</span>ตัวอย่าง LINE Flex Message</span>
+                <button onclick="this.parentElement.parentElement.remove()" style="background:#fff; border:1px solid oklch(0.86 0.02 190); border-radius:10px; color:oklch(0.34 0.04 200); padding:5px 12px; font-size:11px; cursor:pointer; font-family:Anuphan, sans-serif; font-weight:600;">ปิด</button>
             </div>
         `;
 

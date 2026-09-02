@@ -2,207 +2,118 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>กล่องปฐมพยาบาลอัจฉริยะ - โรงเรียนเทศบาล 6 นครเชียงราย</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#078683">
+    <title>Smart First Aid Box — โรงเรียนเทศบาล 6 นครเชียงราย</title>
     <link rel="stylesheet" href="css/global.css">
-    <style>
-        .portal-header {
-            text-align: center;
-            padding: 24px 0 16px 0;
-            border-bottom: 2px solid var(--primary-light);
-            margin-bottom: 20px;
-        }
-
-        .school-badge {
-            background-color: var(--primary-light);
-            color: var(--primary);
-            border: 1px solid #DBEAFE;
-            font-size: 13px;
-            font-weight: 600;
-            padding: 6px 16px;
-            border-radius: 20px;
-            display: inline-block;
-            margin-bottom: 12px;
-            font-family: var(--font-prompt), sans-serif;
-        }
-
-        .portal-title {
-            font-size: 26px;
-            font-weight: 700;
-            color: var(--primary);
-            margin-bottom: 4px;
-        }
-
-        .portal-subtitle {
-            font-size: 14px;
-            color: var(--text-muted);
-        }
-
-        /* 2 Stat Counters Only */
-        .simple-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin: 20px 0;
-        }
-
-        .stat-box {
-            background-color: #FFFFFF;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            padding: 16px;
-            text-align: center;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .stat-number {
-            font-family: var(--font-prompt), sans-serif;
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--secondary);
-            line-height: 1.2;
-        }
-
-        .stat-title {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-top: 4px;
-            font-weight: 500;
-        }
-
-        .portal-description {
-            font-size: 14px;
-            color: var(--text-main);
-            margin-bottom: 20px;
-            text-align: center;
-            line-height: 1.5;
-        }
-
-        .menu-list {
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }
-
-        .menu-item-btn {
-            display: flex;
-            align-items: center;
-            padding: 18px 20px;
-            background-color: #FFFFFF;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            transition: all 0.15s ease;
-            text-align: left;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .menu-item-btn:hover {
-            border-color: var(--primary);
-            box-shadow: var(--shadow-md);
-            background-color: #F8FAFC;
-        }
-
-        .menu-item-icon {
-            font-size: 32px;
-            margin-right: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 52px;
-            height: 52px;
-            background-color: var(--primary-light);
-            border: 1px solid #DBEAFE;
-            border-radius: var(--radius-sm);
-            color: var(--primary);
-            flex-shrink: 0;
-        }
-
-        .menu-item-content {
-            flex: 1;
-        }
-
-        .menu-item-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--primary);
-            margin-bottom: 3px;
-        }
-
-        .menu-item-desc {
-            font-size: 13px;
-            color: var(--text-muted);
-            line-height: 1.4;
-        }
-
-        .menu-item-arrow {
-            font-size: 18px;
-            color: var(--text-muted);
-            margin-left: 8px;
-        }
-    </style>
+    <link rel="stylesheet" href="css/home.css">
+    <link rel="stylesheet" href="css/student-responsive.css">
 </head>
-<body>
-    <div class="container animate-fade-in">
-        <div class="portal-header">
-            <img src="images/logo_first_aid.png" alt="Smart First Aid Box Logo" style="width:72px; height:72px; object-fit:contain; margin-bottom:8px;">
-            <span class="school-badge" style="display:block; width:fit-content; margin:0 auto 10px auto;">🏫 โรงเรียนเทศบาล 6 นครเชียงราย</span>
-            <h1 class="portal-title">Smart First Aid Box</h1>
-            <p class="portal-subtitle">ระบบกล่องปฐมพยาบาลอัจฉริยะประจำสถานศึกษา (micro:bit v2 + ESP32)</p>
-        </div>
-
-        <div style="margin-bottom:20px; border-radius:16px; overflow:hidden; border:1px solid var(--border-color); box-shadow:var(--shadow-sm);">
-            <img src="images/hero_banner.png" alt="Smart First Aid Box Banner" style="width:100%; height:160px; object-fit:cover; display:block;">
-        </div>
-
-        <div class="menu-list">
-            <!-- Student Portal -->
-            <div class="menu-item-btn" onclick="location.href='student/'">
-                <div class="menu-item-icon">🩹</div>
-                <div class="menu-item-content">
-                    <div class="menu-item-title">ระบบปฐมพยาบาล (สำหรับนักเรียน)</div>
-                    <div class="menu-item-desc">เลือกบาดแผลเพื่อดูขั้นตอนการทำแผล และปลดล็อกช่องเก็บยาอัตโนมัติ</div>
+<body class="home-body">
+    <main class="home-app animate-fade-in">
+        <section class="home-hero">
+            <div class="home-brand-row">
+                <div class="home-brand">
+                    <img class="home-logo" src="images/logo_first_aid.webp" width="72" height="72" alt="ตรา Smart First Aid Box">
+                    <span class="home-brand-name">SMART FIRST AID BOX</span>
                 </div>
-                <div class="menu-item-arrow">→</div>
+                <a class="home-status menu-item-btn" href="student/kiosk" aria-label="เปิดโหมดหน้าจอประจำตู้">พร้อมใช้</a>
             </div>
 
-            <!-- Teacher/Nurse Dashboard -->
-            <div class="menu-item-btn" onclick="location.href='dashboard/'">
-                <div class="menu-item-icon">📊</div>
-                <div class="menu-item-content">
-                    <div class="menu-item-title">แดชบอร์ดคลังยา (สำหรับครูพยาบาล)</div>
-                    <div class="menu-item-desc">ตรวจสอบประวัติการทำแผล ยอดคงเหลือเวชภัณฑ์ และจัดการตู้ยา</div>
-                </div>
-                <div class="menu-item-arrow">→</div>
-            </div>
+            <h1 class="home-title">เจ็บตรงไหน?<br>สแกนแผลได้เลย</h1>
+            <p class="home-description">AI ช่วยดูว่าเป็นแผลแบบไหน แล้วพาทำแผลทีละขั้น พร้อมปลดล็อกช่องยาอัตโนมัติ</p>
+            <figure class="home-hero-visual">
+                <img src="images/smart_box_full.webp" width="900" height="900" alt="กล่องปฐมพยาบาลอัจฉริยะพร้อมหน้าจอควบคุม">
+                <figcaption class="hero-float hero-float-ai"><span class="material-symbols-rounded" aria-hidden="true">auto_awesome</span>AI ช่วยวิเคราะห์แผล</figcaption>
+                <span class="hero-float hero-float-device"><span class="material-symbols-rounded" aria-hidden="true">sensors</span>ESP32 · MQTT พร้อมเชื่อมต่อ</span>
+            </figure>
+        </section>
 
-            <!-- About Project -->
-            <div class="menu-item-btn" onclick="location.href='student/about'">
-                <div class="menu-item-icon">ℹ️</div>
-                <div class="menu-item-content">
-                    <div class="menu-item-title">เกี่ยวกับโครงงาน</div>
-                    <div class="menu-item-desc">รายละเอียดโครงงาน micro:bit Challenge 2026 และทีมผู้พัฒนา</div>
-                </div>
-                <div class="menu-item-arrow">→</div>
+        <section class="home-content" aria-label="เลือกบริการ">
+            <div class="home-content-heading">
+                <div class="eyebrow">CHOOSE YOUR CARE PATH</div>
+                <h2>เริ่มดูแลแผลเบื้องต้น</h2>
+                <p>เลือกวิธีที่สะดวก ระบบจะพาไปทีละขั้นอย่างชัดเจน</p>
             </div>
+            <a class="home-action primary-action" href="student/wound-scan">
+                <img class="home-action-media" src="images/ai_scanner_hero.webp" width="480" height="480" alt="สแกนบาดแผลด้วย AI">
+                <span class="home-action-copy">
+                    <span class="home-action-title">สแกนแผลด้วย AI</span>
+                    <span class="home-action-desc">ถ่ายรูปแผล ระบบบอกวิธีทำแผลให้</span>
+                </span>
+                <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
+            </a>
+
+            <a class="home-action" href="student/wound-select">
+                <span class="home-action-icon" aria-hidden="true"><span class="material-symbols-rounded">list_alt</span></span>
+                <span class="home-action-copy">
+                    <span class="home-action-title">เลือกประเภทแผลเอง</span>
+                    <span class="home-action-desc">แผลมีดบาด/ถลอก · แมลงกัดต่อย</span>
+                </span>
+                <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
+            </a>
+
+            <a class="home-action" href="dashboard/">
+                <span class="home-action-icon peach" aria-hidden="true"><span class="material-symbols-rounded">monitoring</span></span>
+                <span class="home-action-copy">
+                    <span class="home-action-title">ครูพยาบาล</span>
+                    <span class="home-action-desc">คลังยา · ประวัติ · แจ้งเตือน</span>
+                </span>
+                <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
+            </a>
+
+            <div style="display:flex; justify-content:center; gap:18px; flex-wrap:wrap;">
+                <a class="home-meta-link" href="student/history"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติการใช้งาน</a>
+                <a class="home-meta-link" href="student/about"><span class="material-symbols-rounded" aria-hidden="true">info</span>เกี่ยวกับโครงงาน</a>
+            </div>
+        </section>
+
+        <div class="sos-dock">
+            <button class="sos-button" id="home-sos-button" type="button" onclick="triggerHomeSos()">
+                <span class="material-symbols-rounded" aria-hidden="true">emergency</span>
+                <span>เรียกครูพยาบาลด่วน</span>
+            </button>
+            <a class="sos-school" href="student/about">โรงเรียนเทศบาล 6 นครเชียงราย</a>
         </div>
+    </main>
 
-        <footer class="app-footer">
-            <p>© 2026 ทีมผู้พัฒนา CRMS6 - โรงเรียนเทศบาล 6 นครเชียงราย</p>
-            <p style="font-size: 11px; margin-top: 4px; opacity: 0.8;">โครงการแข่งขัน micro:bit Thailand Challenge 2026</p>
-        </footer>
-    </div>
-
-    <!-- Live Stats Script -->
     <script src="js/storage.js"></script>
+    <script src="js/notification.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mqtt@5.15.2/dist/mqtt.min.js"></script>
+    <script src="js/mqtt-bridge.js"></script>
+    <script src="js/api-bridge.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const history = StorageService.getHistory();
-            const medicines = StorageService.getMedicines();
+        async function triggerHomeSos() {
+            if (!confirm('ต้องการส่งสัญญาณเรียกครูพยาบาลด่วนใช่หรือไม่?')) return;
 
-            document.getElementById('stat-med-count').innerText = medicines.length;
-            document.getElementById('stat-total-usage').innerText = history.length;
-        });
+            const button = document.getElementById('home-sos-button');
+            button.disabled = true;
+            button.querySelector('span:last-child').textContent = 'กำลังส่งสัญญาณ...';
+
+            try {
+                const student = StorageService.getCurrentStudent();
+                const studentName = student ? `${student.name} (${student.class})` : 'นักเรียนทั่วไป';
+                const payload = NotificationService.buildSosFlexMessage(studentName);
+                const [notificationResult, buzzerResult] = await Promise.all([
+                    NotificationService.sendLineNotification(payload),
+                    ApiBridge.triggerBuzzer('on')
+                ]);
+
+                if (notificationResult.mode === 'simulation' || buzzerResult.mode === 'simulation') {
+                    NotificationService.showToast('โหมดสาธิต: จำลองการส่ง SOS แล้ว', 'warning');
+                } else if (notificationResult.success && buzzerResult.success) {
+                    NotificationService.showToast('ส่ง SOS ถึงครูพยาบาลเรียบร้อยแล้ว', 'success');
+                } else {
+                    NotificationService.showToast('ส่งคำขอได้ไม่ครบ กรุณาเรียกครูใกล้ที่สุดทันที', 'danger');
+                }
+            } catch (error) {
+                console.error('[Home] SOS failed:', error);
+                NotificationService.showToast('ส่ง SOS ไม่สำเร็จ กรุณาเรียกครูใกล้ที่สุดทันที', 'danger');
+            } finally {
+                button.disabled = false;
+                button.querySelector('span:last-child').textContent = 'เรียกครูพยาบาลด่วน';
+            }
+        }
     </script>
 </body>
 </html>

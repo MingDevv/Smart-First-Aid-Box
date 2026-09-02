@@ -2,249 +2,57 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>เกี่ยวกับโครงงาน - Smart First Aid Box</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#d9f6e9">
+    <title>เกี่ยวกับโครงงาน — Smart First Aid Box</title>
     <link rel="stylesheet" href="../css/global.css">
     <style>
-        .about-hero {
-            background: linear-gradient(135deg, var(--primary) 0%, #1E40AF 100%);
-            color: white;
-            border-radius: var(--radius-md);
-            padding: 24px 20px;
-            margin-bottom: 20px;
-            text-align: center;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .about-badge {
-            background-color: rgba(255, 255, 255, 0.15);
-            color: white;
-            font-size: 11px;
-            font-weight: 600;
-            padding: 4px 12px;
-            border-radius: 12px;
-            display: inline-block;
-            margin-bottom: 10px;
-            backdrop-filter: blur(4px);
-        }
-
-        .about-title {
-            color: white;
-            font-size: 22px;
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
-
-        .about-sub {
-            font-size: 13px;
-            opacity: 0.9;
-        }
-
-        .info-card {
-            background: #FFFFFF;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            padding: 20px;
-            margin-bottom: 16px;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .info-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 16px;
-            font-weight: 700;
-            color: var(--primary);
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .team-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-top: 12px;
-            text-align: center;
-        }
-
-        .team-member {
-            background-color: var(--primary-light);
-            border: 1px solid rgba(30, 58, 138, 0.1);
-            border-radius: var(--radius-sm);
-            padding: 12px 8px;
-        }
-
-        .team-avatar {
-            font-size: 28px;
-            margin-bottom: 4px;
-        }
-
-        .team-name {
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--primary);
-        }
-
-        .team-role {
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-
-        .flow-stepper {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-top: 12px;
-        }
-
-        .flow-step {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            background-color: #F8FAFC;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-sm);
-            font-size: 13px;
-        }
-
-        .flow-step-num {
-            width: 26px;
-            height: 26px;
-            background-color: var(--primary);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 12px;
-            flex-shrink: 0;
-        }
-
-        .tech-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 10px;
-        }
-
-        .tech-tag {
-            background-color: #F1F5F9;
-            color: var(--text-main);
-            border: 1px solid #CBD5E1;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 500;
-        }
+        body { display: flex; justify-content: center; }
+        .about-app { display: flex; width: min(100%, 460px); min-height: 100vh; min-height: 100dvh; flex-direction: column; overflow: hidden; background: var(--bg-main); }
+        .about-header { display: flex; flex-direction: column; gap: 8px; padding: 18px 20px 16px; background: var(--primary-light); }
+        .about-back { display: grid; width: 42px; height: 42px; place-items: center; border: 0; border-radius: 13px; background: #fff; color: oklch(0.40 0.05 190); cursor: pointer; }
+        .about-header h1 { color: oklch(0.34 0.07 190); font-size: 25px; }
+        .about-header p { color: oklch(0.44 0.04 190); font-size: 13px; line-height: 1.5; }
+        .about-content { display: flex; flex: 1; flex-direction: column; gap: 12px; padding: 16px 20px; }
+        .about-photo-wrap { overflow: hidden; border: 1px solid var(--border-color); border-radius: 20px; }
+        .about-photo { display: block; width: 100%; height: 188px; object-fit: cover; }
+        .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .about-card { min-height: 104px; padding: 13px; border: 1px solid var(--border-color); border-radius: 18px; background: #fff; }
+        .about-label { color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; }
+        .about-card h2 { margin-top: 3px; font-size: 16px; }
+        .about-card p { margin-top: 2px; color: var(--text-muted); font-size: 11px; }
+        .competition-card { display: flex; align-items: center; gap: 11px; padding: 12px 14px; border: 1px solid oklch(0.88 0.04 250); border-radius: 18px; background: oklch(0.95 0.02 250); color: oklch(0.42 0.05 255); font-size: 12px; line-height: 1.45; }
+        .competition-card .material-symbols-rounded { color: oklch(0.48 0.09 255); }
+        .about-footer { padding: 2px 20px 20px; color: var(--text-muted); font-size: 10px; line-height: 1.55; text-align: center; }
+        @media (min-width: 461px) { .about-app { border-inline: 1px solid var(--border-color); box-shadow: 0 26px 70px -42px oklch(0.30 0.03 200 / .65); } }
     </style>
+    <link rel="stylesheet" href="../css/student-responsive.css">
 </head>
-<body>
-    <header class="app-header">
-        <button class="header-back" onclick="location.href='/student/'">← หน้าแรก</button>
-        <div class="header-title">ℹ️ เกี่ยวกับโครงงาน</div>
-        <div style="width: 60px;"></div>
-    </header>
+<body class="about-body">
+    <main class="about-app animate-fade-in">
+        <header class="about-header">
+            <button class="about-back" type="button" onclick="location.href='/student/'" aria-label="กลับหน้าแรก"><span class="material-symbols-rounded">arrow_back</span></button>
+            <h1>เกี่ยวกับโครงงาน</h1>
+            <p>กล่องปฐมพยาบาลอัจฉริยะ ที่ให้นักเรียนดูแลแผลเบื้องต้นได้เอง และให้ครูพยาบาลรู้ทุกการใช้งาน</p>
+            <div class="about-flow">
+                <div class="about-flow-step"><span class="material-symbols-rounded" aria-hidden="true">photo_camera</span><span><strong>01 · วิเคราะห์</strong><br>AI ช่วยแยกประเภทบาดแผล</span></div>
+                <div class="about-flow-step"><span class="material-symbols-rounded" aria-hidden="true">lock_open</span><span><strong>02 · จ่ายเวชภัณฑ์</strong><br>ESP32 ปลดล็อกช่องที่เหมาะสม</span></div>
+                <div class="about-flow-step"><span class="material-symbols-rounded" aria-hidden="true">monitoring</span><span><strong>03 · ดูแลต่อเนื่อง</strong><br>ครูพยาบาลติดตามจากแดชบอร์ด</span></div>
+            </div>
+        </header>
 
-    <div class="container animate-slide-up">
-        <div class="about-hero">
-            <img src="../images/logo_first_aid.png" alt="Logo" style="width:64px; height:64px; object-fit:contain; margin-bottom:8px;">
-            <span class="about-badge" style="display:block; width:fit-content; margin:0 auto 10px auto;">micro:bit Thailand Challenge 2026</span>
-            <div class="about-title">Smart First Aid Box</div>
-            <div class="about-sub">นวัตกรรมกล่องปฐมพยาบาลอัจฉริยะประจำสถานศึกษา</div>
-            <div style="margin-top:16px; border-radius:14px; overflow:hidden; border:2px solid rgba(255,255,255,0.2);">
-                <img src="../images/smart_box_full.png" alt="Smart First Aid Box Device" style="width:100%; height:180px; object-fit:cover; display:block;">
+        <section class="about-content">
+            <div class="about-photo-wrap"><img class="about-photo" src="../images/smart_box_full.webp" width="900" height="900" alt="กล่องปฐมพยาบาลอัจฉริยะ"></div>
+            <div class="about-grid">
+                <article class="about-card"><div class="about-label">CONTROLLER</div><h2>micro:bit v2</h2><p>ตรวจจับ · แจ้งเตือน</p></article>
+                <article class="about-card"><div class="about-label">NETWORK</div><h2>ESP32 · MQTT</h2><p>ส่งข้อมูลขึ้นคลาวด์</p></article>
+                <article class="about-card"><div class="about-label">AI</div><h2>วิเคราะห์แผล</h2><p>ผ่าน Serverless API</p></article>
+                <article class="about-card"><div class="about-label">TEAM</div><h2>CRMS6</h2><p>ทีมผู้พัฒนา</p></article>
             </div>
-        </div>
-
-        <!-- Problem Statement -->
-        <div class="info-card">
-            <div class="info-header">
-                <span>📌 ที่มาและความสำคัญ</span>
-            </div>
-            <p style="font-size: 13px; color: var(--text-main); line-height: 1.6; text-align: justify;">
-                จากข้อมูลกระทรวงสาธารณสุข โรงเรียนเป็นสถานที่ที่นักเรียนได้รับบาดเจ็บสูงเป็นอันดับ 2 รองจากบ้าน โดยเฉพาะช่วงพักเที่ยงและหลังเลิกเรียน อุบัติเหตุกว่า 60-70% เกิดจากการลื่นไถล พลัดตก หกล้ม และการเล่นกีฬา หลายครั้งเกิดเหตุในช่วงเวลาที่ไม่มีครูหรือเจ้าหน้าที่พยาบาลอยู่ ทำให้นักเรียนปฐมพยาบาลไม่ถูกวิธี เลือกรักษาหรือใช้ยาผิดประเภท ส่งผลให้เกิดการติดเชื้อและภาวะแทรกซ้อนได้
-            </p>
-        </div>
-
-        <!-- System Architecture & How it works -->
-        <div class="info-card">
-            <div class="info-header">
-                <span>⚙️ ขั้นตอนการทำงานของระบบ (AIoT)</span>
-            </div>
-            <div class="flow-stepper">
-                <div class="flow-step">
-                    <div class="flow-step-num">1</div>
-                    <div><strong>สแกน QR Code / เข้าใช้งาน:</strong> นักเรียนผู้บาดเจ็บเปิดหน้าเว็บผ่านมือถือ</div>
-                </div>
-                <div class="flow-step">
-                    <div class="flow-step-num">2</div>
-                    <div><strong>สแกนบาดแผลด้วย AI:</strong> ถ่ายภาพหรืออัปโหลดรูป เพื่อให้ Gemini AI วิเคราะห์ประเภทแผล</div>
-                </div>
-                <div class="flow-step">
-                    <div class="flow-step-num">3</div>
-                    <div><strong>ส่งคำสั่งไปยังตู้ยา:</strong> ระบบเชื่อมต่อ ESP32 สั่ง micro:bit ให้ Servo หมุนเปิดช่องยาและส่งเสียงคำแนะนำ</div>
-                </div>
-                <div class="flow-step">
-                    <div class="flow-step-num">4</div>
-                    <div><strong>แจ้งเตือน LINE Notify:</strong> แจ้งเตือนไปยังกลุ่มครูพยาบาลทันทีเมื่อมีการใช้ตู้ยา</div>
-                </div>
-                <div class="flow-step">
-                    <div class="flow-step-num">5</div>
-                    <div><strong>บันทึกประวัติ & คลังยา:</strong> ตัดสต็อกเวชภัณฑ์และบันทึกประวัติเพื่อนำไปวิเคราะห์สถิติ</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Key Technologies -->
-        <div class="info-card">
-            <div class="info-header">
-                <span>💻 เทคโนโลยีที่ใช้พัฒนาระบบ</span>
-            </div>
-            <div class="tech-list">
-                <span class="tech-tag">🧠 Google Gemini 2.5 Pro Vision</span>
-                <span class="tech-tag">📟 micro:bit V2 Board</span>
-                <span class="tech-tag">🌐 ESP32 Wi-Fi Module</span>
-                <span class="tech-tag">💬 LINE Notify API</span>
-                <span class="tech-tag">⚙️ Servo Motor & OLED Display</span>
-                <span class="tech-tag">📊 Chart.js Dashboard</span>
-                <span class="tech-tag">💾 Web Storage (Offline Capable)</span>
-            </div>
-        </div>
-
-        <!-- Team Information -->
-        <div class="info-card">
-            <div class="info-header">
-                <span>👥 ทีมผู้พัฒนา CRMS6</span>
-            </div>
-            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
-                โรงเรียนเทศบาล 6 นครเชียงราย | ครูที่ปรึกษา: นายอดิเรก วิลัย
-            </p>
-            <div class="team-grid">
-                <div class="team-member">
-                    <div class="team-avatar">👨‍💻</div>
-                    <div class="team-name">หมิง</div>
-                    <div class="team-role">Developer / Hardware</div>
-                </div>
-                <div class="team-member">
-                    <div class="team-avatar">👨‍⚕️</div>
-                    <div class="team-name">เปตอง</div>
-                    <div class="team-role">AI & Medical Logic</div>
-                </div>
-                <div class="team-member">
-                    <div class="team-avatar">🎨</div>
-                    <div class="team-name">เม</div>
-                    <div class="team-role">UI/UX & Testing</div>
-                </div>
-            </div>
-        </div>
-
-        <footer class="app-footer">
-            <p>© 2026 CRMS6 - Smart First Aid Box Project</p>
-        </footer>
-    </div>
+            <div class="competition-card"><span class="material-symbols-rounded" aria-hidden="true">workspace_premium</span><span>โครงการแข่งขัน micro:bit Thailand Challenge 2026</span></div>
+            <p style="font-size:10px; color:var(--text-muted); text-align:center;">แจ้งเตือนครูผ่าน LINE Messaging API</p>
+        </section>
+        <footer class="about-footer">© 2026 ทีมผู้พัฒนา CRMS6<br>โรงเรียนเทศบาล 6 นครเชียงราย</footer>
+    </main>
 </body>
 </html>

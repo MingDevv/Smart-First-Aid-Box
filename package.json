@@ -5,7 +5,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node tests/local.test.mjs && node tests/firmware-command-history.test.mjs",
+    "test": "npm run test:ui && node tests/local.test.mjs && node tests/firmware-command-history.test.mjs",
+    "test:ui": "node tests/ui-smoke.test.mjs",
     "test:mqtt": "node tests/mqtt-e2e.mjs"
   },
   "dependencies": {

@@ -2,338 +2,156 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ขั้นตอนปฐมพยาบาล - Smart First Aid Box</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#f7fcf9">
+    <title>คำแนะนำปฐมพยาบาล — Smart First Aid Box</title>
     <link rel="stylesheet" href="../css/global.css">
     <style>
-        .guide-header-card {
-            background-color: var(--primary);
-            color: white;
-            border-radius: var(--radius-md);
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: var(--shadow-sm);
-            text-align: center;
-            border: 1px solid rgba(0, 0, 0, 0.05);
-        }
-
-        .guide-header-icon {
-            font-size: 38px;
-            margin-bottom: 8px;
-        }
-
-        .guide-header-title {
-            color: white;
-            font-size: 20px;
-            font-weight: 700;
-        }
-
-        .guide-header-subtitle {
-            font-size: 12px;
-            opacity: 0.8;
-            margin-top: 2px;
-        }
-
-        .section-title {
-            font-size: 15px;
-            font-weight: 700;
-            color: var(--primary);
-            margin-bottom: 12px;
-            padding-bottom: 4px;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .items-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 4px;
-        }
-
-        .item-tag {
-            background-color: var(--primary-light);
-            color: var(--primary);
-            border: 1px solid rgba(30, 58, 138, 0.15);
-            font-size: 13px;
-            padding: 4px 12px;
-            border-radius: 4px;
-            font-weight: 500;
-        }
-
-        .step-item {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 14px;
-            align-items: flex-start;
-            padding: 12px;
-            border-radius: var(--radius-sm);
-            transition: all 0.2s ease;
-        }
-
-        .step-item.active-step {
-            background-color: var(--primary-light);
-            border: 1px solid rgba(30, 58, 138, 0.2);
-        }
-
-        .step-number {
-            background-color: var(--secondary);
-            color: white;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: 700;
-            flex-shrink: 0;
-        }
-
-        .step-item.active-step .step-number {
-            background-color: var(--primary);
-            transform: scale(1.1);
-        }
-
-        .step-text {
-            font-size: 14px;
-            color: var(--text-main);
-            line-height: 1.5;
-            padding-top: 1px;
-        }
-
-        /* Stepper progress styles */
-        .stepper-progress-bar {
-            width: 100%;
-            height: 6px;
-            background-color: var(--border-color);
-            border-radius: 3px;
-            overflow: hidden;
-            margin: 10px 0 16px 0;
-        }
-
-        .stepper-progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--secondary) 0%, var(--primary) 100%);
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-
-        .stepper-nav {
-            display: flex;
-            justify-content: space-between;
-            gap: 10px;
-            margin-top: 14px;
-        }
-
-        .view-mode-toggle {
-            display: flex;
-            justify-content: flex-end;
-            margin-bottom: 10px;
-        }
-
-        .mode-btn {
-            background: none;
-            border: none;
-            font-size: 12px;
-            color: var(--secondary);
-            cursor: pointer;
-            text-decoration: underline;
-            font-family: var(--font-prompt), sans-serif;
-        }
-
-        .warning-card {
-            border-left: 4px solid var(--accent);
-            background-color: var(--accent-light);
-            border: 1px solid rgba(217, 119, 6, 0.15);
-            border-left-width: 4px;
-            padding: 14px;
-            border-radius: var(--radius-sm);
-            margin-bottom: 20px;
-            font-size: 13px;
-            color: #78350F;
-        }
-
-        .hw-status-card {
-            border-left: 4px solid var(--secondary);
-            background-color: var(--secondary-light);
-            border: 1px solid rgba(37, 99, 235, 0.15);
-            border-left-width: 4px;
-            padding: 14px;
-            border-radius: var(--radius-sm);
-            margin-bottom: 20px;
-        }
-
-        .hw-status-title {
-            font-weight: 700;
-            font-size: 13px;
-            color: var(--secondary-hover);
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .hw-status-text {
-            font-size: 12px;
-            color: var(--text-main);
-        }
-
-        .sound-btn {
-            background-color: #FFFFFF;
-            border: 1px solid #CBD5E1;
-            color: var(--text-main);
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 13px;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            margin-top: 10px;
-            transition: all 0.15s ease;
-            width: fit-content;
-            font-family: var(--font-prompt), sans-serif;
-        }
-
-        .sound-btn:hover {
-            background-color: #F8FAFC;
-            border-color: var(--text-muted);
-        }
-
-        .sound-btn.playing {
-            background-color: var(--primary-light);
-            color: var(--primary);
-            border-color: var(--primary);
-        }
+        .guide-container { display: none; min-height: calc(100dvh - 72px); padding-top: 16px; }
+        .guide-container.is-visible { display: block; }
+        .guide-header-copy { min-width: 0; text-align: left; }
+        .guide-header-title { overflow: hidden; font-family: var(--font-prompt); font-size: 17px; font-weight: 700; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+        .guide-header-meta { margin-top: 2px; color: var(--text-muted); font-size: 10px; }
+        .eyebrow { margin-bottom: 4px; color: var(--primary); font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+        .wound-summary h1 { margin-bottom: 3px; font-size: 23px; }
+        .wound-summary p { color: var(--text-muted); font-size: 12px; }
+        .section-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .section-heading h2 { font-size: 15px; }
+        .count-pill { padding: 5px 9px; border-radius: 999px; background: var(--primary-light); color: oklch(0.38 0.07 190); font-size: 11px; font-weight: 600; }
+        .supply-list { display: grid; gap: 9px; margin-bottom: 14px; }
+        .supply-card { display: grid; grid-template-columns: 62px 1fr auto; align-items: center; gap: 11px; padding: 10px; border: 1px solid var(--border-color); border-radius: 18px; background: #fff; box-shadow: var(--shadow-sm); }
+        .supply-card img, .supply-placeholder { width: 62px; height: 62px; border-radius: 14px; background: var(--secondary-light); object-fit: cover; }
+        .supply-placeholder { display: grid; place-items: center; color: var(--primary); }
+        .supply-name { margin-bottom: 2px; font-family: var(--font-prompt); font-size: 13px; font-weight: 700; line-height: 1.3; }
+        .supply-desc { color: var(--text-muted); font-size: 11px; line-height: 1.35; }
+        .supply-qty { color: var(--primary); font-family: var(--font-mono); font-size: 11px; font-weight: 600; }
+        .warning-card, .hardware-card { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 13px; padding: 13px 14px; border-radius: 17px; font-size: 12px; line-height: 1.5; }
+        .warning-card { background: var(--accent-light); color: oklch(0.41 0.09 36); }
+        .hardware-card { display: none; background: var(--secondary-light); color: oklch(0.36 0.06 195); }
+        .unlock-button { min-height: 64px; margin: 3px 0 20px; border-radius: 20px; font-size: 17px; }
+        .unlock-view { display: none; width: min(100%, 460px); min-height: 100vh; min-height: 100dvh; margin: 0 auto; flex-direction: column; align-items: center; justify-content: flex-start; gap: 13px; padding: 32px 22px 20px; background: linear-gradient(180deg, oklch(0.42 0.09 165), oklch(0.34 0.07 175)); color: #fff; text-align: center; }
+        .unlock-view.is-visible { display: flex; }
+        .unlock-label { color: oklch(0.94 0.025 180); font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: .1em; }
+        .unlock-orb { display: grid; width: 122px; height: 122px; flex: 0 0 auto; place-items: center; border: 1px solid oklch(1 0 0 / .36); border-radius: 50%; background: oklch(0.79 0.18 145); color: oklch(0.26 0.08 155); box-shadow: 0 0 0 18px oklch(1 0 0 / .08), 0 26px 55px -30px oklch(0.18 0.06 180 / .8); animation: unlockPulse 2s ease-in-out infinite; }
+        .unlock-orb .material-symbols-rounded { font-size: 58px; font-variation-settings: 'FILL' 1; }
+        .unlock-view h1 { color: #fff; font-size: 27px; line-height: 1.22; }
+        .unlock-copy { max-width: 320px; color: oklch(0.93 0.02 185); font-size: 13px; }
+        .unlock-supplies { width: 100%; padding: 13px; border-radius: 20px; background: oklch(1 0 0 / .12); text-align: left; backdrop-filter: blur(10px); }
+        #unlock-items { display: flex; flex-direction: column; gap: 10px; }
+        .unlock-supply-row { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 11px; color: #fff; font-size: 13px; font-weight: 600; }
+        .unlock-supply-row img { width: 42px; height: 42px; border-radius: 12px; object-fit: cover; }
+        .unlock-supply-qty { color: oklch(0.90 0.04 160); font-family: var(--font-mono); font-size: 11px; }
+        .unlock-note { color: oklch(0.89 0.02 185); font-size: 11px; line-height: 1.5; }
+        .unlock-next { min-height: 64px; margin-top: auto; border: 0; border-radius: 20px; background: #fff; color: oklch(0.37 0.075 195); font-size: 17px; }
+        .steps-view { display: none; width: min(100%, 460px); min-height: 100vh; min-height: 100dvh; margin: 0 auto; padding: 0 20px 24px; background: var(--bg-main); }
+        .steps-view.is-visible { display: block; }
+        .steps-header { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; min-height: 66px; margin-inline: -8px; }
+        .steps-counter { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-align: center; text-transform: uppercase; }
+        .step-progress { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin: 2px 0 16px; }
+        .step-segment { height: 7px; border-radius: 999px; background: oklch(0.88 0.02 185); }
+        .step-segment.done { background: var(--primary); }
+        .step-image { width: 100%; height: 262px; border-radius: 24px; object-fit: cover; box-shadow: var(--shadow-md); }
+        .step-badge { display: inline-flex; align-items: center; gap: 5px; margin: 16px 0 8px; padding: 6px 10px; border-radius: 999px; background: var(--primary-light); color: oklch(0.38 0.07 190); font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: .05em; }
+        .step-title { margin-bottom: 7px; font-size: 25px; }
+        .step-description { color: var(--text-muted); font-size: 14px; line-height: 1.6; }
+        .step-timer { display: flex; align-items: center; gap: 9px; margin: 14px 0; padding: 12px 14px; border-radius: 16px; background: var(--accent-light); color: oklch(0.43 0.10 36); font-size: 12px; }
+        .step-timer-copy { flex: 1; }
+        .step-timer-value { font-family: var(--font-mono); font-size: 18px; font-weight: 500; }
+        .step-nav { display: grid; grid-template-columns: 72px 1fr; gap: 10px; margin-top: 10px; }
+        .step-nav .btn { min-height: 66px; border-radius: 20px; }
+        .error-layout { display: none; min-height: calc(100dvh - 66px); flex-direction: column; align-items: center; justify-content: center; padding: 30px 20px; text-align: center; }
+        .error-icon { display: grid; width: 70px; height: 70px; margin-bottom: 14px; place-items: center; border-radius: 22px; background: var(--accent-light); color: var(--accent); }
+        @keyframes unlockPulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 18px oklch(1 0 0 / .08), 0 26px 55px -30px oklch(0.18 0.06 180 / .8); } 50% { transform: scale(1.035); box-shadow: 0 0 0 25px oklch(1 0 0 / .05), 0 26px 55px -30px oklch(0.18 0.06 180 / .8); } }
     </style>
+    <link rel="stylesheet" href="../css/student-responsive.css">
 </head>
-<body>
-    <header class="app-header">
-        <button class="header-back" onclick="history.back()">←</button>
-        <div class="header-title">📋 แนะนำวิธีปฐมพยาบาล</div>
-        <div style="width: 24px;"></div>
+<body class="guide-body">
+    <header class="app-header" id="detail-header">
+        <button class="header-back" type="button" onclick="history.back()" aria-label="ย้อนกลับ"><span class="material-symbols-rounded">arrow_back</span></button>
+        <div class="guide-header-copy">
+            <h1 class="guide-header-title" id="wound-title-th">รายละเอียดการปฐมพยาบาล</h1>
+            <div class="guide-header-meta" id="wound-title-en">ช่องเก็บยา · ระดับอาการ</div>
+        </div>
+        <span aria-hidden="true"></span>
     </header>
 
-    <div class="container animate-slide-up">
-        <!-- Main guide layout -->
-        <div id="guide-layout" style="display:none;">
-            <div class="guide-header-card" style="display:flex; align-items:center; gap:16px; padding:20px; text-align:left;">
-                <div id="wound-image-container" style="width:84px; height:84px; border-radius:18px; overflow:hidden; background:#F1F5F9; flex-shrink:0; display:flex; align-items:center; justify-content:center; border:2px solid var(--primary-light, #E0F2FE); box-shadow:0 4px 12px rgba(0,0,0,0.06);">
-                    <div class="guide-header-icon" id="wound-icon" style="font-size:38px; margin:0;">🤕</div>
-                </div>
-                <div>
-                    <div class="guide-header-title" id="wound-title-th" style="margin:0; font-size:22px;">โหลดข้อมูล...</div>
-                    <div class="guide-header-subtitle" id="wound-title-en" style="margin-top:4px; font-size:14px;">Loading...</div>
-                </div>
+    <main class="container guide-container animate-slide-up" id="detail-view">
+        <section class="guide-overview" aria-label="สรุปบาดแผล">
+            <img id="guide-wound-image" src="../images/wound_cut_abrasion.webp" width="900" height="900" alt="">
+            <div class="guide-overview-copy">
+                <div class="eyebrow">FIRST AID PLAN</div>
+                <h2 id="guide-overview-title">รายละเอียดการปฐมพยาบาล</h2>
+                <p id="guide-overview-description"></p>
             </div>
+            <div class="guide-drawer-chip"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>ช่องเก็บที่ <span id="guide-drawer-number">1</span></div>
+        </section>
 
-            <!-- Hardware controller interaction status -->
-            <div class="hw-status-card" id="hardware-panel">
-                <div class="hw-status-title">
-                    <span id="hardware-indicator-icon">🛡️</span>
-                    <span id="hardware-status-label">รอยืนยันการเปิดตู้ยา...</span>
-                </div>
-                <div class="hw-status-text" id="hardware-log">กรุณายืนยันการเปิดตู้ยาเพื่อรับเวชภัณฑ์การปฐมพยาบาล</div>
-                <button id="manual-open-drawer-btn" onclick="openConfirmModal()" style="display:none; margin-top:10px; font-size:13px; padding:8px 16px; border-radius:10px;" class="btn btn-primary">
-                    🔓 กดยืนยันเพื่อเปิดตู้ยา
-                </button>
-            </div>
+        <div class="section-heading">
+            <h2>เวชภัณฑ์ที่ต้องใช้</h2>
+            <span class="count-pill" id="supply-count">0 ชิ้น</span>
+        </div>
+        <div class="supply-list" id="items-list"></div>
 
-            <!-- Items needed -->
-            <div class="card">
-                <div class="section-title">🎒 อุปกรณ์เวชภัณฑ์ที่ต้องใช้</div>
-                <div class="items-list" id="items-list">
-                    <!-- Dynamic -->
-                </div>
-            </div>
-
-            <!-- First aid instructions -->
-            <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                    <div class="section-title" style="border:none; padding:0; margin:0;">🩹 ขั้นตอนการดูแลทำแผล</div>
-                    <button class="mode-btn" id="toggle-view-mode" onclick="toggleViewMode()">ดูทีละขั้นตอน</button>
-                </div>
-
-                <!-- Stepper Progress Header -->
-                <div id="stepper-header" style="display:none; margin-top: 8px;">
-                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); font-weight: 600;">
-                        <span>ความก้าวหน้าการทำแผล</span>
-                        <span id="step-counter-text">ขั้นตอนที่ 1 / 5</span>
-                    </div>
-                    <div class="stepper-progress-bar">
-                        <div class="stepper-progress-fill" id="stepper-fill"></div>
-                    </div>
-                </div>
-
-                <div id="steps-list">
-                    <!-- Dynamic -->
-                </div>
-
-                <!-- Stepper Navigation Controls -->
-                <div class="stepper-nav" id="stepper-controls" style="display:none;">
-                    <button class="btn btn-outline" style="flex:1; font-size:13px;" id="prev-step-btn" onclick="navigateStep(-1)">
-                        ← ขั้นตอนก่อนหน้า
-                    </button>
-                    <button class="btn btn-secondary" style="flex:1; font-size:13px;" id="next-step-btn" onclick="navigateStep(1)">
-                        ขั้นตอนถัดไป →
-                    </button>
-                </div>
-
-                <button class="sound-btn" id="speak-btn" style="margin-top: 14px;">
-                    🔊 ฟังคำแนะนำออกเสียง (ภาษาไทย)
-                </button>
-            </div>
-
-            <!-- Warnings -->
-            <div class="warning-card" id="warning-panel">
-                <strong>⚠️ ข้อควรระวัง:</strong>
-                <span id="warning-text"></span>
-            </div>
-
-            <button class="btn btn-primary" id="finish-btn" style="margin-top: 10px; margin-bottom: 20px;">
-                ✅ เสร็จสิ้นการรักษาและบันทึกประวัติ
-            </button>
+        <div class="warning-card">
+            <span class="material-symbols-rounded" aria-hidden="true">warning</span>
+            <span><strong>ข้อควรระวัง</strong><br><span id="warning-text"></span></span>
         </div>
 
-        <!-- Error layout -->
-        <div id="error-layout" style="display:none; text-align:center; padding:40px 20px;">
-            <div style="font-size:48px; margin-bottom:16px;">⚠️</div>
-            <h2>ไม่พบประเภทบาดแผล</h2>
-            <p style="color:var(--text-muted); margin-bottom:20px; font-size:14px;">ไม่พบข้อมูลและแนวทางการปฐมพยาบาลสำหรับแผลที่คุณระบุ</p>
-            <button class="btn btn-primary" onclick="location.href='/student/'">กลับสู่หน้าหลัก</button>
+        <div class="hardware-card" id="hardware-panel" role="status" aria-live="polite">
+            <span class="material-symbols-rounded" id="hardware-indicator-icon" aria-hidden="true">sync</span>
+            <span><strong id="hardware-status-label">กำลังเชื่อมต่อตู้ยา</strong><br><span id="hardware-log">กำลังเตรียมคำสั่งปลดล็อก...</span></span>
         </div>
-    </div>
 
-    <!-- Confirmation Modal Overlay -->
-    <div id="confirm-modal-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(6px); z-index:9999; justify-content:center; align-items:center; padding:20px;">
-        <div class="card animate-slide-up" style="max-width:420px; width:100%; text-align:center; padding:28px 24px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); border-radius:24px; border:2px solid var(--primary-light, #E0F2FE); background:#FFFFFF;">
-            <div style="font-size:48px; margin-bottom:10px;" id="modal-wound-icon">🤕</div>
-            <h3 style="margin:0 0 4px 0; color:var(--text-main, #0F172A); font-size:20px; font-weight:700;" id="modal-wound-title">ยืนยันการเปิดตู้ยา</h3>
-            <p style="color:var(--primary, #0284C7); font-weight:600; font-size:13px; margin:0 0 16px 0;" id="modal-source-label">วิเคราะห์โดยระบบ AI</p>
+        <button class="btn btn-primary unlock-button" id="manual-open-drawer-btn" type="button" onclick="startTreatment()">
+            <span class="material-symbols-rounded" aria-hidden="true">lock_open</span>
+            <span>ปลดล็อกช่อง <span id="drawer-button-number">1</span> &amp; เริ่มทำแผล</span>
+        </button>
+    </main>
 
-            <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:16px; padding:14px; margin-bottom:20px; text-align:left;">
-                <div style="font-size:12px; color:#64748B; font-weight:600;">📍 ลิ้นชักที่จะเปิด:</div>
-                <div style="font-size:15px; font-weight:700; color:#1E293B; margin-top:4px;" id="modal-drawer-info">ลิ้นชักช่องที่ 1 (ยาทาแผลถลอก)</div>
-                <div style="font-size:12px; color:#EF4444; margin-top:8px; display:flex; align-items:center; gap:4px; font-weight:500;">
-                    <span>⚠️</span> <span>คำเตือน: โปรดยืนยันเฉพาะเมื่อต้องการหยิบยาไปรักษาจริงเท่านั้น (ป้องกันยาทะลัก)</span>
-                </div>
+    <section class="unlock-view animate-fade-in" id="unlock-view">
+        <div class="unlock-hero">
+            <div class="unlock-label" id="unlock-mode-label">ESP32 · UNLOCK OK</div>
+            <div class="unlock-orb" aria-hidden="true"><span class="material-symbols-rounded">lock_open</span></div>
+            <h1>ปลดล็อกช่องเก็บที่ <span id="unlock-drawer-number">1</span><br>เรียบร้อย</h1>
+            <p class="unlock-copy">หยิบเวชภัณฑ์ตามรายการ แล้วปิดฝากล่องให้สนิท</p>
+        </div>
+        <div class="unlock-panel">
+            <div class="unlock-panel-title">เวชภัณฑ์ที่ต้องหยิบ</div>
+            <div class="unlock-supplies">
+                <div id="unlock-items"></div>
             </div>
+            <div class="unlock-note">ระบบจะบันทึกประวัติเมื่อทำครบทุกขั้นตอน</div>
+            <button class="btn unlock-next" type="button" onclick="showStepsView()">ไปยังขั้นตอนทำแผล<span class="material-symbols-rounded" aria-hidden="true">arrow_forward</span></button>
+        </div>
+    </section>
 
-            <div style="display:flex; gap:10px; justify-content:center;">
-                <button class="btn btn-outline" style="flex:1; border-radius:14px; font-size:13px; padding:12px 10px;" id="btn-cancel-modal" onclick="closeConfirmModal(false)">
-                    ❌ ไม่เปิดตู้ยา
-                </button>
-                <button class="btn btn-primary" style="flex:1.2; border-radius:14px; font-size:13px; padding:12px 10px; background:linear-gradient(135deg, #10B981 0%, #059669 100%); border:none; color:white; font-weight:600; box-shadow:0 4px 12px rgba(16,185,129,0.3);" id="btn-confirm-modal" onclick="confirmOpenDrawer()">
-                    🔓 ยืนยันเปิดตู้ยา
-                </button>
+    <section class="steps-view animate-slide-up" id="steps-view">
+        <header class="steps-header">
+            <button class="icon-button" type="button" onclick="location.href='/student/'" aria-label="กลับหน้าแรก"><span class="material-symbols-rounded">arrow_back</span></button>
+            <div class="steps-counter" id="step-counter-text">แผลถลอก · ขั้นที่ 1/5</div>
+            <button class="icon-button" id="speak-btn" type="button" aria-label="ฟังคำแนะนำ"><span class="material-symbols-rounded">volume_up</span></button>
+        </header>
+        <div class="step-progress" id="step-progress" aria-label="ความก้าวหน้าการทำแผล"></div>
+        <img class="step-image" id="step-image" src="../images/step_wash_hands.webp" alt="">
+        <div class="step-copy-panel">
+            <div class="step-badge"><span id="step-badge-text">ขั้นที่ 1 จาก 5</span></div>
+            <h1 class="step-title" id="step-title">ล้างมือให้สะอาด</h1>
+            <p class="step-description" id="step-description">เตรียมตัวก่อนสัมผัสบาดแผล</p>
+            <div class="step-timer"><span class="material-symbols-rounded" aria-hidden="true">timer</span><span class="step-timer-copy" id="step-timer-text">ล้างมือต่อเนื่องอย่างน้อย 20 วินาที</span><span class="step-timer-value" id="step-timer-value">0:20</span></div>
+            <div class="step-nav">
+                <button class="btn btn-outline" id="prev-step-btn" type="button" onclick="navigateStep(-1)" aria-label="ขั้นตอนก่อนหน้า"><span class="material-symbols-rounded">arrow_back</span></button>
+                <button class="btn btn-primary" id="next-step-btn" type="button" onclick="navigateStep(1)"><span class="material-symbols-rounded">check</span>ทำเสร็จแล้ว</button>
             </div>
         </div>
-    </div>
+    </section>
 
-    <!-- Scripts -->
+    <section class="error-layout" id="error-layout">
+        <div class="error-icon"><span class="material-symbols-rounded" style="font-size:34px;">error</span></div>
+        <h1 style="font-size:22px; margin-bottom:6px;">ไม่พบประเภทบาดแผล</h1>
+        <p style="color:var(--text-muted); font-size:13px; margin-bottom:18px;">กลับไปเลือกประเภทแผลใหม่อีกครั้ง</p>
+        <button class="btn btn-primary" type="button" onclick="location.href='/student/wound-select'">เลือกประเภทแผล</button>
+    </section>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="../js/wound-data.js"></script>
     <script src="../js/storage.js"></script>
@@ -342,394 +160,239 @@
     <script src="../js/api-bridge.js"></script>
     <script src="../js/notification.js"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const woundId = urlParams.get('wound');
+        const urlParams = new URLSearchParams(window.location.search);
+        const wound = WOUND_DATA[urlParams.get('wound')];
+        let drawerOpened = false;
+        let currentStepIndex = 0;
+        const synth = window.speechSynthesis;
 
-            // Find matching wound details
-            let wound = null;
-
-            if (WOUND_DATA[woundId]) {
-                wound = WOUND_DATA[woundId];
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!wound || wound.id === 'unknown') {
+                document.getElementById('detail-header').style.display = 'none';
+                document.getElementById('error-layout').style.display = 'flex';
+                return;
             }
+            renderDetail();
+            document.getElementById('detail-view').classList.add('is-visible');
+            document.getElementById('speak-btn').addEventListener('click', speakCurrentStep);
+        });
 
-            if (!wound) {
-                document.getElementById("error-layout").style.display = "block";
+        function escapeHtml(value) {
+            return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        function renderDetail() {
+            document.getElementById('wound-title-th').textContent = wound.name_th;
+            document.getElementById('wound-title-en').textContent = `ช่องเก็บที่ ${wound.drawer || 1} · ${wound.severity}`;
+            document.getElementById('warning-text').textContent = wound.warnings;
+            document.getElementById('supply-count').textContent = `${wound.items.length} ชิ้น`;
+            document.getElementById('drawer-button-number').textContent = wound.drawer || 1;
+            document.getElementById('unlock-drawer-number').textContent = wound.drawer || 1;
+            document.getElementById('guide-drawer-number').textContent = wound.drawer || 1;
+            document.getElementById('guide-overview-title').textContent = wound.name_th;
+            document.getElementById('guide-overview-description').textContent = wound.description;
+            const guideImage = document.getElementById('guide-wound-image');
+            guideImage.src = wound.image;
+            guideImage.alt = `ภาพตัวอย่าง${wound.name_th}`;
+
+            const details = wound.itemDetails || [];
+            document.getElementById('items-list').innerHTML = wound.items.map((item, index) => {
+                const detail = details[index] || {};
+                const media = detail.image
+                    ? `<img src="${escapeHtml(detail.image)}" alt="${escapeHtml(item)}">`
+                    : '<span class="supply-placeholder"><span class="material-symbols-rounded">medical_services</span></span>';
+                return `<div class="supply-card">${media}<div><div class="supply-name">${escapeHtml(displaySupplyName(detail.name || item))}</div><div class="supply-desc">${escapeHtml(detail.desc || `หยิบจากช่องเก็บที่ ${wound.drawer || 1}`)}</div></div><span class="supply-qty">×1</span></div>`;
+            }).join('');
+
+            document.getElementById('unlock-items').innerHTML = wound.items.map((item, index) => {
+                const detail = details[index] || {};
+                const image = detail.image || wound.image;
+                return `<div class="unlock-supply-row"><img src="${escapeHtml(image)}" alt=""><span>${escapeHtml(displaySupplyName(detail.name || item))}</span><span class="unlock-supply-qty">×1</span></div>`;
+            }).join('');
+        }
+
+        function displaySupplyName(value) {
+            return String(value || '').replace(/\s*\([^)]*\)/g, '').trim();
+        }
+
+        function matchedAllergiesForCurrentStudent() {
+            const student = StorageService.getCurrentStudent();
+            if (!student || !Array.isArray(student.allergies)) return [];
+            const matches = new Set();
+            wound.items.forEach(item => {
+                student.allergies.forEach(allergy => {
+                    if (allergy !== 'ไม่ทราบประวัติแพ้ยา' && (item.toLowerCase().includes(allergy.toLowerCase()) || allergy.toLowerCase().includes(item.toLowerCase()))) {
+                        matches.add(allergy);
+                    }
+                });
+            });
+            return [...matches];
+        }
+
+        async function startTreatment() {
+            const button = document.getElementById('manual-open-drawer-btn');
+            const panel = document.getElementById('hardware-panel');
+            const icon = document.getElementById('hardware-indicator-icon');
+            const label = document.getElementById('hardware-status-label');
+            const log = document.getElementById('hardware-log');
+            const allergyMatches = matchedAllergiesForCurrentStudent();
+
+            if (allergyMatches.length > 0) {
+                panel.style.display = 'flex';
+                panel.style.background = 'var(--danger-light)';
+                panel.style.color = 'var(--danger)';
+                icon.textContent = 'block';
+                label.textContent = 'ระงับการจ่ายยา';
+                log.textContent = `พบประวัติแพ้ยา ${allergyMatches.join(', ')} กรุณาติดต่อครูพยาบาล`;
+                NotificationService.showToast(`ระงับการเปิดตู้: พบประวัติแพ้ยา ${allergyMatches.join(', ')}`, 'danger');
                 return;
             }
 
-            document.getElementById("guide-layout").style.display = "block";
+            button.disabled = true;
+            panel.style.display = 'flex';
+            panel.style.background = '';
+            panel.style.color = '';
+            icon.textContent = 'sync';
+            label.textContent = 'กำลังปลดล็อกช่องยา';
+            log.textContent = 'กำลังส่งคำสั่งผ่าน MQTT/บอร์ด ESP32...';
 
-            // Render view elements
-            if (wound.image) {
-                document.getElementById("wound-image-container").innerHTML = `<img src="${wound.image}" style="width:100%; height:100%; object-fit:cover;" alt="${wound.name_th}">`;
+            try {
+                const response = await ApiBridge.openCompartment(wound.id);
+                if (!response.success) throw new Error(response.error || 'ไม่สามารถปลดล็อกช่องยาได้');
+                drawerOpened = true;
+                showUnlockView(response);
+            } catch (error) {
+                console.error('[Guide] Unlock failed:', error);
+                icon.textContent = 'error';
+                label.textContent = 'ปลดล็อกไม่สำเร็จ';
+                log.textContent = `${error.message} กรุณาตรวจการเชื่อมต่อแล้วลองอีกครั้ง`;
+                panel.style.background = 'var(--danger-light)';
+                panel.style.color = 'var(--danger)';
+                button.disabled = false;
+                NotificationService.showToast(error.message || 'การเปิดตู้ยาขัดข้อง', 'danger');
+            }
+        }
+
+        function showUnlockView(response) {
+            document.getElementById('detail-header').style.display = 'none';
+            document.getElementById('detail-view').classList.remove('is-visible');
+            document.getElementById('unlock-view').classList.add('is-visible');
+            document.getElementById('unlock-mode-label').textContent = response.mode === 'simulation' ? 'DEMO · UNLOCK SIMULATED' : 'ESP32 · UNLOCK OK';
+            if (response.mode === 'simulation') {
+                NotificationService.showToast('โหมดสาธิต: จำลองการปลดล็อกช่องยาแล้ว', 'warning');
             } else {
-                document.getElementById("wound-icon").innerText = wound.icon;
+                NotificationService.showToast('ปลดล็อกช่องยาเรียบร้อยแล้ว', 'success');
             }
-            document.getElementById("wound-title-th").innerText = wound.name_th;
-            document.getElementById("wound-title-en").innerText = wound.name_en;
-            document.getElementById("warning-text").innerText = wound.warnings;
+            window.scrollTo(0, 0);
+        }
 
-            // Render items with rich visual cards
-            const itemsContainer = document.getElementById("items-list");
-            itemsContainer.style.display = "flex";
-            itemsContainer.style.flexWrap = "wrap";
-            itemsContainer.style.gap = "12px";
+        function showStepsView() {
+            document.getElementById('unlock-view').classList.remove('is-visible');
+            document.getElementById('steps-view').classList.add('is-visible');
+            currentStepIndex = 0;
+            renderStep();
+            window.scrollTo(0, 0);
+        }
 
-            if (!wound.items || wound.items.length === 0) {
-                itemsContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 13px; font-style: italic;">ไม่ต้องใช้อุปกรณ์เวชภัณฑ์สำหรับขั้นตอนนี้</span>';
+        function renderStep() {
+            const details = wound.stepDetails || [];
+            const detail = details[currentStepIndex] || {};
+            const total = wound.steps.length;
+            const woundLabel = wound.name_th.split('/').pop().trim();
+            document.getElementById('step-counter-text').textContent = `${woundLabel} · ขั้นที่ ${currentStepIndex + 1}/${total}`;
+            document.getElementById('step-badge-text').textContent = `ขั้นที่ ${currentStepIndex + 1} จาก ${total}`;
+            document.getElementById('step-title').textContent = detail.title || `ขั้นตอนที่ ${currentStepIndex + 1}`;
+            document.getElementById('step-description').textContent = detail.desc || wound.steps[currentStepIndex];
+            document.getElementById('step-image').src = detail.image || wound.image;
+            document.getElementById('step-image').alt = detail.title || wound.steps[currentStepIndex];
+            const usesTwentySecondTimer = currentStepIndex <= 1;
+            document.getElementById('step-timer-text').textContent = currentStepIndex === 0
+                ? 'ล้างมือต่อเนื่องอย่างน้อย 20 วินาที'
+                : usesTwentySecondTimer
+                    ? 'ล้างต่อเนื่อง 20 วินาที — แตะเพื่อจับเวลา'
+                    : 'ทำอย่างเบามือ ใช้เวลาประมาณ 1 นาที';
+            document.getElementById('step-timer-value').textContent = usesTwentySecondTimer ? '0:20' : '1:00';
+            document.getElementById('step-progress').innerHTML = Array.from({ length: total }, (_, index) => `<span class="step-segment${index <= currentStepIndex ? ' done' : ''}"></span>`).join('');
+            document.getElementById('prev-step-btn').disabled = currentStepIndex === 0;
+            const nextButton = document.getElementById('next-step-btn');
+            if (currentStepIndex === total - 1) {
+                nextButton.innerHTML = '<span class="material-symbols-rounded">check_circle</span><span>เสร็จสิ้นและบันทึก</span>';
             } else {
-                itemsContainer.innerHTML = "";
-                const details = wound.itemDetails || [];
-                wound.items.forEach((item, index) => {
-                    const detail = details[index] || {};
-                    const card = document.createElement("div");
-                    card.className = "med-item-card";
-                    card.style.cssText = "background:#F8FAFC; border:1px solid #E2E8F0; border-radius:16px; padding:12px 14px; display:flex; align-items:center; gap:12px; flex:1 1 220px; box-shadow:0 2px 6px rgba(0,0,0,0.03);";
-                    
-                    const imgHtml = detail.image 
-                        ? `<img src="${detail.image}" style="width:56px; height:56px; object-fit:contain; border-radius:10px; background:white; padding:4px; border:1px solid #E2E8F0;" alt="${item}">`
-                        : `<div style="width:56px; height:56px; background:#E0F2FE; color:#0284C7; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:26px;">💊</div>`;
-
-                    card.innerHTML = `
-                        ${imgHtml}
-                        <div>
-                            <div style="font-weight:700; font-size:13px; color:#1E293B; line-height:1.3;">${item}</div>
-                            <div style="font-size:11px; color:#0284C7; font-weight:600; margin-top:4px;">📍 ลิ้นชักตู้ยาช่องที่ ${wound.drawer || 1}</div>
-                        </div>
-                    `;
-                    itemsContainer.appendChild(card);
-                });
+                nextButton.innerHTML = '<span class="material-symbols-rounded">check</span><span>ทำเสร็จแล้ว</span>';
             }
+        }
 
-            // Render steps
-            const stepsContainer = document.getElementById("steps-list");
-            let currentStepIdx = 0;
-            let isSingleStepMode = false;
-
-            function renderSteps() {
-                stepsContainer.innerHTML = "";
-                const totalSteps = wound.steps.length;
-
-                wound.steps.forEach((step, idx) => {
-                    const stepItem = document.createElement("div");
-                    stepItem.className = `step-item ${idx === currentStepIdx ? 'active-step' : ''}`;
-                    stepItem.id = `step-node-${idx}`;
-
-                    if (isSingleStepMode && idx !== currentStepIdx) {
-                        stepItem.style.display = "none";
-                    } else {
-                        stepItem.style.display = "flex";
-                    }
-
-                    const details = wound.stepDetails || [];
-                    const detail = details[idx] || {};
-                    const stepImgHtml = detail.image
-                        ? `<img src="${detail.image}" style="width:76px; height:76px; object-fit:cover; border-radius:12px; border:1px solid #E2E8F0; background:white; padding:4px; flex-shrink:0;" alt="${detail.title || step}">`
-                        : '';
-
-                    stepItem.innerHTML = `
-                        <div class="step-number" style="margin-top:2px;">${idx + 1}</div>
-                        <div style="flex:1;">
-                            <div style="font-weight:700; font-size:14px; color:#1E293B; margin-bottom:4px;">${detail.title || ('ขั้นตอนที่ ' + (idx + 1))}</div>
-                            <div class="step-text" style="font-size:13px; color:#475569; line-height:1.5;">${detail.desc || step}</div>
-                        </div>
-                        ${stepImgHtml}
-                    `;
-                    stepsContainer.appendChild(stepItem);
-                });
-
-                // Update Stepper Progress UI
-                const fill = document.getElementById("stepper-fill");
-                const counter = document.getElementById("step-counter-text");
-                const percent = Math.round(((currentStepIdx + 1) / totalSteps) * 100);
-                
-                fill.style.width = `${percent}%`;
-                counter.innerText = `ขั้นตอนที่ ${currentStepIdx + 1} จาก ${totalSteps}`;
-
-                // Update prev/next buttons
-                document.getElementById("prev-step-btn").disabled = currentStepIdx === 0;
-                const nextBtn = document.getElementById("next-step-btn");
-                if (currentStepIdx === totalSteps - 1) {
-                    nextBtn.innerText = "✅ ทำครบทุกขั้นตอนแล้ว";
-                    nextBtn.style.backgroundColor = "var(--success)";
-                    nextBtn.style.borderColor = "var(--success)";
-                } else {
-                    nextBtn.innerText = "ขั้นตอนถัดไป →";
-                    nextBtn.style.backgroundColor = "var(--secondary)";
-                    nextBtn.style.borderColor = "var(--secondary)";
-                }
+        function navigateStep(direction) {
+            if (direction > 0 && currentStepIndex === wound.steps.length - 1) {
+                finishTreatment();
+                return;
             }
+            const nextIndex = currentStepIndex + direction;
+            if (nextIndex < 0 || nextIndex >= wound.steps.length) return;
+            currentStepIndex = nextIndex;
+            if (synth.speaking) synth.cancel();
+            renderStep();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
 
-            window.navigateStep = function(direction) {
-                const totalSteps = wound.steps.length;
-                const newIdx = currentStepIdx + direction;
-                if (newIdx >= 0 && newIdx < totalSteps) {
-                    currentStepIdx = newIdx;
-                    renderSteps();
-                }
-            };
+        function speakCurrentStep() {
+            if (synth.speaking) {
+                synth.cancel();
+                return;
+            }
+            const details = wound.stepDetails || [];
+            const detail = details[currentStepIndex] || {};
+            const utterance = new SpeechSynthesisUtterance(`${detail.title || `ขั้นตอนที่ ${currentStepIndex + 1}`} ${detail.desc || wound.steps[currentStepIndex]}`);
+            utterance.lang = 'th-TH';
+            utterance.rate = 1;
+            synth.speak(utterance);
+        }
 
-            window.toggleViewMode = function() {
-                isSingleStepMode = !isSingleStepMode;
-                const toggleBtn = document.getElementById("toggle-view-mode");
-                const stepperHeader = document.getElementById("stepper-header");
-                const stepperControls = document.getElementById("stepper-controls");
+        async function finishTreatment() {
+            if (!drawerOpened) {
+                NotificationService.showToast('ยังไม่ได้ยืนยันการเปิดช่องยา', 'danger');
+                return;
+            }
+            const button = document.getElementById('next-step-btn');
+            button.disabled = true;
+            button.innerHTML = '<span class="material-symbols-rounded">sync</span><span>กำลังบันทึก...</span>';
+            if (synth.speaking) synth.cancel();
 
-                if (isSingleStepMode) {
-                    toggleBtn.innerText = "แสดงทุกขั้นตอนรวม";
-                    stepperHeader.style.display = "block";
-                    stepperControls.style.display = "flex";
-                } else {
-                    toggleBtn.innerText = "ดูทีละขั้นตอน (Stepper)";
-                    stepperHeader.style.display = "none";
-                    stepperControls.style.display = "none";
-                }
-                renderSteps();
-            };
-
-            // Initial render of steps
-            renderSteps();
-
-            // Handle Audio Speech Readout
-            let synth = window.speechSynthesis;
-            let speakUtterance = null;
-            const speakBtn = document.getElementById("speak-btn");
-
-            speakBtn.addEventListener("click", () => {
-                if (synth.speaking) {
-                    synth.cancel();
-                    speakBtn.classList.remove("playing");
-                    speakBtn.innerHTML = "🔊 ฟังคำแนะนำออกเสียง (ภาษาไทย)";
-                    return;
-                }
-
-                // Prepare text to speak
-                let textToSpeak = `วิธีปฐมพยาบาลเบื้องต้นสำหรับ ${wound.name_th}. `;
-                textToSpeak += `อุปกรณ์ที่ต้องใช้คือ ${wound.items.join(", ")}. `;
-                textToSpeak += `ขั้นตอนการทำแผล มีดังนี้ครับ. `;
-                wound.steps.forEach((step, idx) => {
-                    textToSpeak += `ขั้นตอนที่ ${idx + 1}. ${step}. `;
-                });
-                textToSpeak += `ข้อควรระวัง. ${wound.warnings}.`;
-
-                speakUtterance = new SpeechSynthesisUtterance(textToSpeak);
-                speakUtterance.lang = 'th-TH';
-                speakUtterance.rate = 1.0;
-
-                speakUtterance.onstart = () => {
-                    speakBtn.classList.add("playing");
-                    speakBtn.innerHTML = "⏹️ หยุดเล่นเสียง";
-                };
-
-                speakUtterance.onend = () => {
-                    speakBtn.classList.remove("playing");
-                    speakBtn.innerHTML = "🔊 ฟังคำแนะนำออกเสียง (ภาษาไทย)";
-                };
-
-                speakUtterance.onerror = () => {
-                    speakBtn.classList.remove("playing");
-                    speakBtn.innerHTML = "🔊 ฟังคำแนะนำออกเสียง (ภาษาไทย)";
-                };
-
-                synth.speak(speakUtterance);
+            const student = StorageService.getCurrentStudent() || { studentId: '99999', name: 'นักเรียนทั่วไป', class: '-' };
+            const method = urlParams.get('source') === 'ai-scan' ? 'AI วิเคราะห์จากภาพถ่าย' : 'เลือกประเภทแผลเอง';
+            StorageService.addHistoryEntry({
+                studentId: student.studentId,
+                studentName: student.name,
+                studentClass: student.class,
+                woundType: wound.id,
+                woundNameTh: wound.name_th,
+                method,
+                itemsUsed: wound.items,
+                timestamp: new Date().toISOString()
             });
 
-            // Trigger Hardware Compartment via API Bridge
-            const hardwareIndicator = document.getElementById("hardware-indicator-icon");
-            const hardwareLabel = document.getElementById("hardware-status-label");
-            const hardwareLog = document.getElementById("hardware-log");
-
-            let drawerOpened = false;
-
-            function getDrawerName(wId) {
-                const map = {
-                    cut_abrasion: "ลิ้นชักช่องที่ 1 (ยาทาแผลถลอก / Cut & Abrasion)",
-                    abrasion: "ลิ้นชักช่องที่ 1 (ยาทาแผลถลอก / Abrasion)",
-                    cut: "ลิ้นชักช่องที่ 1 (ยาทาแผลถลอก / Cut)",
-                    insect: "ลิ้นชักช่องที่ 2 (ยาทาแผลแมลงสัตว์กัดต่อย / Insect Bite)"
-                };
-                return map[wId] || "ลิ้นชักช่องที่ 1";
-            }
-
-            window.openConfirmModal = function() {
-                if (drawerOpened) return;
-                const isAi = urlParams.get('source') === 'ai-scan';
-                document.getElementById("modal-wound-icon").innerText = wound.icon || "🤕";
-                document.getElementById("modal-wound-title").innerText = `ยืนยันเปิดตู้ยา: ${wound.name_th}`;
-                document.getElementById("modal-source-label").innerText = isAi ? "🤖 วิเคราะห์โดยระบบ AI" : "📋 เลือกประเภทบาดแผลโดยผู้ใช้";
-                document.getElementById("modal-drawer-info").innerText = getDrawerName(wound.id);
-
-                const modal = document.getElementById("confirm-modal-overlay");
-                modal.style.display = "flex";
-            };
-
-            window.closeConfirmModal = function(accepted = false) {
-                const modal = document.getElementById("confirm-modal-overlay");
-                modal.style.display = "none";
-
-                if (!accepted && !drawerOpened) {
-                    hardwareIndicator.innerText = "⏸️";
-                    hardwareLabel.innerText = "ยกเลิกการเปิดตู้ยา";
-                    hardwareLabel.style.color = "var(--text-main)";
-                    hardwareLog.innerText = "ผู้ใช้ยกเลิกการเปิดตู้ยา กำลังพากลับสู่หน้าเลือกประเภทบาดแผล...";
-                    NotificationService.showToast("ยกเลิกการเปิดตู้ยา — กำลังกลับสู่หน้าเลือกแผล", "warning");
-                    setTimeout(() => {
-                        location.href = "/student/";
-                    }, 600);
-                }
-            };
-
-            window.confirmOpenDrawer = async function() {
-                const btnConfirm = document.getElementById("btn-confirm-modal");
-                if (btnConfirm) {
-                    btnConfirm.disabled = true;
-                    btnConfirm.innerText = "⏳ กำลังส่งคำสั่ง...";
-                }
-
-                closeConfirmModal(true);
-                drawerOpened = true;
-                document.getElementById("manual-open-drawer-btn").style.display = "none";
-                await triggerHardware();
-            };
-
-            async function triggerHardware() {
-                if (wound.id === 'unknown') {
-                    hardwareIndicator.innerText = "🔒";
-                    hardwareLabel.innerText = "ไม่มีการเปิดช่องยาอัตโนมัติ";
-                    hardwareLog.innerText = "ระบบไม่พบประเภทแผลที่ระบุ จึงไม่มีการส่งคำสั่งเปิดช่องใส่เวชภัณฑ์ใดๆ";
-                    return;
-                }
-
-                // Issue #8: Check allergy collision before opening drawer
-                const currentStudent = StorageService.getCurrentStudent();
-                if (currentStudent && currentStudent.allergies && currentStudent.allergies.length > 0) {
-                    const studentAllergies = currentStudent.allergies;
-                    const matchedAllergies = [];
-
-                    (wound.items || []).forEach(item => {
-                        studentAllergies.forEach(allergy => {
-                            if (allergy !== "ไม่ทราบประวัติแพ้ยา" && 
-                               (item.toLowerCase().includes(allergy.toLowerCase()) || allergy.toLowerCase().includes(item.toLowerCase()))) {
-                                matchedAllergies.push(allergy);
-                            }
-                        });
-                    });
-
-                    if (matchedAllergies.length > 0) {
-                        hardwareIndicator.innerText = "🛑";
-                        hardwareLabel.innerText = "ระงับการจ่ายยา (ตรวจพบประวัติแพ้ยา!)";
-                        hardwareLabel.style.color = "#DC2626";
-                        hardwareLog.innerText = `🚨 คำเตือนความปลอดภัย: ผู้เรียนมีประวัติแพ้ยา (${matchedAllergies.join(', ')}) ซึ่งอยู่ในชุดอุปกรณ์นี้ ระบบจึงระงับการเปิดตู้ยาอัตโนมัติ กรุณาติดต่อครูพยาบาล`;
-                        NotificationService.showToast(`🚨 ระงับการเปิดตู้ยา! ตรวจพบประวัติแพ้ยา: ${matchedAllergies.join(', ')}`, "danger");
-                        return;
-                    }
-                }
-
-                try {
-                    hardwareIndicator.innerText = "⏳";
-                    hardwareLabel.innerText = "กำลังสั่งเปิดตู้ยา...";
-                    hardwareLog.innerText = "กำลังส่งสัญญาณปลดล็อกลิ้นชักตู้ยาผ่าน MQTT/บอร์ดควบคุม...";
-
-                    // Send command to open drawer
-                    const response = await ApiBridge.openCompartment(wound.id);
-                    if (response.success) {
-                        hardwareIndicator.innerText = "🔓";
-                        hardwareLabel.innerText = "เปิดช่องใส่อุปกรณ์เรียบร้อย";
-                        
-                        if (response.mode === 'simulation') {
-                            hardwareLog.innerText = `[โหมดทดลอง] ปลดล็อกกล่องยาส่วน: ${wound.name_th} เรียบร้อย (จำลองบอร์ดควบคุมเปิดช่อง #${response.compartment})`;
-                            NotificationService.showToast("จำลอง: ปลดล็อกช่องยาแล้ว", "warning");
-                        } else {
-                            hardwareLog.innerText = `บอร์ดควบคุมส่งคำสั่งเปิดช่องใส่เวชภัณฑ์ยาพยาบาลสำหรับแผลนี้เรียบร้อย (ช่อง #${response.compartment})`;
-                            NotificationService.showToast("ปลดล็อกช่องยาสำเร็จ!", "success");
-                        }
-                    } else {
-                        hardwareIndicator.innerText = "❌";
-                        hardwareLabel.innerText = "เปิดตู้ยาไม่สำเร็จ";
-                        hardwareLabel.style.color = "#DC2626";
-                        hardwareLog.innerText = `❌ ${response.error || 'ไม่สามารถสั่งเปิดตู้ยาได้'} — คุณสามารถหยิบยาดำเนินการด้วยตนเองหรือแจ้งครูพยาบาล`;
-                        NotificationService.showToast(response.error || "การเปิดตู้ยาขัดข้อง", "danger");
-                        document.getElementById("manual-open-drawer-btn").style.display = "inline-flex";
-                    }
-                } catch(err) {
-                    hardwareIndicator.innerText = "❌";
-                    hardwareLabel.innerText = "การเชื่อมตู้ยาขัดข้อง";
-                    hardwareLog.innerText = "ไม่สามารถเชื่อมต่อกับบอร์ดควบคุมได้ แต่คุณสามารถเปิดตู้เพื่อใช้ยาได้ด้วยตนเอง";
-                    NotificationService.showToast("ไม่สามารถเชื่อมต่อตู้ยาได้", "danger");
-                    document.getElementById("manual-open-drawer-btn").style.display = "inline-flex";
-                }
-            }
-
-            // Open confirmation modal automatically if valid wound
-            if (wound.id !== 'unknown') {
-                setTimeout(() => openConfirmModal(), 300);
-            }
-
-            // Finish button flow
-            const finishBtn = document.getElementById("finish-btn");
-            finishBtn.addEventListener("click", async () => {
-                // Security check: Don't allow saving history if drawer was never opened / user cancelled
-                if (!drawerOpened) {
-                    NotificationService.showToast("🚨 ไม่สามารถบันทึกประวัติได้ เนื่องจากไม่ได้มีการเปิดตู้ยาจริง", "danger");
-                    openConfirmModal();
-                    return;
-                }
-                // Cancel speaking if active
-                if (synth.speaking) {
-                    synth.cancel();
-                }
-
-                finishBtn.disabled = true;
-                finishBtn.innerText = "กำลังบันทึกประวัติการใช้ยา...";
-
-                // 1. Get current logged in student info
-                const currentStudent = StorageService.getCurrentStudent() || { studentId: '12345', name: 'นายหมิง พัฒนาการ', class: 'ม.4/1' };
-                const isAiScan = urlParams.get('source') === 'ai-scan';
-                
-                const historyEntry = {
-                    studentId: currentStudent.studentId,
-                    studentName: currentStudent.name,
-                    studentClass: currentStudent.class,
-                    woundType: wound.id,
-                    woundNameTh: wound.name_th,
-                    method: isAiScan ? "AI วิเคราะห์จากภาพถ่าย" : "เลือกประเภทแผลเอง",
-                    itemsUsed: wound.items,
-                    timestamp: new Date().toISOString()
-                };
-                StorageService.addHistoryEntry(historyEntry);
-
-                // 2. Format detailed LINE Flex Message Notification
-                const timeString = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-                const flexPayload = NotificationService.buildFirstAidFlexMessage({
-                    studentId: currentStudent.studentId,
-                    name: currentStudent.name,
-                    studentClass: currentStudent.class,
+            try {
+                const payload = NotificationService.buildFirstAidFlexMessage({
+                    studentId: student.studentId,
+                    name: student.name,
+                    studentClass: student.class,
                     woundNameTh: wound.name_th,
                     woundNameEn: wound.name_en,
                     items: wound.items,
-                    method: historyEntry.method,
-                    timeStr: timeString
+                    method,
+                    timeStr: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
                 });
-                
-                const lineResult = await NotificationService.sendLineNotification(flexPayload);
-                if (lineResult.mode === 'simulation') {
-                    NotificationService.showToast("บันทึกประวัติลง Supabase & แสดง LINE จำลอง", "info");
-                } else if (lineResult.success) {
-                    NotificationService.showToast("ส่งแจ้งเตือน LINE หาครูพยาบาลสำเร็จ!", "success");
-                } else {
-                    NotificationService.showToast(lineResult.error || "ส่งแจ้งเตือน LINE ไม่สำเร็จ", "danger");
-                }
+                const result = await NotificationService.sendLineNotification(payload);
+                if (result.mode === 'simulation') NotificationService.showToast('บันทึกแล้ว — การแจ้งเตือนอยู่ในโหมดสาธิต', 'info');
+                else if (result.success) NotificationService.showToast('บันทึกและแจ้งครูพยาบาลเรียบร้อยแล้ว', 'success');
+                else NotificationService.showToast(result.error || 'บันทึกแล้ว แต่ส่งการแจ้งเตือนไม่สำเร็จ', 'warning');
+            } catch (error) {
+                console.error('[Guide] Notification failed:', error);
+                NotificationService.showToast('บันทึกประวัติแล้ว แต่ส่งการแจ้งเตือนไม่สำเร็จ', 'warning');
+            }
 
-                // 3. Show Success toast
-                NotificationService.showToast("บันทึกประวัติการปฐมพยาบาลเรียบร้อย", "success");
-
-                // Short delay and redirect
-                setTimeout(() => {
-                    location.href = '/student/';
-                }, 1500);
-            });
-        });
+            setTimeout(() => { location.href = '/student/'; }, 900);
+        }
     </script>
 </body>
 </html>
