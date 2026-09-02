@@ -80,6 +80,11 @@ a:hover {
     text-decoration: underline;
 }
 
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 3px solid #2563EB;
+    outline-offset: 3px;
+}
+
 /* Grid & Structure */
 .container {
     width: 100%;
@@ -123,6 +128,7 @@ a:hover {
     gap: 8px;
     text-align: center;
     width: 100%;
+    min-height: 44px;
 }
 
 .btn:active {
@@ -197,6 +203,7 @@ a:hover {
     outline: none;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
     background-color: #FFFFFF;
+    min-height: 44px;
 }
 
 .form-input:focus {
@@ -235,7 +242,11 @@ header.app-header {
     border: none;
     display: flex;
     align-items: center;
-    padding: 4px;
+    padding: 8px 10px;
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    border-radius: var(--radius-sm);
 }
 
 .header-back:hover {
@@ -279,6 +290,15 @@ footer.app-footer {
 
 .animate-slide-up {
     animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }
 
 /* Responsive Desktop Wrapper */

@@ -6,14 +6,14 @@ const WOUND_DATA = {
         "name_en": "Cut & Abrasion",
         "severity": "ทั่วไป (Minor)",
         "icon": "🩹",
-        "image": "../images/wound_cut_abrasion.png",
+        "image": "../images/wound_cut_abrasion.webp",
         "drawer": 1,
         "description": "เกิดจากของมีคมบาด หรือผิวหนังถลอกจากการล้มเสียดสีกับพื้น มีเลือดซึมหรือไหลเล็กน้อย",
         "items": ["น้ำเกลือล้างแผล (Normal Saline)", "ยาเบตาดีน (Antiseptic)", "พลาสเตอร์ยา & ผ้าก๊อซ"],
         "itemDetails": [
-            { "name": "น้ำเกลือล้างแผล (Normal Saline)", "image": "../images/med_saline.png", "drawer": 1, "desc": "สำหรับล้างสิ่งสกปรกและฆ่าเชื้อเบื้องต้น" },
-            { "name": "ยาเบตาดีน (Antiseptic)", "image": "../images/med_betadine.png", "drawer": 1, "desc": "ยาทาแผลสด ป้องกันแผลติดเชื้อ" },
-            { "name": "พลาสเตอร์ยา & ผ้าก๊อซ", "image": "../images/med_bandage.png", "drawer": 1, "desc": "ปิดปกป้องบาดแผลจากสิ่งสกปรก" }
+            { "name": "น้ำเกลือล้างแผล (Normal Saline)", "image": "../images/med_saline.webp", "drawer": 1, "desc": "สำหรับล้างสิ่งสกปรกและฆ่าเชื้อเบื้องต้น" },
+            { "name": "ยาเบตาดีน (Antiseptic)", "image": "../images/med_betadine.webp", "drawer": 1, "desc": "ยาทาแผลสด ป้องกันแผลติดเชื้อ" },
+            { "name": "พลาสเตอร์ยา & ผ้าก๊อซ", "image": "../images/med_bandage.webp", "drawer": 1, "desc": "ปิดปกป้องบาดแผลจากสิ่งสกปรก" }
         ],
         "steps": [
             "ล้างมือผู้ปฐมพยาบาลให้สะอาดด้วยสบู่และน้ำสะอาด",
@@ -23,11 +23,11 @@ const WOUND_DATA = {
             "ปิดแผลด้วยพลาสเตอร์ยาเพื่อป้องกันฝุ่นและเชื้อโรค"
         ],
         "stepDetails": [
-            { "step": 1, "title": "ล้างมือให้สะอาด", "desc": "ล้างมือผู้ปฐมพยาบาลด้วยสบู่และน้ำสะอาดอย่างน้อย 20 วินาทีเพื่อป้องกันเชื้อโรค", "image": "../images/step_wash_hands.png" },
-            { "step": 2, "title": "ล้างทำความสะอาดแผล", "desc": "ใช้น้ำเกลือล้างแผล (Normal Saline) ราดล้างสิ่งสกปรกและฝุ่นออกจากแผลเบาๆ", "image": "../images/step_clean_wound.png" },
-            { "step": 3, "title": "ซับแผลให้แห้ง", "desc": "ใช้ผ้าก๊อซหรือสำลีสะอาดซับรอบๆ บาดแผลให้แห้งสนิท", "image": "../images/step_dry_wound.png" },
-            { "step": 4, "title": "ใส่ยารักษาแผล", "desc": "ทาโพวิโดน-ไอโอดีน (เบตาดีน) บางๆ บนแผลและผิวหนังรอบๆ", "image": "../images/step_apply_medicine.png" },
-            { "step": 5, "title": "ปิดปกป้องบาดแผล", "desc": "ติดพลาสเตอร์ยาหรือผ้าก๊อซปิดแผลเพื่อป้องกันการติดเชื้อและความอับชื้น", "image": "../images/step_cover_wound.png" }
+            { "step": 1, "title": "ล้างมือให้สะอาด", "desc": "ล้างมือผู้ปฐมพยาบาลด้วยสบู่และน้ำสะอาดอย่างน้อย 20 วินาทีเพื่อป้องกันเชื้อโรค", "image": "../images/step_wash_hands.webp" },
+            { "step": 2, "title": "ล้างทำความสะอาดแผล", "desc": "ใช้น้ำเกลือล้างแผล (Normal Saline) ราดล้างสิ่งสกปรกและฝุ่นออกจากแผลเบาๆ", "image": "../images/step_clean_wound.webp" },
+            { "step": 3, "title": "ซับแผลให้แห้ง", "desc": "ใช้ผ้าก๊อซหรือสำลีสะอาดซับรอบๆ บาดแผลให้แห้งสนิท", "image": "../images/step_dry_wound.webp" },
+            { "step": 4, "title": "ใส่ยารักษาแผล", "desc": "ทาโพวิโดน-ไอโอดีน (เบตาดีน) บางๆ บนแผลและผิวหนังรอบๆ", "image": "../images/step_apply_medicine.webp" },
+            { "step": 5, "title": "ปิดปกป้องบาดแผล", "desc": "ติดพลาสเตอร์ยาหรือผ้าก๊อซปิดแผลเพื่อป้องกันการติดเชื้อและความอับชื้น", "image": "../images/step_cover_wound.webp" }
         ],
         "warnings": "หลีกเลี่ยงการใช้แอลกอฮอล์ราดลงบนแผลโดยตรง ให้เช็ดเฉพาะรอบๆ แผลเท่านั้น หากเลือดไหลไม่หยุดให้กดแผลไว้และแจ้งครูพยาบาล"
     },
@@ -37,14 +37,14 @@ const WOUND_DATA = {
         "name_en": "Insect Bite",
         "severity": "ทั่วไป (Minor)",
         "icon": "🐝",
-        "image": "../images/wound_insect_bite.png",
+        "image": "../images/wound_insect_bite.webp",
         "drawer": 2,
         "description": "เกิดจากมด ผึ้ง ต่อ แตน หรือแมลงอื่นๆ กัดต่อย ทำให้ผิวหนังบวม แดง คัน หรือแสบร้อน",
         "items": ["สบู่และน้ำสะอาด", "ถุงน้ำแข็งประคบ", "ยาคาลาไมน์ / ยาหม่อง"],
         "itemDetails": [
-            { "name": "สบู่ล้างทำความสะอาด", "image": "../images/step_wash_hands.png", "drawer": 2, "desc": "ชำระล้างคราบพิษและสบู่เบื้องต้น" },
-            { "name": "ถุงน้ำแข็งประคบเย็น", "image": "../images/med_icepack.png", "drawer": 2, "desc": "ลดอาการปวด บวม แสบร้อน" },
-            { "name": "ยาคาลาไมน์ / ยาหม่อง", "image": "../images/med_calamine.png", "drawer": 2, "desc": "ทาบรรเทาอาการคันและลดอักเสบ" }
+            { "name": "สบู่ล้างทำความสะอาด", "image": "../images/step_wash_hands.webp", "drawer": 2, "desc": "ชำระล้างคราบพิษและสบู่เบื้องต้น" },
+            { "name": "ถุงน้ำแข็งประคบเย็น", "image": "../images/med_icepack.webp", "drawer": 2, "desc": "ลดอาการปวด บวม แสบร้อน" },
+            { "name": "ยาคาลาไมน์ / ยาหม่อง", "image": "../images/med_calamine.webp", "drawer": 2, "desc": "ทาบรรเทาอาการคันและลดอักเสบ" }
         ],
         "steps": [
             "ล้างมือผู้ปฐมพยาบาลให้สะอาดก่อนเริ่มปฐมพยาบาล",
@@ -54,11 +54,11 @@ const WOUND_DATA = {
             "หลีกเลี่ยงการเกาบริเวณแผลเพื่อป้องกันการติดเชื้อซ้ำซ้อน"
         ],
         "stepDetails": [
-            { "step": 1, "title": "ล้างมือผู้ทำแผล", "desc": "ล้างมือให้สะอาดด้วยสบู่และน้ำสะอาดก่อนสัมผัสบริเวณที่แมลงกัดต่อย", "image": "../images/step_wash_hands.png" },
-            { "step": 2, "title": "ล้างบริเวณที่ถูกกัด", "desc": "ล้างบริเวณแผลด้วยสบู่อ่อนๆ และน้ำสะอาดเพื่อนำสิ่งสกปรกออก", "image": "../images/step_clean_wound.png" },
-            { "step": 3, "title": "ประคบเย็นลดปวดบวม", "desc": "ใช้ถุงน้ำแข็งห่อผ้าสะอาดประคบตรงบริเวณที่บวมนาน 5-10 นาที", "image": "../images/med_icepack.png" },
-            { "step": 4, "title": "ทายาบรรเทาอาการ", "desc": "ทายาคาลาไมน์โลชั่น หรือแซมบัค/ยาหม่องบางๆ ตรงจุดคัน", "image": "../images/med_calamine.png" },
-            { "step": 5, "title": "คำแนะนำห้ามเกา", "desc": "หลีกเลี่ยงการเกาเพื่อป้องกันผิวหนังถลอกและเสี่ยงต่อแบคทีเรียแทรกซ้อน", "image": "../images/step_cover_wound.png" }
+            { "step": 1, "title": "ล้างมือผู้ทำแผล", "desc": "ล้างมือให้สะอาดด้วยสบู่และน้ำสะอาดก่อนสัมผัสบริเวณที่แมลงกัดต่อย", "image": "../images/step_wash_hands.webp" },
+            { "step": 2, "title": "ล้างบริเวณที่ถูกกัด", "desc": "ล้างบริเวณแผลด้วยสบู่อ่อนๆ และน้ำสะอาดเพื่อนำสิ่งสกปรกออก", "image": "../images/step_clean_wound.webp" },
+            { "step": 3, "title": "ประคบเย็นลดปวดบวม", "desc": "ใช้ถุงน้ำแข็งห่อผ้าสะอาดประคบตรงบริเวณที่บวมนาน 5-10 นาที", "image": "../images/med_icepack.webp" },
+            { "step": 4, "title": "ทายาบรรเทาอาการ", "desc": "ทายาคาลาไมน์โลชั่น หรือแซมบัค/ยาหม่องบางๆ ตรงจุดคัน", "image": "../images/med_calamine.webp" },
+            { "step": 5, "title": "คำแนะนำห้ามเกา", "desc": "หลีกเลี่ยงการเกาเพื่อป้องกันผิวหนังถลอกและเสี่ยงต่อแบคทีเรียแทรกซ้อน", "image": "../images/step_cover_wound.webp" }
         ],
         "warnings": "หากมีอาการแพ้รุนแรง เช่น หายใจติดขัด แน่นหน้าอก ปากบวม หน้าบวม ให้รีบแจ้งครูพยาบาลหรือติดต่อสายด่วน 1669 ทันที"
     },
@@ -68,7 +68,7 @@ const WOUND_DATA = {
         "name_en": "Unknown",
         "severity": "ไม่ระบุ (Unspecified)",
         "icon": "❓",
-        "image": "../images/ai_scanner_hero.png",
+        "image": "../images/ai_scanner_hero.webp",
         "drawer": 0,
         "description": "ระบบไม่สามารถแยกแยะประเภทแผลจากภาพถ่ายได้ โปรดเลือกประเภทแผลด้วยตนเอง",
         "items": [],

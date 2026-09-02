@@ -38,46 +38,6 @@
             color: var(--text-muted);
         }
 
-        /* 2 Stat Counters Only */
-        .simple-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin: 20px 0;
-        }
-
-        .stat-box {
-            background-color: #FFFFFF;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            padding: 16px;
-            text-align: center;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .stat-number {
-            font-family: var(--font-prompt), sans-serif;
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--secondary);
-            line-height: 1.2;
-        }
-
-        .stat-title {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-top: 4px;
-            font-weight: 500;
-        }
-
-        .portal-description {
-            font-size: 14px;
-            color: var(--text-main);
-            margin-bottom: 20px;
-            text-align: center;
-            line-height: 1.5;
-        }
-
         .menu-list {
             display: flex;
             flex-direction: column;
@@ -95,16 +55,21 @@
             transition: all 0.15s ease;
             text-align: left;
             box-shadow: var(--shadow-sm);
+            color: inherit;
+            text-decoration: none;
+            min-height: 90px;
         }
 
         .menu-item-btn:hover {
             border-color: var(--primary);
             box-shadow: var(--shadow-md);
             background-color: #F8FAFC;
+            color: inherit;
+            text-decoration: none;
+            transform: translateY(-1px);
         }
 
         .menu-item-icon {
-            font-size: 32px;
             margin-right: 16px;
             display: flex;
             align-items: center;
@@ -116,6 +81,12 @@
             border-radius: var(--radius-sm);
             color: var(--primary);
             flex-shrink: 0;
+        }
+
+        .menu-item-icon svg {
+            width: 28px;
+            height: 28px;
+            stroke: currentColor;
         }
 
         .menu-item-content {
@@ -136,55 +107,106 @@
         }
 
         .menu-item-arrow {
-            font-size: 18px;
             color: var(--text-muted);
             margin-left: 8px;
+            display: flex;
+        }
+
+        .menu-item-arrow svg {
+            width: 20px;
+            height: 20px;
+            stroke: currentColor;
+        }
+
+        .hero-banner {
+            margin-bottom: 20px;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .hero-banner img {
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+            display: block;
+        }
+
+        @media (max-width: 420px) {
+            .menu-item-btn {
+                padding: 15px 14px;
+            }
+
+            .menu-item-icon {
+                width: 46px;
+                height: 46px;
+                margin-right: 12px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container animate-fade-in">
         <div class="portal-header">
-            <img src="images/logo_first_aid.png" alt="Smart First Aid Box Logo" style="width:72px; height:72px; object-fit:contain; margin-bottom:8px;">
-            <span class="school-badge" style="display:block; width:fit-content; margin:0 auto 10px auto;">🏫 โรงเรียนเทศบาล 6 นครเชียงราย</span>
+            <img src="images/logo_first_aid.webp" alt="Smart First Aid Box Logo" width="72" height="72" style="object-fit:contain; margin-bottom:8px;" fetchpriority="high">
+            <span class="school-badge" style="display:block; width:fit-content; margin:0 auto 10px auto;">โรงเรียนเทศบาล 6 นครเชียงราย</span>
             <h1 class="portal-title">Smart First Aid Box</h1>
             <p class="portal-subtitle">ระบบกล่องปฐมพยาบาลอัจฉริยะประจำสถานศึกษา (micro:bit v2 + ESP32)</p>
         </div>
 
-        <div style="margin-bottom:20px; border-radius:16px; overflow:hidden; border:1px solid var(--border-color); box-shadow:var(--shadow-sm);">
-            <img src="images/hero_banner.png" alt="Smart First Aid Box Banner" style="width:100%; height:160px; object-fit:cover; display:block;">
+        <div class="hero-banner">
+            <img src="images/hero_banner.webp" alt="ตู้ปฐมพยาบาลอัจฉริยะพร้อมเวชภัณฑ์" width="1200" height="676" fetchpriority="high">
         </div>
 
         <div class="menu-list">
             <!-- Student Portal -->
-            <div class="menu-item-btn" onclick="location.href='student/'">
-                <div class="menu-item-icon">🩹</div>
+            <a class="menu-item-btn" href="student/">
+                <div class="menu-item-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg>
+                </div>
                 <div class="menu-item-content">
                     <div class="menu-item-title">ระบบปฐมพยาบาล (สำหรับนักเรียน)</div>
                     <div class="menu-item-desc">เลือกบาดแผลเพื่อดูขั้นตอนการทำแผล และปลดล็อกช่องเก็บยาอัตโนมัติ</div>
                 </div>
-                <div class="menu-item-arrow">→</div>
-            </div>
+                <div class="menu-item-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+            </a>
 
             <!-- Teacher/Nurse Dashboard -->
-            <div class="menu-item-btn" onclick="location.href='dashboard/'">
-                <div class="menu-item-icon">📊</div>
+            <a class="menu-item-btn" href="dashboard/">
+                <div class="menu-item-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+                </div>
                 <div class="menu-item-content">
                     <div class="menu-item-title">แดชบอร์ดคลังยา (สำหรับครูพยาบาล)</div>
                     <div class="menu-item-desc">ตรวจสอบประวัติการทำแผล ยอดคงเหลือเวชภัณฑ์ และจัดการตู้ยา</div>
                 </div>
-                <div class="menu-item-arrow">→</div>
-            </div>
+                <div class="menu-item-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+            </a>
+
+            <!-- Touchscreen Kiosk -->
+            <a class="menu-item-btn" href="student/kiosk">
+                <div class="menu-item-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M8 21h8M12 16v5"/></svg>
+                </div>
+                <div class="menu-item-content">
+                    <div class="menu-item-title">โหมดหน้าจอสัมผัสประจำตู้ยา</div>
+                    <div class="menu-item-desc">หน้าจอขนาดใหญ่สำหรับเลือกการดูแล สแกนแผล และขอความช่วยเหลือที่ตู้</div>
+                </div>
+                <div class="menu-item-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+            </a>
 
             <!-- About Project -->
-            <div class="menu-item-btn" onclick="location.href='student/about'">
-                <div class="menu-item-icon">ℹ️</div>
+            <a class="menu-item-btn" href="student/about">
+                <div class="menu-item-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+                </div>
                 <div class="menu-item-content">
                     <div class="menu-item-title">เกี่ยวกับโครงงาน</div>
                     <div class="menu-item-desc">รายละเอียดโครงงาน micro:bit Challenge 2026 และทีมผู้พัฒนา</div>
                 </div>
-                <div class="menu-item-arrow">→</div>
-            </div>
+                <div class="menu-item-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></div>
+            </a>
         </div>
 
         <footer class="app-footer">
@@ -193,16 +215,5 @@
         </footer>
     </div>
 
-    <!-- Live Stats Script -->
-    <script src="js/storage.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const history = StorageService.getHistory();
-            const medicines = StorageService.getMedicines();
-
-            document.getElementById('stat-med-count').innerText = medicines.length;
-            document.getElementById('stat-total-usage').innerText = history.length;
-        });
-    </script>
 </body>
 </html>
