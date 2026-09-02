@@ -19,6 +19,7 @@
             .sos-dock { right: 100px; left: 100px; }
         }
     </style>
+    <link rel="stylesheet" href="../css/student-responsive.css">
 </head>
 <body class="home-body">
     <main class="home-app animate-fade-in">
@@ -34,9 +35,19 @@
             <h1 class="home-title">เจ็บตรงไหน?<br>สแกนแผลได้เลย</h1>
             <p class="home-description">AI ช่วยดูว่าเป็นแผลแบบไหน แล้วพาทำแผลทีละขั้น พร้อมปลดล็อกช่องยาอัตโนมัติ</p>
             <div class="kiosk-clock"><time id="kiosk-time" aria-label="เวลาปัจจุบัน">--:-- น.</time></div>
+            <figure class="home-hero-visual">
+                <img src="../images/smart_box_full.webp" width="900" height="900" alt="กล่องปฐมพยาบาลอัจฉริยะพร้อมหน้าจอควบคุม">
+                <figcaption class="hero-float hero-float-ai"><span class="material-symbols-rounded" aria-hidden="true">touch_app</span>แตะหน้าจอเพื่อเริ่มใช้งาน</figcaption>
+                <span class="hero-float hero-float-device"><span class="material-symbols-rounded" aria-hidden="true">sensors</span>ตรวจสถานะตู้แบบเรียลไทม์</span>
+            </figure>
         </section>
 
         <section class="home-content" aria-label="เลือกบริการที่หน้าตู้">
+            <div class="home-content-heading">
+                <div class="eyebrow">KIOSK MODE</div>
+                <h2>เลือกบริการที่ต้องการ</h2>
+                <p>หากอาการรุนแรงหรือไม่แน่ใจ ให้เรียกครูพยาบาลทันที</p>
+            </div>
             <a class="home-action primary-action" href="/student/wound-scan">
                 <img class="home-action-media" src="../images/ai_scanner_hero.webp" width="480" height="480" alt="สแกนบาดแผลด้วย AI">
                 <span class="home-action-copy"><span class="home-action-title">สแกนแผลด้วย AI</span><span class="home-action-desc">ถ่ายรูปแผล ระบบบอกวิธีทำแผลให้</span></span>

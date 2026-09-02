@@ -7,7 +7,8 @@
     <title>คำแนะนำปฐมพยาบาล — Smart First Aid Box</title>
     <link rel="stylesheet" href="../css/global.css">
     <style>
-        .guide-container { min-height: calc(100dvh - 72px); padding-top: 16px; }
+        .guide-container { display: none; min-height: calc(100dvh - 72px); padding-top: 16px; }
+        .guide-container.is-visible { display: block; }
         .guide-header-copy { min-width: 0; text-align: left; }
         .guide-header-title { overflow: hidden; font-family: var(--font-prompt); font-size: 17px; font-weight: 700; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
         .guide-header-meta { margin-top: 2px; color: var(--text-muted); font-size: 10px; }
@@ -29,6 +30,7 @@
         .hardware-card { display: none; background: var(--secondary-light); color: oklch(0.36 0.06 195); }
         .unlock-button { min-height: 64px; margin: 3px 0 20px; border-radius: 20px; font-size: 17px; }
         .unlock-view { display: none; width: min(100%, 460px); min-height: 100vh; min-height: 100dvh; margin: 0 auto; flex-direction: column; align-items: center; justify-content: flex-start; gap: 13px; padding: 32px 22px 20px; background: linear-gradient(180deg, oklch(0.42 0.09 165), oklch(0.34 0.07 175)); color: #fff; text-align: center; }
+        .unlock-view.is-visible { display: flex; }
         .unlock-label { color: oklch(0.94 0.025 180); font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: .1em; }
         .unlock-orb { display: grid; width: 122px; height: 122px; flex: 0 0 auto; place-items: center; border: 1px solid oklch(1 0 0 / .36); border-radius: 50%; background: oklch(0.79 0.18 145); color: oklch(0.26 0.08 155); box-shadow: 0 0 0 18px oklch(1 0 0 / .08), 0 26px 55px -30px oklch(0.18 0.06 180 / .8); animation: unlockPulse 2s ease-in-out infinite; }
         .unlock-orb .material-symbols-rounded { font-size: 58px; font-variation-settings: 'FILL' 1; }
@@ -42,6 +44,7 @@
         .unlock-note { color: oklch(0.89 0.02 185); font-size: 11px; line-height: 1.5; }
         .unlock-next { min-height: 64px; margin-top: auto; border: 0; border-radius: 20px; background: #fff; color: oklch(0.37 0.075 195); font-size: 17px; }
         .steps-view { display: none; width: min(100%, 460px); min-height: 100vh; min-height: 100dvh; margin: 0 auto; padding: 0 20px 24px; background: var(--bg-main); }
+        .steps-view.is-visible { display: block; }
         .steps-header { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; min-height: 66px; margin-inline: -8px; }
         .steps-counter { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-align: center; text-transform: uppercase; }
         .step-progress { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin: 2px 0 16px; }
@@ -60,8 +63,9 @@
         .error-icon { display: grid; width: 70px; height: 70px; margin-bottom: 14px; place-items: center; border-radius: 22px; background: var(--accent-light); color: var(--accent); }
         @keyframes unlockPulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 18px oklch(1 0 0 / .08), 0 26px 55px -30px oklch(0.18 0.06 180 / .8); } 50% { transform: scale(1.035); box-shadow: 0 0 0 25px oklch(1 0 0 / .05), 0 26px 55px -30px oklch(0.18 0.06 180 / .8); } }
     </style>
+    <link rel="stylesheet" href="../css/student-responsive.css">
 </head>
-<body>
+<body class="guide-body">
     <header class="app-header" id="detail-header">
         <button class="header-back" type="button" onclick="history.back()" aria-label="ย้อนกลับ"><span class="material-symbols-rounded">arrow_back</span></button>
         <div class="guide-header-copy">
@@ -71,7 +75,17 @@
         <span aria-hidden="true"></span>
     </header>
 
-    <main class="container guide-container animate-slide-up" id="detail-view" style="display:none;">
+    <main class="container guide-container animate-slide-up" id="detail-view">
+        <section class="guide-overview" aria-label="สรุปบาดแผล">
+            <img id="guide-wound-image" src="../images/wound_cut_abrasion.webp" width="900" height="900" alt="">
+            <div class="guide-overview-copy">
+                <div class="eyebrow">FIRST AID PLAN</div>
+                <h2 id="guide-overview-title">รายละเอียดการปฐมพยาบาล</h2>
+                <p id="guide-overview-description"></p>
+            </div>
+            <div class="guide-drawer-chip"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>ช่องเก็บที่ <span id="guide-drawer-number">1</span></div>
+        </section>
+
         <div class="section-heading">
             <h2>เวชภัณฑ์ที่ต้องใช้</h2>
             <span class="count-pill" id="supply-count">0 ชิ้น</span>
@@ -95,15 +109,20 @@
     </main>
 
     <section class="unlock-view animate-fade-in" id="unlock-view">
-        <div class="unlock-label" id="unlock-mode-label">ESP32 · UNLOCK OK</div>
-        <div class="unlock-orb" aria-hidden="true"><span class="material-symbols-rounded">lock_open</span></div>
-        <h1>ปลดล็อกช่องเก็บที่ <span id="unlock-drawer-number">1</span><br>เรียบร้อย</h1>
-        <p class="unlock-copy">หยิบเวชภัณฑ์ตามรายการ แล้วปิดฝากล่องให้สนิท</p>
-        <div class="unlock-supplies">
-            <div id="unlock-items"></div>
+        <div class="unlock-hero">
+            <div class="unlock-label" id="unlock-mode-label">ESP32 · UNLOCK OK</div>
+            <div class="unlock-orb" aria-hidden="true"><span class="material-symbols-rounded">lock_open</span></div>
+            <h1>ปลดล็อกช่องเก็บที่ <span id="unlock-drawer-number">1</span><br>เรียบร้อย</h1>
+            <p class="unlock-copy">หยิบเวชภัณฑ์ตามรายการ แล้วปิดฝากล่องให้สนิท</p>
         </div>
-        <div class="unlock-note">ระบบจะบันทึกประวัติเมื่อทำครบทุกขั้นตอน</div>
-        <button class="btn unlock-next" type="button" onclick="showStepsView()">ไปยังขั้นตอนทำแผล<span class="material-symbols-rounded" aria-hidden="true">arrow_forward</span></button>
+        <div class="unlock-panel">
+            <div class="unlock-panel-title">เวชภัณฑ์ที่ต้องหยิบ</div>
+            <div class="unlock-supplies">
+                <div id="unlock-items"></div>
+            </div>
+            <div class="unlock-note">ระบบจะบันทึกประวัติเมื่อทำครบทุกขั้นตอน</div>
+            <button class="btn unlock-next" type="button" onclick="showStepsView()">ไปยังขั้นตอนทำแผล<span class="material-symbols-rounded" aria-hidden="true">arrow_forward</span></button>
+        </div>
     </section>
 
     <section class="steps-view animate-slide-up" id="steps-view">
@@ -114,13 +133,15 @@
         </header>
         <div class="step-progress" id="step-progress" aria-label="ความก้าวหน้าการทำแผล"></div>
         <img class="step-image" id="step-image" src="../images/step_wash_hands.webp" alt="">
-        <div class="step-badge"><span id="step-badge-text">ขั้นที่ 1 จาก 5</span></div>
-        <h1 class="step-title" id="step-title">ล้างมือให้สะอาด</h1>
-        <p class="step-description" id="step-description">เตรียมตัวก่อนสัมผัสบาดแผล</p>
-        <div class="step-timer"><span class="material-symbols-rounded" aria-hidden="true">timer</span><span class="step-timer-copy" id="step-timer-text">ล้างมือต่อเนื่องอย่างน้อย 20 วินาที</span><span class="step-timer-value" id="step-timer-value">0:20</span></div>
-        <div class="step-nav">
-            <button class="btn btn-outline" id="prev-step-btn" type="button" onclick="navigateStep(-1)" aria-label="ขั้นตอนก่อนหน้า"><span class="material-symbols-rounded">arrow_back</span></button>
-            <button class="btn btn-primary" id="next-step-btn" type="button" onclick="navigateStep(1)"><span class="material-symbols-rounded">check</span>ทำเสร็จแล้ว</button>
+        <div class="step-copy-panel">
+            <div class="step-badge"><span id="step-badge-text">ขั้นที่ 1 จาก 5</span></div>
+            <h1 class="step-title" id="step-title">ล้างมือให้สะอาด</h1>
+            <p class="step-description" id="step-description">เตรียมตัวก่อนสัมผัสบาดแผล</p>
+            <div class="step-timer"><span class="material-symbols-rounded" aria-hidden="true">timer</span><span class="step-timer-copy" id="step-timer-text">ล้างมือต่อเนื่องอย่างน้อย 20 วินาที</span><span class="step-timer-value" id="step-timer-value">0:20</span></div>
+            <div class="step-nav">
+                <button class="btn btn-outline" id="prev-step-btn" type="button" onclick="navigateStep(-1)" aria-label="ขั้นตอนก่อนหน้า"><span class="material-symbols-rounded">arrow_back</span></button>
+                <button class="btn btn-primary" id="next-step-btn" type="button" onclick="navigateStep(1)"><span class="material-symbols-rounded">check</span>ทำเสร็จแล้ว</button>
+            </div>
         </div>
     </section>
 
@@ -152,7 +173,7 @@
                 return;
             }
             renderDetail();
-            document.getElementById('detail-view').style.display = 'block';
+            document.getElementById('detail-view').classList.add('is-visible');
             document.getElementById('speak-btn').addEventListener('click', speakCurrentStep);
         });
 
@@ -167,6 +188,12 @@
             document.getElementById('supply-count').textContent = `${wound.items.length} ชิ้น`;
             document.getElementById('drawer-button-number').textContent = wound.drawer || 1;
             document.getElementById('unlock-drawer-number').textContent = wound.drawer || 1;
+            document.getElementById('guide-drawer-number').textContent = wound.drawer || 1;
+            document.getElementById('guide-overview-title').textContent = wound.name_th;
+            document.getElementById('guide-overview-description').textContent = wound.description;
+            const guideImage = document.getElementById('guide-wound-image');
+            guideImage.src = wound.image;
+            guideImage.alt = `ภาพตัวอย่าง${wound.name_th}`;
 
             const details = wound.itemDetails || [];
             document.getElementById('items-list').innerHTML = wound.items.map((item, index) => {
@@ -248,8 +275,8 @@
 
         function showUnlockView(response) {
             document.getElementById('detail-header').style.display = 'none';
-            document.getElementById('detail-view').style.display = 'none';
-            document.getElementById('unlock-view').style.display = 'flex';
+            document.getElementById('detail-view').classList.remove('is-visible');
+            document.getElementById('unlock-view').classList.add('is-visible');
             document.getElementById('unlock-mode-label').textContent = response.mode === 'simulation' ? 'DEMO · UNLOCK SIMULATED' : 'ESP32 · UNLOCK OK';
             if (response.mode === 'simulation') {
                 NotificationService.showToast('โหมดสาธิต: จำลองการปลดล็อกช่องยาแล้ว', 'warning');
@@ -260,8 +287,8 @@
         }
 
         function showStepsView() {
-            document.getElementById('unlock-view').style.display = 'none';
-            document.getElementById('steps-view').style.display = 'block';
+            document.getElementById('unlock-view').classList.remove('is-visible');
+            document.getElementById('steps-view').classList.add('is-visible');
             currentStepIndex = 0;
             renderStep();
             window.scrollTo(0, 0);

@@ -70,6 +70,7 @@ assert.deepEqual(
 );
 
 const landingHtml = await readFile(path.join(rootDir, 'index.html'), 'utf8');
+const studentResponsiveCss = await readFile(path.join(rootDir, 'css', 'student-responsive.css'), 'utf8');
 assert.doesNotMatch(
     landingHtml,
     /stat-med-count|stat-total-usage/,
@@ -95,6 +96,45 @@ assert.match(
     /class=["'][^"']*home-action[^"']*primary-action[^"']*["'][^>]*href=["']student\/wound-scan["']/i,
     'Landing page must make AI wound scanning the primary Care Kit action'
 );
+assert.match(
+    landingHtml,
+    /href=["']css\/student-responsive\.css["']/i,
+    'Landing page must load the wide Care Kit compositions for desktop'
+);
+for (const relativePath of [
+    'student/index.html',
+    'student/kiosk.html',
+    'student/wound-select.html',
+    'student/wound-scan.html',
+    'student/first-aid-guide.html',
+    'student/about.html',
+    'student/history.html'
+]) {
+    const html = await readFile(path.join(rootDir, relativePath), 'utf8');
+    assert.match(
+        html,
+        /href=["']\.\.\/css\/student-responsive\.css["']/i,
+        `${relativePath} must load the shared desktop Care Kit compositions`
+    );
+}
+assert.match(
+    studentResponsiveCss,
+    /@media\s*\(min-width:\s*900px\)[\s\S]*?\.home-app\s*\{[\s\S]*?grid-template-columns:/,
+    'Desktop home must recompose into columns instead of retaining a centered phone shell'
+);
+for (const selector of [
+    '.picker-app',
+    '.scan-main',
+    '.guide-container.is-visible',
+    '.steps-view.is-visible',
+    '.about-app',
+    'body.history-body .container'
+]) {
+    assert.ok(
+        studentResponsiveCss.includes(selector),
+        `Responsive Care Kit CSS must cover ${selector}`
+    );
+}
 
 const kioskHtml = await readFile(path.join(rootDir, 'student', 'kiosk.html'), 'utf8');
 assert.match(
@@ -134,6 +174,11 @@ assert.match(
     /<section\b(?=[^>]*id=["']result-section["'])(?=[^>]*class=["'][^"']*result-container[^"']*["'])/i,
     'AI scanner must include the designed result state'
 );
+assert.match(
+    scannerHtml,
+    /classList\.add\(['"]is-visible['"]\)/,
+    'AI scanner result must expose a responsive visible state that can become a desktop grid'
+);
 
 const guideHtml = await readFile(path.join(rootDir, 'student', 'first-aid-guide.html'), 'utf8');
 assert.match(
@@ -150,6 +195,11 @@ assert.doesNotMatch(
     guideHtml,
     /setTimeout\(\(\)\s*=>\s*openConfirmModal/,
     'First-aid flow must not auto-open the old confirmation modal on page load'
+);
+assert.match(
+    guideHtml,
+    /class=["']guide-overview["'][\s\S]*class=["']step-copy-panel["']/,
+    'First-aid flow must include the desktop wound overview and instruction panel'
 );
 
 const dashboardHtml = await readFile(path.join(rootDir, 'dashboard', 'index.html'), 'utf8');
@@ -186,6 +236,11 @@ for (const [name, html] of [
         `${name} must not fall back to the legacy top-tab dashboard layout`
     );
 }
+assert.match(
+    medicineManagementHtml,
+    /class=["']med-item-image["']/,
+    'Medicine management must carry the Care Kit product imagery into its generated stock rows'
+);
 
 const historyHtml = await readFile(path.join(rootDir, 'student', 'history.html'), 'utf8');
 assert.match(

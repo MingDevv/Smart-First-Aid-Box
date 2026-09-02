@@ -221,7 +221,7 @@
 
             const timeline = document.getElementById('recent-timeline');
             if (history.length === 0) {
-                timeline.innerHTML = '<div style="padding:28px 12px; color:var(--text-muted); font-size:11px; text-align:center;">ยังไม่มีประวัติการใช้งาน</div>';
+                timeline.innerHTML = '<div class="db-empty-state"><div><span class="material-symbols-rounded" aria-hidden="true">history</span><strong>ยังไม่มีประวัติการใช้งาน</strong><span>รายการจะปรากฏหลังทำแผลและบันทึกขั้นตอนสำเร็จ</span></div></div>';
             } else {
                 timeline.innerHTML = history.slice(0, 5).map((log, index) => {
                     const date = new Date(log.timestamp || log.created_at);

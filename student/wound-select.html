@@ -30,8 +30,9 @@
         .empty-state { padding: 32px 18px; color: var(--text-muted); text-align: center; }
         @media (min-width: 461px) { .picker-app { border-inline: 1px solid var(--border-color); box-shadow: 0 26px 70px -42px oklch(0.30 0.03 200 / .65); } }
     </style>
+    <link rel="stylesheet" href="../css/student-responsive.css">
 </head>
-<body>
+<body class="picker-body">
     <main class="picker-app animate-fade-in">
         <header class="picker-header">
             <div class="picker-title-row">
@@ -39,6 +40,11 @@
                 <h1>เลือกประเภทแผล</h1>
             </div>
             <p>แตะการ์ดเพื่อดูขั้นตอนและเวชภัณฑ์ที่ต้องใช้</p>
+            <div class="picker-flow">
+                <div class="picker-flow-item"><span class="picker-flow-number">01</span><span>เลือกประเภทแผลที่ตรงกับอาการ</span></div>
+                <div class="picker-flow-item"><span class="picker-flow-number">02</span><span>ตรวจรายการเวชภัณฑ์และข้อควรระวัง</span></div>
+                <div class="picker-flow-item"><span class="picker-flow-number">03</span><span>ยืนยันก่อนปลดล็อกช่องเก็บยา</span></div>
+            </div>
         </header>
 
         <section class="wound-grid" id="wound-list" aria-live="polite"></section>

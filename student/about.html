@@ -26,13 +26,19 @@
         .about-footer { padding: 2px 20px 20px; color: var(--text-muted); font-size: 10px; line-height: 1.55; text-align: center; }
         @media (min-width: 461px) { .about-app { border-inline: 1px solid var(--border-color); box-shadow: 0 26px 70px -42px oklch(0.30 0.03 200 / .65); } }
     </style>
+    <link rel="stylesheet" href="../css/student-responsive.css">
 </head>
-<body>
+<body class="about-body">
     <main class="about-app animate-fade-in">
         <header class="about-header">
             <button class="about-back" type="button" onclick="location.href='/student/'" aria-label="กลับหน้าแรก"><span class="material-symbols-rounded">arrow_back</span></button>
             <h1>เกี่ยวกับโครงงาน</h1>
             <p>กล่องปฐมพยาบาลอัจฉริยะ ที่ให้นักเรียนดูแลแผลเบื้องต้นได้เอง และให้ครูพยาบาลรู้ทุกการใช้งาน</p>
+            <div class="about-flow">
+                <div class="about-flow-step"><span class="material-symbols-rounded" aria-hidden="true">photo_camera</span><span><strong>01 · วิเคราะห์</strong><br>AI ช่วยแยกประเภทบาดแผล</span></div>
+                <div class="about-flow-step"><span class="material-symbols-rounded" aria-hidden="true">lock_open</span><span><strong>02 · จ่ายเวชภัณฑ์</strong><br>ESP32 ปลดล็อกช่องที่เหมาะสม</span></div>
+                <div class="about-flow-step"><span class="material-symbols-rounded" aria-hidden="true">monitoring</span><span><strong>03 · ดูแลต่อเนื่อง</strong><br>ครูพยาบาลติดตามจากแดชบอร์ด</span></div>
+            </div>
         </header>
 
         <section class="about-content">

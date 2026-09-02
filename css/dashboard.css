@@ -549,6 +549,16 @@ body.dashboard-body #dashboard-content > .container {
     background: var(--bg-main);
 }
 
+.med-item-image {
+    width: 48px;
+    height: 48px;
+    flex: 0 0 auto;
+    border: 1px solid var(--db-border);
+    border-radius: 13px;
+    background: #fff;
+    object-fit: cover;
+}
+
 .med-info { min-width: 0; flex: 1; }
 .med-name { color: var(--text-main); font-size: 13px; font-weight: 600; }
 .med-expiry, .med-details { margin-top: 2px; color: var(--text-muted); font-size: 10px; }
@@ -562,6 +572,60 @@ body.dashboard-body #dashboard-content > .container {
 .stock-control { display: flex; align-items: center; gap: 7px; }
 .stock-control-btn { display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid var(--db-border); border-radius: 10px; background: #fff; color: var(--text-main); cursor: pointer; }
 .chart-container { position: relative; width: 100%; height: 260px; }
+
+.db-empty-state {
+    display: grid;
+    min-height: 220px;
+    place-items: center;
+    padding: 28px 18px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.db-empty-state .material-symbols-rounded {
+    display: grid;
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 10px;
+    place-items: center;
+    border-radius: 16px;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: 26px;
+}
+
+.db-empty-state strong {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--text-main);
+    font-family: var(--font-prompt);
+    font-size: 13px;
+}
+
+.db-empty-state span:last-child {
+    font-size: 10px;
+}
+
+@media (min-width: 900px) {
+    .config-form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0 18px;
+    }
+
+    .config-form-grid > hr,
+    .config-form-grid > h4,
+    .config-form-grid > p,
+    .config-form-grid > button {
+        grid-column: 1 / -1;
+    }
+
+    .config-form-grid > button {
+        width: auto;
+        min-width: 220px;
+        justify-self: end;
+    }
+}
 
 body.dashboard-body .form-input {
     border-color: var(--db-border) !important;

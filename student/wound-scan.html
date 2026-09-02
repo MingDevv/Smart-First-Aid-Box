@@ -45,6 +45,7 @@
         .scan-loader::before { position: absolute; inset: 14px; border: 3px solid oklch(0.82 0.18 165); border-top-color: transparent; border-radius: 50%; content: ''; animation: spin 900ms linear infinite; }
         .status-log { max-width: 280px; color: oklch(0.92 0.02 180); font-size: 13px; text-align: center; }
         .result-container { display: none; min-height: 100dvh; background: var(--bg-main); color: var(--text-main); }
+        .result-container.is-visible { display: block; }
         .result-media { position: relative; height: 260px; overflow: hidden; }
         .result-media img { position: absolute; top: -58%; left: -6%; width: 210%; height: auto; max-width: none; display: block; }
         .result-media::after { position: absolute; inset: 0; background: linear-gradient(to bottom, oklch(0.16 0.02 200 / 0.42), transparent 45%, oklch(0.16 0.02 200 / 0.10)); content: ''; }
@@ -67,6 +68,7 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         @media (min-width: 461px) { .scan-app { border-inline: 1px solid oklch(1 0 0 / 0.10); box-shadow: 0 28px 70px -40px #000; } }
     </style>
+    <link rel="stylesheet" href="../css/student-responsive.css">
 </head>
 <body class="scan-body">
     <div class="scan-app">
@@ -123,7 +125,20 @@
                     </div>
                 </div>
 
-                <button class="btn btn-outline scan-manual-link" type="button" onclick="location.href='/student/wound-select'"><span class="material-symbols-rounded">list_alt</span>เลือกประเภทแผลด้วยตนเอง</button>
+                <aside class="scan-desktop-panel" aria-label="คำแนะนำก่อนสแกนแผล">
+                    <div class="eyebrow">AI WOUND SCANNER</div>
+                    <h2>จัดภาพให้ชัด<br>ก่อนเริ่มวิเคราะห์</h2>
+                    <p>ภาพที่คมชัดและมีแสงสม่ำเสมอช่วยให้ระบบแยกประเภทบาดแผลได้แม่นขึ้น</p>
+                    <ol class="scan-checklist">
+                        <li><span>01</span><strong>ห่างจากแผลประมาณ 20 ซม.</strong></li>
+                        <li><span>02</span><strong>วางแผลไว้กลางกรอบสีเขียว</strong></li>
+                        <li><span>03</span><strong>อย่าซูมและหลีกเลี่ยงเงามืด</strong></li>
+                    </ol>
+                    <div class="scan-privacy"><span class="material-symbols-rounded" aria-hidden="true">health_and_safety</span><span>ผลวิเคราะห์เป็นคำแนะนำเบื้องต้น หากเลือดไหลไม่หยุดหรือมีอาการรุนแรงให้เรียกครูพยาบาลทันที</span></div>
+                    <button class="btn btn-outline scan-manual-link" type="button" onclick="location.href='/student/wound-select'"><span class="material-symbols-rounded">list_alt</span>เลือกประเภทแผลด้วยตนเอง</button>
+                </aside>
+
+                <button class="btn btn-outline scan-manual-link scan-manual-mobile" type="button" onclick="location.href='/student/wound-select'"><span class="material-symbols-rounded">list_alt</span>เลือกประเภทแผลด้วยตนเอง</button>
             </main>
         </section>
 
@@ -353,7 +368,7 @@
         function displayResult(result) {
             document.getElementById('scanning-overlay').style.display = 'none';
             document.getElementById('input-section').style.display = 'none';
-            document.getElementById('result-section').style.display = 'block';
+            document.getElementById('result-section').classList.add('is-visible');
             const woundInfo = WOUND_DATA[result.woundId] || WOUND_DATA.unknown;
             document.getElementById('res-image').src = selectedBase64 || woundInfo.image;
             document.getElementById('res-name-th').textContent = woundInfo.name_th;
@@ -391,7 +406,7 @@
         }
 
         function backToInput() {
-            document.getElementById('result-section').style.display = 'none';
+            document.getElementById('result-section').classList.remove('is-visible');
             document.getElementById('input-section').style.display = 'block';
             resetCapture();
         }

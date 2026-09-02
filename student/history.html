@@ -68,11 +68,12 @@
         .empty-icon { display: grid; width: 58px; height: 58px; margin: 0 auto 12px; place-items: center; border-radius: 18px; background: var(--primary-light); color: var(--primary); }
         .empty-icon .material-symbols-rounded { font-size: 30px; }
     </style>
+    <link rel="stylesheet" href="../css/student-responsive.css">
 </head>
-<body>
+<body class="history-body">
     <header class="app-header">
         <button class="header-back" type="button" onclick="location.href='/student/'" aria-label="กลับหน้าแรก"><span class="material-symbols-rounded">arrow_back</span></button>
-        <div class="header-title">ประวัติการใช้งานตู้ยา</div>
+        <h1 class="header-title">ประวัติการใช้งานตู้ยา</h1>
         <div style="width: 24px;"></div>
     </header>
 
@@ -83,6 +84,21 @@
                 <span class="material-symbols-rounded" aria-hidden="true" style="font-size:18px;">delete</span>ล้างประวัติ
             </button>
         </div>
+
+        <section class="history-summary" aria-label="สรุปประวัติการใช้งาน">
+            <article class="history-summary-card">
+                <span class="history-summary-icon"><span class="material-symbols-rounded" aria-hidden="true">receipt_long</span></span>
+                <span><span class="history-summary-label">รายการทั้งหมด</span><span class="history-summary-value" id="history-total">0</span></span>
+            </article>
+            <article class="history-summary-card">
+                <span class="history-summary-icon"><span class="material-symbols-rounded" aria-hidden="true">auto_awesome</span></span>
+                <span><span class="history-summary-label">วิเคราะห์ด้วย AI</span><span class="history-summary-value" id="history-ai-total">0</span></span>
+            </article>
+            <article class="history-summary-card">
+                <span class="history-summary-icon"><span class="material-symbols-rounded" aria-hidden="true">schedule</span></span>
+                <span><span class="history-summary-label">ใช้งานล่าสุด</span><span class="history-summary-value" id="history-latest">—</span></span>
+            </article>
+        </section>
 
         <div class="table-wrapper" id="table-container">
             <table class="history-table" id="history-tbl">
@@ -140,6 +156,11 @@
             function renderHistory() {
                 rowsContainer.innerHTML = "";
                 const logs = StorageService.getHistory();
+                document.getElementById('history-total').textContent = String(logs.length);
+                document.getElementById('history-ai-total').textContent = String(logs.filter(log => String(log.method || '').toLowerCase().includes('ai')).length);
+                document.getElementById('history-latest').textContent = logs.length
+                    ? new Date(logs[0].timestamp || logs[0].created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+                    : '—';
 
                 if (logs.length === 0) {
                     tableContainer.style.display = "none";
@@ -177,10 +198,10 @@
                     const studentDisplay = safeStudentId ? `รหัส ${safeStudentId}<br><span style="font-size:11px; color:var(--text-muted);">${safeStudentName} (${safeStudentClass})</span>` : 'นักเรียนทั่วไป';
 
                     row.innerHTML = `
-                        <td>${formatThaiDate(log.timestamp || log.created_at)}</td>
-                        <td style="font-weight:600; color:var(--primary);">${studentDisplay}</td>
-                        <td style="font-weight:600;">${safeWoundDisplay}<br><span style="font-size:10px; color:var(--text-muted); font-weight:normal;">(${safeMethod})</span></td>
-                        <td>${itemsHtml}</td>
+                        <td data-label="วันเวลา">${formatThaiDate(log.timestamp || log.created_at)}</td>
+                        <td data-label="ผู้ใช้งาน" style="font-weight:600; color:var(--primary);">${studentDisplay}</td>
+                        <td data-label="ประเภทบาดแผล" style="font-weight:600;">${safeWoundDisplay}<br><span style="font-size:10px; color:var(--text-muted); font-weight:normal;">(${safeMethod})</span></td>
+                        <td data-label="เวชภัณฑ์">${itemsHtml}</td>
                     `;
                     rowsContainer.appendChild(row);
                 });

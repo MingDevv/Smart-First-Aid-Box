@@ -128,7 +128,7 @@
                     <h2><span class="material-symbols-rounded" aria-hidden="true">settings</span> ตั้งค่าระบบฮาร์ดแวร์และรหัสผ่าน</h2>
                 </div>
             
-                <form id="config-form" onsubmit="saveSystemConfig(event)">
+                <form id="config-form" class="config-form-grid" onsubmit="saveSystemConfig(event)">
                 <div class="form-group">
                     <label class="form-label" for="cfg-esp-url">IP / URL ควบคุมกล่องพยาบาล (ESP32)</label>
                     <input type="text" id="cfg-esp-url" class="form-input" placeholder="เช่น http://192.168.1.100">
@@ -236,6 +236,15 @@
             return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
 
+        function medicineImage(name) {
+            const value = String(name || '').toLowerCase();
+            if (value.includes('น้ำเกลือ')) return '../images/med_saline.webp';
+            if (value.includes('เบตาดีน') || value.includes('antiseptic')) return '../images/med_betadine.webp';
+            if (value.includes('คาลา') || value.includes('calamine')) return '../images/med_calamine.webp';
+            if (value.includes('เย็น') || value.includes('cold')) return '../images/med_icepack.webp';
+            return '../images/med_bandage.webp';
+        }
+
         // Load Stock Data
         function renderMedicines() {
             medContainer.innerHTML = "";
@@ -266,6 +275,7 @@
                 const safeUnit = escapeHtml(med.unit);
 
                 item.innerHTML = `
+                    <img class="med-item-image" src="${medicineImage(med.name)}" alt="" aria-hidden="true">
                     <div class="med-info" style="cursor:pointer;">
                         <div class="med-name">
                             <span>${safeName}</span>

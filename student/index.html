@@ -7,6 +7,7 @@
     <title>บริการปฐมพยาบาล — Smart First Aid Box</title>
     <link rel="stylesheet" href="../css/global.css">
     <link rel="stylesheet" href="../css/home.css">
+    <link rel="stylesheet" href="../css/student-responsive.css">
 </head>
 <body class="home-body">
     <div class="student-login-modal" id="student-login-modal" role="dialog" aria-modal="true" aria-labelledby="login-title">
@@ -50,9 +51,19 @@
 
             <h1 class="home-title">เจ็บตรงไหน?<br>สแกนแผลได้เลย</h1>
             <p class="home-description">AI ช่วยดูว่าเป็นแผลแบบไหน แล้วพาทำแผลทีละขั้น พร้อมปลดล็อกช่องยาอัตโนมัติ</p>
+            <figure class="home-hero-visual">
+                <img src="../images/smart_box_full.webp" width="900" height="900" alt="กล่องปฐมพยาบาลอัจฉริยะพร้อมหน้าจอควบคุม">
+                <figcaption class="hero-float hero-float-ai"><span class="material-symbols-rounded" aria-hidden="true">auto_awesome</span>AI ช่วยวิเคราะห์แผล</figcaption>
+                <span class="hero-float hero-float-device"><span class="material-symbols-rounded" aria-hidden="true">sensors</span>ESP32 · MQTT พร้อมเชื่อมต่อ</span>
+            </figure>
         </section>
 
         <section class="home-content" aria-label="เลือกบริการ">
+            <div class="home-content-heading">
+                <div class="eyebrow">STUDENT CARE</div>
+                <h2>เลือกวิธีดูแลแผล</h2>
+                <p>ระบบจะตรวจประวัติผู้ใช้ซ้ำก่อนปลดล็อกช่องเวชภัณฑ์</p>
+            </div>
             <div class="home-alert" id="allergy-alert-box" style="display:none;">
                 <span class="material-symbols-rounded" aria-hidden="true">warning</span>
                 <span><strong>ประวัติแพ้ยา:</strong> <span id="allergy-list-text"></span> ระบบจะตรวจซ้ำก่อนเปิดช่องยา</span>
