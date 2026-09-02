@@ -1,7 +1,7 @@
 /*
  * Care Kit responsive compositions.
  * Mobile keeps Claude Design's 360px flow. Desktop reflows the same content
- * into wide, task-focused workspaces instead of centering a phone shell.
+ * into full-viewport, task-focused workspaces instead of a centered app shell.
  */
 
 .home-hero-visual,
@@ -50,8 +50,8 @@
     body.guide-body {
         min-height: 100vh;
         min-height: 100dvh;
-        align-items: center;
-        padding: 24px;
+        align-items: stretch;
+        padding: 0;
         background:
             radial-gradient(circle at 8% 12%, oklch(0.91 0.045 165 / .72), transparent 28%),
             radial-gradient(circle at 92% 86%, oklch(0.94 0.045 45 / .72), transparent 25%),
@@ -61,14 +61,15 @@
     /* Home and dedicated kiosk */
     .home-app {
         display: grid;
-        width: min(100%, 1180px);
+        width: 100%;
         max-width: none;
-        min-height: min(790px, calc(100dvh - 48px));
+        min-height: 100vh;
+        min-height: 100dvh;
         grid-template-columns: minmax(0, 1.08fr) minmax(430px, .92fr);
         grid-template-rows: minmax(0, 1fr);
-        border: 1px solid var(--border-color);
-        border-radius: 30px;
-        box-shadow: 0 32px 78px -44px oklch(0.25 0.045 195 / .62);
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
     }
 
     .home-hero {
@@ -79,7 +80,7 @@
         grid-row: 1;
         flex-direction: column;
         overflow: hidden;
-        padding: 42px 46px;
+        padding: 42px max(46px, calc((100% - 860px) / 2));
         border-radius: 0;
         background:
             radial-gradient(circle at 85% 18%, oklch(0.76 0.10 175 / .38), transparent 28%),
@@ -206,7 +207,7 @@
         grid-row: 1;
         justify-content: center;
         gap: 12px;
-        padding: 42px 36px 154px;
+        padding: 42px max(36px, calc((100% - 680px) / 2)) 154px;
         background: linear-gradient(180deg, #fff, var(--bg-main));
     }
 
@@ -267,7 +268,7 @@
         right: 0;
         bottom: 0;
         left: 54.1%;
-        padding: 14px 36px 28px;
+        padding: 14px max(36px, calc((45.9vw - 680px) / 2)) 28px;
     }
 
     .sos-button {
@@ -286,14 +287,15 @@
 
     .picker-app {
         display: grid;
-        width: min(100%, 1180px);
+        width: 100%;
         max-width: none;
-        min-height: min(760px, calc(100dvh - 48px));
+        min-height: 100vh;
+        min-height: 100dvh;
         grid-template-columns: minmax(300px, .7fr) minmax(0, 1.3fr);
         grid-template-rows: 1fr auto;
-        border: 1px solid var(--border-color);
-        border-radius: 30px;
-        box-shadow: 0 32px 78px -44px oklch(0.25 0.045 195 / .62);
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
     }
 
     .picker-header {
@@ -303,7 +305,7 @@
         grid-row: 1 / 3;
         flex-direction: column;
         overflow: hidden;
-        padding: 42px 38px;
+        padding: 42px max(38px, calc((100% - 400px) / 2));
         border: 0;
         background:
             radial-gradient(circle at 15% 92%, oklch(0.78 0.10 165 / .28), transparent 32%),
@@ -392,10 +394,11 @@
         min-width: 0;
         grid-column: 2;
         grid-row: 1;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 520px));
         align-content: center;
+        justify-content: center;
         gap: 18px;
-        padding: 42px 38px 26px;
+        padding: 42px max(38px, calc((100% - 1058px) / 2)) 26px;
         background: var(--bg-main);
     }
 
@@ -434,7 +437,7 @@
         grid-row: 2;
         grid-template-columns: minmax(0, 1fr) 240px;
         gap: 12px;
-        padding: 0 38px 38px;
+        padding: 0 max(38px, calc((100% - 1058px) / 2)) 38px;
         background: var(--bg-main);
     }
 
@@ -453,12 +456,13 @@
     }
 
     .scan-app {
-        width: min(100%, 1240px);
+        width: 100%;
         max-width: none;
-        min-height: min(820px, calc(100dvh - 48px));
-        border: 1px solid oklch(1 0 0 / .10);
-        border-radius: 30px;
-        box-shadow: 0 36px 90px -44px #000;
+        min-height: 100vh;
+        min-height: 100dvh;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
     }
 
     #input-section {
@@ -610,7 +614,8 @@
 
     .result-container.is-visible {
         display: grid;
-        min-height: min(820px, calc(100dvh - 48px));
+        min-height: 100vh;
+        min-height: 100dvh;
         grid-template-columns: minmax(0, 1.08fr) minmax(430px, .92fr);
     }
 
@@ -672,18 +677,18 @@
     }
 
     body.guide-body header.app-header {
-        width: min(100%, 1180px);
+        width: 100%;
         margin: 0 auto;
-        border: 1px solid var(--border-color);
-        border-radius: 22px 22px 0 0;
+        border: 0;
+        border-radius: 0;
         background: #fff;
     }
 
     .guide-container.is-visible {
         display: grid;
-        width: min(100%, 1180px);
-        min-height: 640px;
-        grid-template-columns: minmax(0, 1.08fr) minmax(360px, .92fr);
+        width: 100%;
+        min-height: max(640px, calc(100dvh - 66px));
+        grid-template-columns: minmax(0, 760px) minmax(360px, 560px);
         grid-template-areas:
             'overview overview'
             'heading warning'
@@ -691,12 +696,12 @@
             'supplies cta';
         grid-template-rows: auto auto auto 1fr;
         column-gap: 26px;
-        padding: 28px;
-        border: 1px solid var(--border-color);
-        border-top: 0;
-        border-radius: 0 0 26px 26px;
+        justify-content: center;
+        padding: 28px max(28px, calc((100% - 1372px) / 2));
+        border: 0;
+        border-radius: 0;
         background: var(--bg-main);
-        box-shadow: 0 32px 78px -48px oklch(0.25 0.045 195 / .62);
+        box-shadow: none;
     }
 
     .guide-overview {
@@ -803,15 +808,17 @@
 
     .unlock-view.is-visible {
         display: grid;
-        width: min(100%, 1120px);
-        min-height: min(740px, calc(100dvh - 48px));
-        grid-template-columns: minmax(0, .9fr) minmax(430px, 1.1fr);
+        width: 100%;
+        min-height: 100vh;
+        min-height: 100dvh;
+        grid-template-columns: minmax(0, 560px) minmax(430px, 680px);
+        justify-content: center;
         gap: 50px;
         margin: 0 auto;
-        padding: 54px 62px;
-        border: 1px solid oklch(1 0 0 / .18);
-        border-radius: 30px;
-        box-shadow: 0 36px 90px -44px oklch(0.18 0.06 180 / .8);
+        padding: 54px max(40px, calc((100% - 1290px) / 2));
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
     }
 
     .unlock-hero {
@@ -881,16 +888,18 @@
 
     .steps-view.is-visible {
         display: grid;
-        width: min(100%, 1180px);
-        min-height: min(760px, calc(100dvh - 48px));
-        grid-template-columns: minmax(0, 1.12fr) minmax(380px, .88fr);
+        width: 100%;
+        min-height: 100vh;
+        min-height: 100dvh;
+        grid-template-columns: minmax(0, 760px) minmax(380px, 560px);
         grid-template-rows: auto auto minmax(0, 1fr);
         column-gap: 34px;
-        padding: 0 30px 30px;
-        border: 1px solid var(--border-color);
-        border-radius: 28px;
+        justify-content: center;
+        padding: 0 max(30px, calc((100% - 1354px) / 2)) 30px;
+        border: 0;
+        border-radius: 0;
         background: var(--bg-main);
-        box-shadow: 0 32px 78px -48px oklch(0.25 0.045 195 / .62);
+        box-shadow: none;
     }
 
     .steps-header,
@@ -948,11 +957,12 @@
     }
 
     .error-layout {
-        width: min(100%, 640px);
-        min-height: 460px;
+        width: 100%;
+        min-height: calc(100vh - 66px);
+        min-height: calc(100dvh - 66px);
         margin: 0 auto;
-        border: 1px solid var(--border-color);
-        border-radius: 28px;
+        border: 0;
+        border-radius: 0;
         background: #fff;
     }
 
@@ -964,14 +974,15 @@
 
     .about-app {
         display: grid;
-        width: min(100%, 1180px);
+        width: 100%;
         max-width: none;
-        min-height: min(760px, calc(100dvh - 48px));
+        min-height: 100vh;
+        min-height: 100dvh;
         grid-template-columns: minmax(320px, .72fr) minmax(0, 1.28fr);
         grid-template-rows: 1fr auto;
-        border: 1px solid var(--border-color);
-        border-radius: 30px;
-        box-shadow: 0 32px 78px -44px oklch(0.25 0.045 195 / .62);
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
     }
 
     .about-header {
@@ -1061,9 +1072,10 @@
         min-width: 0;
         grid-column: 2;
         grid-row: 1;
-        grid-template-columns: minmax(0, 1.05fr) minmax(280px, .95fr);
+        grid-template-columns: minmax(0, 680px) minmax(280px, 480px);
         grid-template-rows: auto auto auto;
         align-content: center;
+        justify-content: center;
         gap: 16px;
         padding: 38px;
     }
@@ -1125,22 +1137,21 @@
     }
 
     body.history-body header.app-header {
-        width: min(100%, 1180px);
+        width: 100%;
         margin: 0 auto;
-        border: 1px solid var(--border-color);
-        border-radius: 22px 22px 0 0;
+        border: 0;
+        border-radius: 0;
         background: #fff;
     }
 
     body.history-body .container {
-        width: min(100%, 1180px);
-        min-height: 650px;
-        padding: 26px 30px 34px;
-        border: 1px solid var(--border-color);
-        border-top: 0;
-        border-radius: 0 0 26px 26px;
+        width: 100%;
+        min-height: max(650px, calc(100dvh - 66px));
+        padding: 26px max(30px, calc((100% - 1600px) / 2)) 34px;
+        border: 0;
+        border-radius: 0;
         background: var(--bg-main);
-        box-shadow: 0 32px 78px -48px oklch(0.25 0.045 195 / .62);
+        box-shadow: none;
     }
 
     .history-summary {

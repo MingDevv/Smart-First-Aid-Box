@@ -123,6 +123,23 @@ assert.match(
     'Desktop home must recompose into columns instead of retaining a centered phone shell'
 );
 for (const selector of [
+    '.home-app',
+    '.picker-app',
+    '.scan-app',
+    '.guide-container.is-visible',
+    '.unlock-view.is-visible',
+    '.steps-view.is-visible',
+    '.about-app',
+    'body.history-body .container'
+]) {
+    const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    assert.match(
+        studentResponsiveCss,
+        new RegExp(`${escapedSelector}\\s*\\{[^}]*width:\\s*100%;[^}]*min-height:\\s*[^;]*100dvh[^;]*;`),
+        `Desktop Care Kit shell ${selector} must fill the viewport`
+    );
+}
+for (const selector of [
     '.picker-app',
     '.scan-main',
     '.guide-container.is-visible',
