@@ -2,397 +2,161 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>สแกนบาดแผลด้วย AI - Smart First Aid Box</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#102728">
+    <title>สแกนแผลด้วย AI — Smart First Aid Box</title>
     <link rel="stylesheet" href="../css/global.css">
     <style>
-        .scan-wrapper {
-            margin-top: 10px;
-        }
-
-        .tab-menu {
-            display: flex;
-            background-color: #FFFFFF;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            padding: 4px;
-            margin-bottom: 20px;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .tab-btn {
-            flex: 1;
-            background: none;
-            border: none;
-            padding: 12px;
-            font-family: var(--font-prompt), sans-serif;
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-muted);
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        .tab-btn.active {
-            background-color: var(--primary-light);
-            color: var(--primary);
-            box-shadow: var(--shadow-sm);
-        }
-
-        /* Camera / Upload Container */
-        .source-container {
-            background-color: #FFFFFF;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            padding: 16px;
-            text-align: center;
-            box-shadow: var(--shadow-sm);
-            margin-bottom: 20px;
-            min-height: 240px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-            overflow: visible;
-        }
-
-        #camera-view, #upload-view {
-            width: 100%;
-            display: none;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        #camera-view.active, #upload-view.active {
-            display: flex;
-        }
-
-        /* Video element style */
-        .video-feed {
-            width: 100%;
-            max-width: 380px;
-            height: 280px;
-            background-color: #0F172A;
-            border-radius: var(--radius-md);
-            object-fit: cover;
-            transform: scaleX(-1); /* Mirror camera feed */
-            border: 2px solid var(--border-color);
-            margin-bottom: 16px;
-        }
-
-        /* Drag-Drop Zone */
-        .upload-zone {
-            width: 100%;
-            max-width: 380px;
-            height: 200px;
-            border: 2px dashed #CBD5E1;
-            border-radius: var(--radius-md);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            background-color: #F8FAFC;
-            padding: 20px;
-        }
-
-        .upload-zone:hover, .upload-zone.dragover {
-            border-color: var(--primary);
-            background-color: var(--primary-light);
-        }
-
-        .upload-icon {
-            font-size: 40px;
-            color: var(--text-muted);
-            margin-bottom: 12px;
-        }
-
-        .upload-text {
-            font-size: 13px;
-            color: var(--text-muted);
-            line-height: 1.4;
-        }
-
-        /* Image preview area */
-        .preview-container {
-            width: 100%;
-            max-width: 380px;
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            animation: fadeIn 0.25s ease-out forwards;
-        }
-
-        .preview-img {
-            width: 100%;
-            max-height: 280px;
-            border-radius: var(--radius-md);
-            object-fit: contain;
-            border: 1px solid var(--border-color);
-            box-shadow: var(--shadow-sm);
-            margin-bottom: 16px;
-            background-color: #F8FAFC;
-        }
-
-        /* Loading / Scanning Overlay */
-        .scanning-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(255, 255, 255, 0.9);
-            z-index: 10;
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            backdrop-filter: blur(4px);
-        }
-
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid var(--border-color);
-            border-top: 4px solid var(--secondary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-
-        .scanning-bar {
-            width: 80%;
-            height: 4px;
-            background-color: var(--secondary-light);
-            border-radius: 2px;
-            overflow: hidden;
-            margin-bottom: 16px;
-            max-width: 240px;
-        }
-
-        .scanning-bar-fill {
-            height: 100%;
-            width: 30%;
-            background-color: var(--secondary);
-            border-radius: 2px;
-            animation: scan 1.5s ease-in-out infinite alternate;
-        }
-
-        .status-log {
-            font-size: 13px;
-            color: var(--text-muted);
-            font-weight: 500;
-            font-family: var(--font-prompt), sans-serif;
-            text-align: center;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @keyframes scan {
-            0% { margin-left: 0%; width: 20%; }
-            100% { margin-left: 80%; width: 20%; }
-        }
-
-        /* AI Results */
-        .result-container {
-            display: none;
-            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-
-        .result-header-card {
-            background: linear-gradient(135deg, var(--primary) 0%, #1e40af 100%);
-            color: white;
-            border-radius: var(--radius-md);
-            padding: 24px 20px;
-            margin-bottom: 20px;
-            text-align: center;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .result-icon {
-            font-size: 42px;
-            margin-bottom: 10px;
-        }
-
-        .result-title {
-            color: white;
-            font-size: 22px;
-            font-weight: 700;
-        }
-
-        .confidence-wrapper {
-            margin: 16px 0;
-            text-align: left;
-        }
-
-        .confidence-label-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            margin-bottom: 6px;
-            font-weight: 600;
-        }
-
-        .confidence-bar {
-            width: 100%;
-            height: 8px;
-            background-color: rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .confidence-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #10B981 0%, #059669 100%);
-            border-radius: 4px;
-            width: 0%;
-            transition: width 1s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .result-desc {
-            font-size: 13px;
-            background-color: rgba(255, 255, 255, 0.1);
-            border-radius: var(--radius-sm);
-            padding: 12px;
-            text-align: justify;
-            line-height: 1.5;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-        }
-
-        .result-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
+        body.scan-body { display: flex; justify-content: center; background: oklch(0.19 0.025 200); }
+        .scan-app { position: relative; width: min(100%, 460px); min-height: 100vh; min-height: 100dvh; overflow: hidden; background: oklch(0.21 0.025 200); color: #fff; }
+        .scan-header { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; min-height: 68px; padding: 8px 12px; }
+        .scan-header .icon-button { background: oklch(1 0 0 / 0.12); color: #fff; }
+        .scan-header-title { color: #fff; font-family: var(--font-prompt); font-size: 17px; font-weight: 700; text-align: center; }
+        .scan-main { padding: 0 16px 22px; }
+        .source-container { position: relative; min-height: calc(100dvh - 96px); overflow: hidden; }
+        #camera-view, #upload-view { display: none; }
+        #camera-view.active, #upload-view.active { display: flex; min-height: calc(100dvh - 96px); flex-direction: column; }
+        .camera-stage { position: relative; flex: 1; min-height: 480px; overflow: hidden; border-radius: 25px; background-color: oklch(0.16 0.02 200); background-image: url('../images/wound_cut_abrasion.webp'); background-repeat: no-repeat; background-position: -55px -38px; background-size: 850px 850px; }
+        .video-feed { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: inherit; object-fit: cover; background: transparent; }
+        .camera-shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, oklch(0.12 0.02 200 / 0.20), transparent 26%, transparent 66%, oklch(0.10 0.02 200 / 0.66)); }
+        .scan-prompt { position: absolute; top: 18px; left: 50%; display: flex; align-items: center; gap: 7px; transform: translateX(-50%); padding: 8px 12px; border-radius: 999px; background: oklch(0.18 0.025 200 / 0.82); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; backdrop-filter: blur(8px); }
+        .scan-prompt .material-symbols-rounded { color: oklch(0.82 0.16 165); font-size: 18px; }
+        .scan-frame { position: absolute; top: 50%; left: 50%; width: 78%; aspect-ratio: 1.08; transform: translate(-50%, -48%); border: 2px solid oklch(0.82 0.18 165); border-radius: 22px; box-shadow: 0 0 0 999px oklch(0.10 0.02 200 / 0.24), inset 0 0 25px oklch(0.82 0.18 165 / 0.13); }
+        .scan-frame::after { position: absolute; right: 8px; bottom: 12px; left: 8px; height: 2px; border-radius: 999px; background: oklch(0.82 0.18 165); box-shadow: 0 0 14px oklch(0.82 0.18 165); content: ''; animation: scanLine 2.2s ease-in-out infinite; }
+        .camera-tip { position: absolute; right: 18px; bottom: 18px; left: 18px; display: flex; align-items: center; gap: 9px; padding: 12px 14px; border-radius: 16px; background: oklch(0.16 0.02 200 / 0.84); color: oklch(0.95 0.012 180); font-size: 12px; backdrop-filter: blur(8px); }
+        .camera-tip .material-symbols-rounded { color: oklch(0.82 0.18 165); }
+        .scan-controls { display: grid; grid-template-columns: 58px 78px 58px; justify-content: center; align-items: center; gap: 22px; padding: 18px 6px 4px; }
+        .scan-control { display: grid; width: 56px; height: 56px; place-items: center; border: 1px solid oklch(1 0 0 / 0.16); border-radius: 18px; background: oklch(1 0 0 / 0.10); color: #fff; cursor: pointer; }
+        .capture-button { display: grid; width: 76px; height: 76px; place-items: center; border: 5px solid #fff; border-radius: 50%; background: oklch(0.76 0.15 165); color: oklch(0.25 0.04 190); cursor: pointer; box-shadow: 0 0 0 4px oklch(1 0 0 / 0.14); }
+        .capture-button .material-symbols-rounded { font-size: 30px; font-variation-settings: 'FILL' 1; }
+        .upload-panel { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 16px; }
+        .upload-zone { display: flex; min-height: 360px; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 28px; border: 2px dashed oklch(0.68 0.08 180); border-radius: 25px; background: oklch(1 0 0 / 0.07); color: oklch(0.91 0.015 180); cursor: pointer; text-align: center; }
+        .upload-zone.dragover { border-color: oklch(0.82 0.18 165); background: oklch(0.82 0.18 165 / 0.12); }
+        .upload-icon { display: grid; width: 66px; height: 66px; place-items: center; border-radius: 21px; background: oklch(1 0 0 / 0.10); color: oklch(0.82 0.18 165); }
+        .upload-icon .material-symbols-rounded { font-size: 34px; }
+        .upload-text { max-width: 260px; color: oklch(0.75 0.018 185); font-size: 12px; }
+        .preview-container { display: none; min-height: calc(100dvh - 96px); flex-direction: column; gap: 14px; }
+        .preview-img { width: 100%; min-height: 430px; flex: 1; border-radius: 25px; background: oklch(0.16 0.02 200); object-fit: cover; }
+        .preview-actions { display: grid; grid-template-columns: 1fr 1.35fr; gap: 10px; }
+        .preview-actions .btn-outline { border-color: oklch(1 0 0 / 0.20); background: oklch(1 0 0 / 0.08); color: #fff; }
+        .scan-manual-link { margin-top: 12px; border-color: oklch(1 0 0 / 0.16); background: transparent; color: oklch(0.88 0.015 180); }
+        .scanning-overlay { position: absolute; inset: 0; z-index: 20; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 30px; border-radius: 25px; background: oklch(0.15 0.025 200 / 0.90); backdrop-filter: blur(12px); }
+        .scan-loader { position: relative; width: 76px; height: 76px; margin-bottom: 24px; border: 2px solid oklch(1 0 0 / 0.15); border-radius: 22px; }
+        .scan-loader::before { position: absolute; inset: 14px; border: 3px solid oklch(0.82 0.18 165); border-top-color: transparent; border-radius: 50%; content: ''; animation: spin 900ms linear infinite; }
+        .status-log { max-width: 280px; color: oklch(0.92 0.02 180); font-size: 13px; text-align: center; }
+        .result-container { display: none; min-height: 100dvh; background: var(--bg-main); color: var(--text-main); }
+        .result-media { position: relative; height: 260px; overflow: hidden; }
+        .result-media img { position: absolute; top: -58%; left: -6%; width: 210%; height: auto; max-width: none; display: block; }
+        .result-media::after { position: absolute; inset: 0; background: linear-gradient(to bottom, oklch(0.16 0.02 200 / 0.42), transparent 45%, oklch(0.16 0.02 200 / 0.10)); content: ''; }
+        .result-back { position: absolute; top: 16px; left: 14px; z-index: 2; background: oklch(0.20 0.025 200 / 0.70); color: #fff; backdrop-filter: blur(8px); }
+        .result-done { position: absolute; top: 20px; right: 14px; z-index: 2; display: flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: 999px; background: oklch(0.30 0.06 165 / 0.86); color: #fff; font-size: 11px; font-weight: 600; }
+        .result-content { padding: 18px 20px 28px; }
+        .result-chips { display: flex; gap: 8px; margin-bottom: 11px; }
+        .result-chip { display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 999px; background: var(--primary-light); color: oklch(0.38 0.07 190); font-size: 11px; font-weight: 600; }
+        .result-chip.confidence { background: oklch(0.93 0.055 45); color: oklch(0.47 0.12 35); }
+        .result-title { margin-bottom: 2px; font-size: 25px; }
+        .result-en { display: none; }
+        .result-desc { margin: 12px 0 14px; color: var(--text-muted); font-size: 13px; line-height: 1.55; }
+        .result-info, .result-warning, .reasoning-card { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 11px; padding: 13px 14px; border-radius: 17px; font-size: 12px; line-height: 1.45; }
+        .result-info { background: var(--primary-light); color: oklch(0.36 0.06 190); }
+        .result-warning { background: var(--accent-light); color: oklch(0.41 0.09 36); }
+        .reasoning-card { display: none; border: 1px solid var(--border-color); background: #fff; color: var(--text-muted); }
+        .result-actions { display: grid; gap: 9px; margin-top: 16px; }
+        .result-actions .btn-primary { min-height: 62px; border-radius: 20px; font-size: 17px; }
+        @keyframes scanLine { 0%, 100% { transform: translateY(-180px); opacity: .4; } 50% { transform: translateY(0); opacity: 1; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (min-width: 461px) { .scan-app { border-inline: 1px solid oklch(1 0 0 / 0.10); box-shadow: 0 28px 70px -40px #000; } }
     </style>
 </head>
-<body>
-    <header class="app-header">
-        <button class="header-back" onclick="goBack()">← หน้าแรก</button>
-        <div class="header-title">📷 สแกนแผลด้วย AI</div>
-        <div style="width: 24px;"></div> <!-- Spacer -->
-    </header>
+<body class="scan-body">
+    <div class="scan-app">
+        <section id="input-section">
+            <header class="scan-header">
+                <button class="icon-button" type="button" onclick="goBack()" aria-label="กลับหน้าแรก"><span class="material-symbols-rounded">arrow_back</span></button>
+                <div class="scan-header-title">สแกนแผลด้วย AI</div>
+                <button class="icon-button" type="button" onclick="showToast('แฟลชขึ้นอยู่กับการรองรับของกล้องในอุปกรณ์', 'info')" aria-label="แฟลช"><span class="material-symbols-rounded">flash_on</span></button>
+            </header>
 
-    <div class="container animate-slide-up">
-        
-        <!-- Input section -->
-        <div class="scan-wrapper" id="input-section">
-            <div class="tab-menu">
-                <button class="tab-btn active" id="tab-camera" onclick="switchTab('camera')">
-                    📸 ถ่ายรูปด้วยกล้อง
-                </button>
-                <button class="tab-btn" id="tab-upload" onclick="switchTab('upload')">
-                    📁 อัปโหลดภาพแผล
-                </button>
+            <main class="scan-main">
+                <div class="source-container">
+                    <div class="scanning-overlay" id="scanning-overlay" role="status" aria-live="polite">
+                        <div class="scan-loader" aria-hidden="true"></div>
+                        <div class="status-log" id="status-log">ระบบกำลังเริ่มสแกนบาดแผล...</div>
+                    </div>
+
+                    <button id="tab-camera" type="button" onclick="switchTab('camera')" hidden>กล้อง</button>
+                    <button id="tab-upload" type="button" onclick="switchTab('upload')" hidden>อัปโหลด</button>
+
+                    <div id="camera-view" class="active">
+                        <div class="camera-stage">
+                            <video id="video-feed" class="video-feed" autoplay playsinline muted></video>
+                            <div class="camera-shade"></div>
+                            <div class="scan-prompt"><span class="material-symbols-rounded" aria-hidden="true">center_focus_strong</span>วางแผลให้อยู่ในกรอบ</div>
+                            <div class="scan-frame" aria-hidden="true"></div>
+                            <div class="camera-tip"><span class="material-symbols-rounded" aria-hidden="true">lightbulb</span>ถ่ายในที่แสงสว่างพอ ห่างประมาณ 20 ซม. ไม่ต้องซูม</div>
+                        </div>
+                        <div class="scan-controls">
+                            <button class="scan-control" type="button" onclick="switchTab('upload')" aria-label="เลือกรูปจากคลัง"><span class="material-symbols-rounded">photo_library</span></button>
+                            <button class="capture-button" type="button" onclick="capturePhoto()" aria-label="ถ่ายภาพ"><span class="material-symbols-rounded">photo_camera</span></button>
+                            <button class="scan-control" type="button" onclick="startCamera()" aria-label="สลับหรือเปิดกล้องใหม่"><span class="material-symbols-rounded">cameraswitch</span></button>
+                        </div>
+                    </div>
+
+                    <div id="upload-view">
+                        <div class="upload-panel">
+                            <div class="upload-zone" id="upload-zone" tabindex="0" role="button" onclick="triggerFileInput()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();triggerFileInput();}">
+                                <span class="upload-icon" aria-hidden="true"><span class="material-symbols-rounded">add_photo_alternate</span></span>
+                                <strong>เลือกภาพแผลจากเครื่อง</strong>
+                                <span class="upload-text">รองรับ JPG และ PNG หรือวางไฟล์ภาพลงในพื้นที่นี้</span>
+                                <input type="file" id="file-input" accept="image/*" hidden onchange="handleFileSelect(event)">
+                            </div>
+                            <button class="btn btn-outline scan-manual-link" type="button" onclick="switchTab('camera')"><span class="material-symbols-rounded">photo_camera</span>กลับไปใช้กล้อง</button>
+                        </div>
+                    </div>
+
+                    <div class="preview-container" id="preview-container">
+                        <img id="preview-image" class="preview-img" src="" alt="ภาพแผลที่เลือก">
+                        <div class="preview-actions">
+                            <button class="btn btn-outline" type="button" onclick="resetCapture()">ถ่ายใหม่</button>
+                            <button class="btn btn-primary" type="button" onclick="analyzeWound()"><span class="material-symbols-rounded">auto_awesome</span>วิเคราะห์ภาพ</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn btn-outline scan-manual-link" type="button" onclick="location.href='/student/wound-select'"><span class="material-symbols-rounded">list_alt</span>เลือกประเภทแผลด้วยตนเอง</button>
+            </main>
+        </section>
+
+        <section class="result-container" id="result-section">
+            <div class="result-media">
+                <img id="res-image" src="../images/wound_cut_abrasion.webp" alt="ภาพแผลที่ AI วิเคราะห์">
+                <button class="icon-button result-back" type="button" onclick="backToInput()" aria-label="กลับไปสแกนใหม่"><span class="material-symbols-rounded">arrow_back</span></button>
+                <div class="result-done"><span class="material-symbols-rounded" style="font-size:16px;">auto_awesome</span>วิเคราะห์เสร็จแล้ว</div>
             </div>
 
-            <!-- Active viewer/uploader panel -->
-            <div class="source-container">
-                <!-- Scanning/Processing overlay -->
-                <div class="scanning-overlay" id="scanning-overlay">
-                    <div class="spinner"></div>
-                    <div class="scanning-bar">
-                        <div class="scanning-bar-fill"></div>
-                    </div>
-                    <div class="status-log" id="status-log">ระบบกำลังเริ่มสแกนบาดแผล...</div>
+            <div class="result-content">
+                <div class="result-chips">
+                    <span class="result-chip" id="res-severity">Minor</span>
+                    <span class="result-chip confidence">ความมั่นใจ <span id="res-confidence-label">0%</span></span>
                 </div>
+                <h1 class="result-title" id="res-name-th">วิเคราะห์เสร็จสิ้น</h1>
+                <div class="result-en" id="res-name-en">ANALYSIS COMPLETE</div>
+                <p class="result-desc" id="res-desc">คำอธิบายผลลัพธ์จาก AI...</p>
 
-                <!-- CAMERA VIEW -->
-                <div id="camera-view" class="active">
-                    <video id="video-feed" class="video-feed" autoplay playsinline muted></video>
-                    <div style="display:flex; gap:12px; width:100%; max-width:380px;">
-                        <button class="btn btn-outline" style="flex:1;" onclick="toggleCamera(false)" id="btn-camera-off">ปิดกล้อง</button>
-                        <button class="btn btn-primary" style="flex:2;" onclick="capturePhoto()">📸 กดเพื่อถ่ายภาพ</button>
-                    </div>
-                </div>
+                <div class="result-info"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span><span>เวชภัณฑ์ที่ต้องใช้อยู่ใน <strong>ช่องเก็บที่ <span id="res-drawer">1</span></strong> — ระบบจะปลดล็อกให้เมื่อเริ่มทำแผล</span></div>
+                <div class="result-warning"><span class="material-symbols-rounded" aria-hidden="true">warning</span><span>ผลวิเคราะห์เป็นเพียงคำแนะนำเบื้องต้น ไม่ทดแทนการดูแลจากครูพยาบาล</span></div>
+                <div class="reasoning-card" id="reasoning-container"><span class="material-symbols-rounded" aria-hidden="true">psychology</span><span id="res-reasoning"></span></div>
 
-                <!-- UPLOAD VIEW -->
-                <div id="upload-view">
-                    <div class="upload-zone" id="upload-zone" onclick="triggerFileInput()">
-                        <div class="upload-icon">📂</div>
-                        <div class="upload-text"><strong>แตะที่นี่เพื่อเลือกไฟล์ภาพ</strong></div>
-                        <div class="upload-text" style="font-size:11px; margin-top:4px;">รองรับรูปภาพ JPG, JPEG, PNG จากมือถือหรือคอมพิวเตอร์</div>
-                        <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="handleFileSelect(event)">
-                    </div>
+                <div class="result-actions">
+                    <button class="btn btn-primary" id="btn-confirm-wound" type="button"><span class="material-symbols-rounded">arrow_forward</span><span>เริ่มทำแผล 5 ขั้นตอน</span></button>
+                    <button class="btn btn-outline" type="button" onclick="location.href='/student/wound-select'"><span>ไม่ใช่แผลนี้ — เลือกเอง</span></button>
                 </div>
-
-                <!-- PREVIEW CAPTURED/UPLOADED IMAGE -->
-                <div class="preview-container" id="preview-container">
-                    <img id="preview-image" class="preview-img" src="" alt="Wound Preview">
-                    <div style="display:flex; gap:12px; width:100%;">
-                        <button class="btn btn-outline" style="flex:1;" onclick="resetCapture()">ถ่ายใหม่ / ยกเลิก</button>
-                        <button class="btn btn-secondary" style="flex:2; background-color:var(--success); border-color:var(--success);" onclick="analyzeWound()">🧠 วิเคราะห์ภาพแผล</button>
-                    </div>
-                </div>
+                <div id="res-icon" hidden></div>
+                <div id="res-confidence-bar" hidden></div>
             </div>
-            
-            <button class="btn btn-outline" style="margin-top:10px;" onclick="location.href='/student/wound-select'">
-                🩹 เลือกประเภทแผลด้วยตนเอง (Manual Select)
-            </button>
-        </div>
-
-        <!-- Result section -->
-        <div class="result-container" id="result-section">
-            <div class="result-header-card">
-                <div class="result-icon" id="res-icon">🤕</div>
-                <div class="result-title" id="res-name-th">วิเคราะห์เสร็จสิ้น</div>
-                <div style="font-size:13px; opacity:0.8; margin-top:2px;" id="res-name-en">Analyzing Complete</div>
-
-                <div class="confidence-wrapper">
-                    <div class="confidence-label-row">
-                        <span>ความแม่นยำในการคาดเดา</span>
-                        <span id="res-confidence-label">0%</span>
-                    </div>
-                    <div class="confidence-bar">
-                        <div class="confidence-fill" id="res-confidence-bar"></div>
-                    </div>
-                </div>
-
-                <div class="result-desc" id="res-desc" style="margin-bottom: 16px;">
-                    คำอธิบายผลลัพธ์จาก AI...
-                </div>
-
-                <!-- AI Reasoning Container -->
-                <div id="reasoning-container" style="display: none; text-align: left; background-color: rgba(255, 255, 255, 0.15); border-radius: var(--radius-sm); padding: 14px; border: 1px solid rgba(255, 255, 255, 0.2); backdrop-filter: blur(5px); margin-top: 12px; box-shadow: inset 0 1px 1px rgba(255,255,255,0.1);">
-                    <div style="font-weight: 700; font-size: 13px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; color: #FFFFFF;">
-                        🧠 วิเคราะห์เชิงลึก (AI Reasoning):
-                    </div>
-                    <div id="res-reasoning" style="font-size: 12px; line-height: 1.6; opacity: 0.95; white-space: pre-line; color: #F1F5F9; font-family: var(--font-prompt), sans-serif;">
-                        ขั้นตอนและลักษณะแผลที่ระบบวิเคราะห์...
-                    </div>
-                </div>
-            </div>
-
-            <div class="result-actions">
-                <button class="btn btn-primary" id="btn-confirm-wound">
-                    ✅ ยืนยัน และดำเนินการปฐมพยาบาลต่อไป
-                </button>
-                <button class="btn btn-outline" onclick="backToInput()">
-                    🔄 วิเคราะห์รูปภาพแผลใหม่อีกครั้ง
-                </button>
-                <button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger-light); background-color:var(--danger-light);" onclick="location.href='/student/wound-select'">
-                    🩹 ผลลัพธ์ไม่ถูกต้อง: ขอเลือกแผลเอง
-                </button>
-            </div>
-        </div>
-
-        <footer class="app-footer">
-            <p>© 2026 CRMS6 - Smart First Aid Box Project</p>
-        </footer>
+        </section>
     </div>
 
-    <!-- Scripts -->
     <script src="../js/wound-data.js"></script>
     <script src="../js/storage.js"></script>
     <script src="../js/notification.js"></script>
@@ -403,350 +167,229 @@
         let selectedBase64 = null;
         let analyzedWoundId = null;
 
-        document.addEventListener("DOMContentLoaded", () => {
-            // Start default tab (camera)
-            startCamera();
-        });
+        document.addEventListener('DOMContentLoaded', startCamera);
 
-function showToast(msg, type = 'info') {
-    if (window.NotificationService && typeof window.NotificationService.showToast === 'function') {
-        window.NotificationService.showToast(msg, type);
-    } else {
-        console.log(`[Toast ${type}] ${msg}`);
-    }
-}
+        function showToast(message, type = 'info') {
+            if (window.NotificationService && typeof NotificationService.showToast === 'function') {
+                NotificationService.showToast(message, type);
+            } else {
+                console.log(`[Toast ${type}] ${message}`);
+            }
+        }
+
         function switchTab(tab) {
             currentTab = tab;
             selectedBase64 = null;
             document.getElementById('preview-container').style.display = 'none';
-            document.getElementById('file-input').value = "";
-            
+            document.getElementById('file-input').value = '';
             const cameraView = document.getElementById('camera-view');
             const uploadView = document.getElementById('upload-view');
-            const tabCamera = document.getElementById('tab-camera');
-            const tabUpload = document.getElementById('tab-upload');
+            cameraView.classList.toggle('active', tab === 'camera');
+            uploadView.classList.toggle('active', tab === 'upload');
+            if (tab === 'camera') startCamera(); else stopCamera();
+        }
 
-            tabCamera.classList.toggle('active', tab === 'camera');
-            tabUpload.classList.toggle('active', tab === 'upload');
-
-            if (tab === 'camera') {
-                cameraView.style.display = 'flex';
-                uploadView.style.display = 'none';
-                cameraView.classList.add('active');
-                uploadView.classList.remove('active');
-                startCamera();
-            } else {
-                cameraView.style.display = 'none';
-                uploadView.style.display = 'flex';
-                cameraView.classList.remove('active');
-                uploadView.classList.add('active');
-                stopCamera();
+        async function startCamera() {
+            stopCamera();
+            const video = document.getElementById('video-feed');
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                switchToUploadFallback();
+                return;
+            }
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+                video.srcObject = stream;
+            } catch (error) {
+                console.warn('Rear camera unavailable, trying default camera:', error);
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                    video.srcObject = stream;
+                } catch (fallbackError) {
+                    console.warn('Camera unavailable:', fallbackError);
+                    switchToUploadFallback();
+                }
             }
         }
 
-        // Camera Management
-        async function startCamera() {
-            stopCamera();
-            
-            const video = document.getElementById('video-feed');
-            
-            try {
-                // Try rear camera first (for mobile devices)
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "environment" },
-                    audio: false
-                });
-                if (video) video.srcObject = stream;
-            } catch (err) {
-                console.warn("Rear camera unavailable, attempting fallback to default webcam:", err);
-                try {
-                    // Fallback to any default camera (for PCs / Laptops)
-                    stream = await navigator.mediaDevices.getUserMedia({
-                        video: true,
-                        audio: false
-                    });
-                    if (video) video.srcObject = stream;
-                    return;
-                } catch (fallbackErr) {
-                    console.error("Camera access error:", fallbackErr);
-                }
-
-                showToast("ไม่พบกล้องเปลี่ยนเป็นโหมดอัปโหลดรูปภาพอัตโนมัติ", "warning");
-                
-                // Switch cleanly to upload tab
-                currentTab = 'upload';
-                document.getElementById('tab-camera').classList.remove('active');
-                document.getElementById('tab-upload').classList.add('active');
-                document.getElementById('camera-view').style.display = 'none';
-                document.getElementById('camera-view').classList.remove('active');
-                document.getElementById('upload-view').style.display = 'flex';
-                document.getElementById('upload-view').classList.add('active');
-            }
+        function switchToUploadFallback() {
+            showToast('ไม่พบกล้อง เปลี่ยนเป็นโหมดเลือกภาพอัตโนมัติ', 'warning');
+            currentTab = 'upload';
+            document.getElementById('camera-view').classList.remove('active');
+            document.getElementById('upload-view').classList.add('active');
         }
 
         function stopCamera() {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
-            }
+            if (!stream) return;
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
         }
 
-        function toggleCamera(shouldRun) {
-            if (shouldRun) {
-                startCamera();
-                document.getElementById('btn-camera-off').style.display = 'block';
-            } else {
-                stopCamera();
-                // Show camera offline placeholder/view in video background
-                showToast("ปิดกล้องชั่วคราว", "info");
-            }
-        }
-
-        // Capture Photo from Camera
         function capturePhoto() {
             const video = document.getElementById('video-feed');
             if (!stream) {
-                showToast("กล้องไม่ได้เปิดทำงานอยู่", "danger");
+                showToast('กล้องยังไม่พร้อม กรุณาเลือกภาพจากเครื่อง', 'warning');
+                switchTab('upload');
                 return;
             }
-
-            // Create off-screen canvas to draw image
             const canvas = document.createElement('canvas');
             canvas.width = video.videoWidth || 640;
             canvas.height = video.videoHeight || 480;
-            
-            const ctx = canvas.getContext('2d');
-            // Draw video frame to canvas
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // Convert to base64
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
             selectedBase64 = canvas.toDataURL('image/jpeg');
-
-            // Show preview
             showPreview();
             stopCamera();
         }
 
-        // Upload Zone trigger
         function triggerFileInput() {
             document.getElementById('file-input').click();
         }
 
-        // Handle file selected from file picker
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
-
             if (!file.type.startsWith('image/')) {
-                showToast("กรุณาเลือกไฟล์รูปภาพเท่านั้น", "danger");
+                showToast('กรุณาเลือกไฟล์รูปภาพเท่านั้น', 'danger');
                 return;
             }
+            readImageFile(file);
+        }
 
+        function readImageFile(file) {
             const reader = new FileReader();
-            reader.onload = (e) => {
-                selectedBase64 = e.target.result;
+            reader.onload = event => {
+                selectedBase64 = event.target.result;
                 showPreview();
             };
             reader.readAsDataURL(file);
         }
 
-        // Drag and Drop support
         const uploadZone = document.getElementById('upload-zone');
-        uploadZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
+        uploadZone.addEventListener('dragover', event => {
+            event.preventDefault();
             uploadZone.classList.add('dragover');
         });
-        uploadZone.addEventListener('dragleave', () => {
+        uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+        uploadZone.addEventListener('drop', event => {
+            event.preventDefault();
             uploadZone.classList.remove('dragover');
-        });
-        uploadZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadZone.classList.remove('dragover');
-            
-            const file = e.dataTransfer.files[0];
-            if (file && file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = (el) => {
-                    selectedBase64 = el.target.result;
-                    showPreview();
-                };
-                reader.readAsDataURL(file);
-            } else {
-                showToast("กรุณาอัปโหลดไฟล์รูปภาพที่ถูกต้อง", "danger");
-            }
+            const file = event.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) readImageFile(file);
+            else showToast('กรุณาวางไฟล์รูปภาพที่ถูกต้อง', 'danger');
         });
 
-        // Compress & resize image to max dimension 800px for optimal speed & serverless payload size
         function compressImage(dataUrl, callback) {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-                const maxDim = 800;
-
-                if (width > maxDim || height > maxDim) {
-                    if (width > height) {
-                        height = Math.round((height * maxDim) / width);
-                        width = maxDim;
-                    } else {
-                        width = Math.round((width * maxDim) / height);
-                        height = maxDim;
-                    }
+            const image = new Image();
+            image.onload = () => {
+                const maxDimension = 800;
+                let width = image.width;
+                let height = image.height;
+                if (width > maxDimension || height > maxDimension) {
+                    const ratio = Math.min(maxDimension / width, maxDimension / height);
+                    width = Math.round(width * ratio);
+                    height = Math.round(height * ratio);
                 }
-
+                const canvas = document.createElement('canvas');
                 canvas.width = width;
                 canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-                const compressed = canvas.toDataURL('image/jpeg', 0.85);
-                callback(compressed);
+                canvas.getContext('2d').drawImage(image, 0, 0, width, height);
+                callback(canvas.toDataURL('image/jpeg', 0.85));
             };
-            img.src = dataUrl;
+            image.src = dataUrl;
         }
 
-        // Show image preview card
         function showPreview() {
-            document.getElementById('camera-view').style.display = 'none';
-            document.getElementById('upload-view').style.display = 'none';
-            
-            const container = document.getElementById('preview-container');
-            container.style.display = 'flex';
-            
-            // Compress for fast API analysis
-            compressImage(selectedBase64, (compressed) => {
+            document.getElementById('camera-view').classList.remove('active');
+            document.getElementById('upload-view').classList.remove('active');
+            document.getElementById('preview-container').style.display = 'flex';
+            compressImage(selectedBase64, compressed => {
                 selectedBase64 = compressed;
-                const img = document.getElementById('preview-image');
-                img.src = selectedBase64;
+                document.getElementById('preview-image').src = selectedBase64;
             });
         }
 
-        // Reset and scan/take again
         function resetCapture() {
             selectedBase64 = null;
             document.getElementById('preview-container').style.display = 'none';
-            document.getElementById('file-input').value = "";
+            document.getElementById('file-input').value = '';
             switchTab(currentTab);
         }
 
-        // Run AI Analysis using module
         async function analyzeWound() {
             if (!selectedBase64) {
-                showToast("ไม่พบภาพบาดแผลเพื่อใช้วิเคราะห์", "danger");
+                showToast('ไม่พบภาพบาดแผลเพื่อใช้วิเคราะห์', 'danger');
                 return;
             }
-
             const overlay = document.getElementById('scanning-overlay');
-            const logElem = document.getElementById('status-log');
+            const status = document.getElementById('status-log');
             overlay.style.display = 'flex';
-
-            // Simulated steps in logs for smooth UX animation
             const logs = [
-                "เชื่อมต่อระบบความปลอดภัย...",
-                "กำลังอัปโหลดรูปภาพไปยังเซิร์ฟเวอร์ AI...",
-                "กำลังตรวจหารอยโรคและจำแนกพื้นผิวแผล...",
-                "เปรียบเทียบบาดแผลในระบบฐานข้อมูลการแพทย์...",
-                "ประมวลผลคำแนะนำการปฐมพยาบาลเบื้องต้น..."
+                'กำลังเตรียมภาพสำหรับวิเคราะห์...',
+                'AI กำลังตรวจหาลักษณะบาดแผล...',
+                'กำลังเทียบแนวทางปฐมพยาบาล...',
+                'กำลังจัดเตรียมคำแนะนำ...'
             ];
-
-            let logIndex = 0;
-            const logInterval = setInterval(() => {
-                if (logIndex < logs.length) {
-                    logElem.innerText = logs[logIndex++];
-                }
+            let index = 0;
+            const interval = setInterval(() => {
+                status.textContent = logs[Math.min(index++, logs.length - 1)];
             }, 600);
-
             try {
                 const result = await AiWoundAnalyzer.analyzeWound(selectedBase64);
-                clearInterval(logInterval);
-
+                clearInterval(interval);
                 if (result.success) {
                     analyzedWoundId = result.woundId;
                     displayResult(result);
                 } else {
-                    clearInterval(logInterval);
                     overlay.style.display = 'none';
-                    showToast(result.error || "การวิเคราะห์ด้วย AI ขัดข้อง", "danger");
+                    showToast(result.error || 'การวิเคราะห์ด้วย AI ขัดข้อง', 'danger');
                 }
-            } catch (err) {
-                clearInterval(logInterval);
+            } catch (error) {
+                clearInterval(interval);
                 overlay.style.display = 'none';
-                showToast("การวิเคราะห์ขัดข้อง กรุณาลองใหม่อีกครั้ง", "danger");
+                console.error('[Scanner] Analysis failed:', error);
+                showToast('การวิเคราะห์ขัดข้อง กรุณาลองใหม่อีกครั้ง', 'danger');
             }
         }
 
-        // Display AI results UI
         function displayResult(result) {
             document.getElementById('scanning-overlay').style.display = 'none';
             document.getElementById('input-section').style.display = 'none';
-            
-            const section = document.getElementById('result-section');
-            section.style.display = 'block';
+            document.getElementById('result-section').style.display = 'block';
+            const woundInfo = WOUND_DATA[result.woundId] || WOUND_DATA.unknown;
+            document.getElementById('res-image').src = selectedBase64 || woundInfo.image;
+            document.getElementById('res-name-th').textContent = woundInfo.name_th;
+            document.getElementById('res-name-en').textContent = woundInfo.name_en.toUpperCase();
+            document.getElementById('res-severity').textContent = woundInfo.severity;
+            document.getElementById('res-confidence-label').textContent = `${result.confidence}%`;
+            document.getElementById('res-desc').textContent = result.description;
+            document.getElementById('res-drawer').textContent = woundInfo.drawer || 1;
 
-            // Get local wound translation details
-            const woundInfo = WOUND_DATA[result.woundId] || WOUND_DATA['unknown'];
-            document.getElementById('res-icon').innerText = woundInfo.icon;
-            document.getElementById('res-name-th').innerText = woundInfo.name_th;
-            document.getElementById('res-name-en').innerText = `${woundInfo.name_en} (${woundInfo.severity})`;
-
-            // Confidence progress bar
-            document.getElementById('res-confidence-label').innerText = `${result.confidence}%`;
-            const bar = document.getElementById('res-confidence-bar');
-            bar.style.width = '0%';
-            
-            // Explanation
-            document.getElementById('res-desc').innerText = result.description;
-
-            // Show Toast if running in Simulation mode
             if (result.mode === 'simulation') {
-                showToast("⚠️ โหมดทดลอง: ยังไม่ได้ใส่ GEMINI_API_KEY ใน Vercel ระบบจึงจำลองผลลัพธ์", "warning");
+                showToast('โหมดทดลอง: ระบบกำลังใช้ผลวิเคราะห์จำลอง', 'warning');
             }
 
-            // Reasoning
-            const reasoningElem = document.getElementById('res-reasoning');
             const reasoningContainer = document.getElementById('reasoning-container');
-            if (result.reasoning && result.reasoning.trim() !== '') {
-                reasoningElem.innerText = result.reasoning;
-                reasoningContainer.style.display = 'block';
-            } else {
-                reasoningContainer.style.display = 'none';
-            }
+            document.getElementById('res-reasoning').textContent = result.reasoning || '';
+            reasoningContainer.style.display = 'none';
 
-            // Issue #4: Low confidence (< 70%) or unknown wound handling
+            const confirmButton = document.getElementById('btn-confirm-wound');
             const isLowConfidence = result.confidence < 70 || result.woundId === 'unknown';
-            const confirmBtn = document.getElementById('btn-confirm-wound');
-
             if (isLowConfidence) {
-                confirmBtn.innerText = "⚠️ ความมั่นใจต่ำ — โปรดเลือกประเภทบาดแผลด้วยตนเอง";
-                confirmBtn.style.background = "linear-gradient(135deg, #D97706 0%, #B45309 100%)";
-                showToast("ระบบไม่แน่ใจประเภทแผล โปรดระบุด้วยตนเองเพื่อความปลอดภัย", "warning");
-                confirmBtn.onclick = () => {
-                    location.href = `/student/`;
-                };
+                confirmButton.innerHTML = '<span class="material-symbols-rounded">list_alt</span><span>ความมั่นใจต่ำ — เลือกแผลเอง</span>';
+                confirmButton.style.background = 'var(--accent)';
+                confirmButton.style.borderColor = 'var(--accent)';
+                confirmButton.onclick = () => { location.href = '/student/wound-select'; };
+                showToast('AI ยังไม่แน่ใจ โปรดเลือกประเภทแผลด้วยตนเอง', 'warning');
             } else {
-                confirmBtn.innerText = "ยืนยันและรับคำแนะนำปฐมพยาบาล ➔";
-                confirmBtn.style.background = "";
-                confirmBtn.onclick = () => {
-                    location.href = `/student/first-aid-guide?wound=${result.woundId}&source=ai-scan`;
+                confirmButton.innerHTML = '<span class="material-symbols-rounded">arrow_forward</span><span>เริ่มทำแผล 5 ขั้นตอน</span>';
+                confirmButton.style.background = '';
+                confirmButton.style.borderColor = '';
+                confirmButton.onclick = () => {
+                    location.href = `/student/first-aid-guide?wound=${encodeURIComponent(result.woundId)}&source=ai-scan`;
                 };
             }
-
-            // Trigger animation delay
-            setTimeout(() => {
-                bar.style.width = `${result.confidence}%`;
-                
-                // Color mapping for confidence indicator
-                if (result.confidence >= 80) {
-                    bar.style.background = 'linear-gradient(90deg, #10B981 0%, #059669 100%)'; // Emerald Green
-                } else if (result.confidence >= 50) {
-                    bar.style.background = 'linear-gradient(90deg, #F59E0B 0%, #D97706 100%)'; // Amber
-                } else {
-                    bar.style.background = 'linear-gradient(90deg, #EF4444 0%, #DC2626 100%)'; // Red
-                }
-            }, 100);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // Return from results to scanner input
         function backToInput() {
             document.getElementById('result-section').style.display = 'none';
             document.getElementById('input-section').style.display = 'block';

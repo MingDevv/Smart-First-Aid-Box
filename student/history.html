@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f7fcf9">
     <title>ประวัติการใช้ตู้ยา - Smart First Aid Box</title>
     <link rel="stylesheet" href="../css/global.css">
     <style>
@@ -64,16 +65,14 @@
             margin-top: 16px;
         }
 
-        .empty-icon {
-            font-size: 40px;
-            margin-bottom: 12px;
-        }
+        .empty-icon { display: grid; width: 58px; height: 58px; margin: 0 auto 12px; place-items: center; border-radius: 18px; background: var(--primary-light); color: var(--primary); }
+        .empty-icon .material-symbols-rounded { font-size: 30px; }
     </style>
 </head>
 <body>
     <header class="app-header">
-        <button class="header-back" onclick="location.href='/student/'">←</button>
-        <div class="header-title">📋 ประวัติการใช้งานตู้ยา</div>
+        <button class="header-back" type="button" onclick="location.href='/student/'" aria-label="กลับหน้าแรก"><span class="material-symbols-rounded">arrow_back</span></button>
+        <div class="header-title">ประวัติการใช้งานตู้ยา</div>
         <div style="width: 24px;"></div>
     </header>
 
@@ -81,7 +80,7 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
             <h2 style="font-size: 18px; color: var(--primary);">บันทึกประวัติการปฐมพยาบาล</h2>
             <button class="btn btn-outline" id="clear-btn" style="padding: 6px 12px; font-size: 12px; width: auto; border-radius: var(--radius-sm);">
-                🗑️ ล้างประวัติ
+                <span class="material-symbols-rounded" aria-hidden="true" style="font-size:18px;">delete</span>ล้างประวัติ
             </button>
         </div>
 
@@ -102,7 +101,7 @@
         </div>
 
         <div class="empty-history" id="empty-state" style="display:none;">
-            <div class="empty-icon">📁</div>
+            <div class="empty-icon"><span class="material-symbols-rounded" aria-hidden="true">history</span></div>
             <h3 style="margin-bottom:4px; font-size:16px;">ไม่มีข้อมูลประวัติ</h3>
             <p style="font-size:13px;">ยังไม่มีการบันทึกรายการใช้งานปฐมพยาบาลในตู้ยานี้</p>
         </div>

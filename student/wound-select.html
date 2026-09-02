@@ -2,182 +2,102 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>เลือกประเภทบาดแผล - Smart First Aid Box</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#f7fcf9">
+    <title>เลือกประเภทบาดแผล — Smart First Aid Box</title>
     <link rel="stylesheet" href="../css/global.css">
     <style>
-        .list-container {
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-            margin-top: 20px;
-        }
-
-        .wound-list-card {
-            display: flex;
-            align-items: center;
-            padding: 20px;
-            cursor: pointer;
-            border-radius: var(--radius-md);
-            transition: all 0.15s ease;
-            background-color: #FFFFFF;
-            border: 1px solid var(--border-color);
-            box-shadow: var(--shadow-sm);
-            text-align: left;
-        }
-
-        .wound-list-card:hover {
-            border-color: var(--primary);
-            background-color: var(--primary-light);
-            box-shadow: var(--shadow-md);
-        }
-
-        .wound-list-icon {
-            font-size: 32px;
-            margin-right: 18px;
-            width: 52px;
-            height: 52px;
-            background-color: #F1F5F9;
-            border: 1px solid #E2E8F0;
-            border-radius: var(--radius-sm);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--primary);
-            flex-shrink: 0;
-        }
-
-        .wound-list-info {
-            flex: 1;
-        }
-
-        .wound-list-name-th {
-            font-size: 17px;
-            font-weight: 600;
-            color: var(--primary);
-            margin-bottom: 2px;
-        }
-
-        .wound-list-name-en {
-            font-size: 13px;
-            color: var(--text-muted);
-            line-height: 1.4;
-        }
-
-        .search-container {
-            margin-top: 10px;
-        }
-
-        .search-input-wrapper {
-            position: relative;
-        }
-
-        .search-icon {
-            position: absolute;
-            left: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-muted);
-            font-size: 14px;
-        }
-
-        .search-input {
-            padding-left: 38px;
-            border-radius: var(--radius-sm);
-        }
-
-        .select-tip {
-            font-size: 14px;
-            color: var(--text-muted);
-            text-align: center;
-            margin-top: 6px;
-        }
+        body { display: flex; justify-content: center; }
+        .picker-app { display: flex; width: min(100%, 460px); min-height: 100vh; min-height: 100dvh; flex-direction: column; overflow: hidden; background: var(--bg-main); }
+        .picker-header { display: flex; flex-direction: column; gap: 5px; padding: 18px 20px 14px; border-bottom: 1px solid var(--border-color); }
+        .picker-title-row { display: flex; align-items: center; gap: 12px; }
+        .picker-back { display: grid; width: 42px; height: 42px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 13px; background: var(--secondary-light); color: var(--text-main); cursor: pointer; }
+        .picker-header h1 { font-size: 19px; }
+        .picker-header p { padding-left: 54px; color: var(--text-muted); font-size: 12px; }
+        .wound-grid { display: flex; flex: 1; flex-direction: column; gap: 14px; padding: 16px 20px; }
+        .wound-card { overflow: hidden; padding: 0; border: 1px solid var(--border-color); border-radius: 24px; background: #fff; color: var(--text-main); cursor: pointer; text-align: left; box-shadow: var(--shadow-sm); transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
+        .wound-card:hover { transform: translateY(-2px); border-color: var(--primary); box-shadow: var(--shadow-md); }
+        .wound-card.featured { border: 1px solid oklch(0.80 0.08 170); background: var(--primary-light); }
+        .wound-photo-wrap { position: relative; display: block; height: 158px; overflow: hidden; background: oklch(0.93 0.015 190); }
+        .wound-photo { position: absolute; top: -57.5%; left: -6.5%; width: 216%; height: auto; max-width: none; display: block; }
+        .wound-copy { display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: center; gap: 8px; padding: 13px 15px 14px; }
+        .wound-name { display: block; margin-bottom: 2px; font-family: var(--font-prompt); font-size: 17px; font-weight: 700; }
+        .featured .wound-name { color: oklch(0.34 0.07 190); }
+        .wound-meta { display: block; color: var(--text-muted); font-size: 11px; line-height: 1.4; }
+        .picker-footer { display: flex; flex-direction: column; gap: 9px; padding: 8px 20px 20px; }
+        .picker-help { display: flex; align-items: center; gap: 10px; padding: 13px 14px; border: 1px solid oklch(0.88 0.04 250); border-radius: 18px; background: oklch(0.95 0.02 250); color: oklch(0.42 0.05 255); font-size: 12px; }
+        .picker-sos { min-height: 62px; border: 0; border-radius: 20px; background: var(--accent); color: #fff; font-size: 17px; }
+        .empty-state { padding: 32px 18px; color: var(--text-muted); text-align: center; }
+        @media (min-width: 461px) { .picker-app { border-inline: 1px solid var(--border-color); box-shadow: 0 26px 70px -42px oklch(0.30 0.03 200 / .65); } }
     </style>
 </head>
 <body>
-    <header class="app-header">
-        <button class="header-back" onclick="location.href='/student/'">← หน้าหลัก</button>
-        <div class="header-title">🩹 เลือกประเภทบาดแผล</div>
-        <div style="width: 60px;"></div>
-    </header>
-
-    <div class="container animate-slide-up">
-        <p class="select-tip">กรุณาเลือกชนิดบาดแผลเพื่อดูขั้นตอนการทำแผลและปลดล็อกช่องเก็บยา</p>
-
-        <div class="search-container">
-            <div class="search-input-wrapper">
-                <span class="search-icon">🔍</span>
-                <input type="text" id="search-box" class="form-input search-input" placeholder="ค้นหา เช่น มีดบาด, ถลอก, มดกัด...">
+    <main class="picker-app animate-fade-in">
+        <header class="picker-header">
+            <div class="picker-title-row">
+                <button class="picker-back" type="button" onclick="location.href='/student/'" aria-label="กลับหน้าแรก"><span class="material-symbols-rounded">arrow_back</span></button>
+                <h1>เลือกประเภทแผล</h1>
             </div>
-        </div>
+            <p>แตะการ์ดเพื่อดูขั้นตอนและเวชภัณฑ์ที่ต้องใช้</p>
+        </header>
 
-        <div class="list-container" id="wound-list">
-            <!-- Dynamically populated -->
-        </div>
+        <section class="wound-grid" id="wound-list" aria-live="polite"></section>
 
-        <footer class="app-footer">
-            <p>© 2026 CRMS6 - Smart First Aid Box Project</p>
+        <footer class="picker-footer">
+            <a class="picker-help" href="/student/wound-scan"><span class="material-symbols-rounded" aria-hidden="true">help</span><span>ไม่แน่ใจว่าเป็นแผลแบบไหน? ใช้ AI สแกนช่วยดูได้</span></a>
+            <button class="btn picker-sos" id="select-sos-button" type="button" onclick="triggerSelectSos()"><span class="material-symbols-rounded" aria-hidden="true">emergency</span><span>เรียกครูพยาบาลด่วน</span></button>
         </footer>
-    </div>
+    </main>
 
-    <!-- Scripts -->
     <script src="../js/wound-data.js"></script>
+    <script src="../js/storage.js"></script>
+    <script src="../js/notification.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mqtt@5.15.2/dist/mqtt.min.js"></script>
+    <script src="../js/mqtt-bridge.js"></script>
+    <script src="../js/api-bridge.js"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            const list = document.getElementById("wound-list");
-            const searchBox = document.getElementById("search-box");
+        document.addEventListener('DOMContentLoaded', renderWounds);
 
-            function renderList(filterText = "") {
-                list.innerHTML = "";
-                const cleanFilter = filterText.trim().toLowerCase();
-                
-                Object.values(WOUND_DATA).forEach(wound => {
-                    if (wound.id === 'unknown') return; // Skip unknown in list
+        function escapeHtml(value) {
+            return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
 
-                    const matchesTh = wound.name_th.toLowerCase().includes(cleanFilter);
-                    const matchesEn = wound.name_en.toLowerCase().includes(cleanFilter);
-                    const matchesDesc = wound.description.toLowerCase().includes(cleanFilter);
-
-                    if (cleanFilter === "" || matchesTh || matchesEn || matchesDesc) {
-                        const card = document.createElement("div");
-                        card.className = "card wound-list-card animate-fade-in";
-                        card.onclick = () => {
-                            location.href = `/student/first-aid-guide?wound=${wound.id}`;
-                        };
-
-                        const avatarHtml = wound.image 
-                            ? `<img src="${wound.image}" style="width:64px; height:64px; object-fit:cover; border-radius:14px; border:1px solid #E2E8F0; box-shadow:0 2px 8px rgba(0,0,0,0.06); flex-shrink:0;" alt="${wound.name_th}">`
-                            : `<div class="wound-list-icon">${wound.icon}</div>`;
-
-                        card.innerHTML = `
-                            ${avatarHtml}
-                            <div class="wound-list-info" style="margin-left:14px; flex:1;">
-                                <div class="wound-list-name-th" style="font-size:16px; font-weight:700;">${wound.name_th}</div>
-                                <div class="wound-list-name-en" style="font-size:13px; color:var(--text-muted); margin-top:2px;">${wound.description}</div>
-                            </div>
-                            <div style="color:var(--primary); font-size:20px; font-weight:bold; margin-left: 8px;">➔</div>
-                        `;
-                        list.appendChild(card);
-                    }
-                });
-
-                if (list.children.length === 0) {
-                    list.innerHTML = `
-                        <div style="text-align: center; padding: 40px 20px; color: var(--text-muted);">
-                            <div style="font-size: 32px; margin-bottom: 10px;">🔍</div>
-                            <p style="font-size: 14px;">ไม่พบประเภทแผลที่ค้นหา</p>
-                        </div>
-                    `;
-                }
+        function renderWounds() {
+            const list = document.getElementById('wound-list');
+            const wounds = Object.values(WOUND_DATA).filter(wound => wound.id !== 'unknown');
+            if (wounds.length === 0) {
+                list.innerHTML = '<div class="empty-state">ยังไม่มีประเภทบาดแผลในระบบ</div>';
+                return;
             }
+            list.innerHTML = wounds.map((wound, index) => `
+                <button class="wound-card${index === 0 ? ' featured' : ''}" type="button" onclick="location.href='/student/first-aid-guide?wound=${encodeURIComponent(wound.id)}'">
+                    <span class="wound-photo-wrap"><img class="wound-photo" src="${escapeHtml(wound.image)}" alt="${escapeHtml(wound.name_th)}"></span>
+                    <span class="wound-copy"><span><span class="wound-name">${escapeHtml(wound.name_th)}</span><span class="wound-meta">${wound.steps.length} ขั้นตอน · ช่องเก็บที่ ${Number(wound.drawer) || 1} · เวชภัณฑ์ ${wound.items.length} รายการ</span></span><span class="material-symbols-rounded" aria-hidden="true" style="color:var(--primary);">chevron_right</span></span>
+                </button>
+            `).join('');
+        }
 
-            searchBox.addEventListener("input", (e) => {
-                renderList(e.target.value);
-            });
-
-            // Initial render
-            renderList();
-        });
+        async function triggerSelectSos() {
+            if (!confirm('ต้องการส่งสัญญาณเรียกครูพยาบาลด่วนใช่หรือไม่?')) return;
+            const button = document.getElementById('select-sos-button');
+            button.disabled = true;
+            try {
+                const student = StorageService.getCurrentStudent();
+                const studentName = student ? `${student.name} (${student.class})` : 'นักเรียนทั่วไป';
+                const [notificationResult, buzzerResult] = await Promise.all([
+                    NotificationService.sendLineNotification(NotificationService.buildSosFlexMessage(studentName)),
+                    ApiBridge.triggerBuzzer('on')
+                ]);
+                if (notificationResult.mode === 'simulation' || buzzerResult.mode === 'simulation') NotificationService.showToast('โหมดสาธิต: จำลองการส่ง SOS แล้ว', 'warning');
+                else if (notificationResult.success && buzzerResult.success) NotificationService.showToast('ส่ง SOS ถึงครูพยาบาลเรียบร้อยแล้ว', 'success');
+                else NotificationService.showToast('ส่งคำขอได้ไม่ครบ กรุณาเรียกครูใกล้ที่สุด', 'danger');
+            } catch (error) {
+                console.error('[Wound Select] SOS failed:', error);
+                NotificationService.showToast('ส่ง SOS ไม่สำเร็จ กรุณาเรียกครูใกล้ที่สุด', 'danger');
+            } finally {
+                button.disabled = false;
+            }
+        }
     </script>
 </body>
 </html>

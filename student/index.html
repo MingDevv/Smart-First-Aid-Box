@@ -2,366 +2,116 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>บริการปฐมพยาบาลเบื้องต้น - Smart First Aid Box</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#078683">
+    <title>บริการปฐมพยาบาล — Smart First Aid Box</title>
     <link rel="stylesheet" href="../css/global.css">
-    <style>
-        .portal-desc {
-            font-size: 14px;
-            color: var(--text-muted);
-            margin-top: 10px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .action-list {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .action-card {
-            display: flex;
-            align-items: center;
-            padding: 22px 20px;
-            background-color: #FFFFFF;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            transition: all 0.15s ease;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .action-card:hover {
-            border-color: var(--primary);
-            box-shadow: var(--shadow-md);
-        }
-
-        .action-icon-wrapper {
-            font-size: 28px;
-            width: 52px;
-            height: 52px;
-            background-color: var(--primary-light);
-            border: 1px solid rgba(30, 58, 138, 0.1);
-            border-radius: var(--radius-sm);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 16px;
-            color: var(--primary);
-        }
-
-        .action-content {
-            flex: 1;
-        }
-
-        .action-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--primary);
-            margin-bottom: 2px;
-        }
-
-        .action-desc {
-            font-size: 13px;
-            color: var(--text-muted);
-            line-height: 1.4;
-        }
-
-        /* Student Profile Card Bar */
-        .student-profile-bar {
-            background: linear-gradient(135deg, var(--primary) 0%, #1E40AF 100%);
-            color: white;
-            padding: 14px 18px;
-            border-radius: var(--radius-md);
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .student-info-name {
-            font-weight: 700;
-            font-size: 15px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .student-info-meta {
-            font-size: 12px;
-            opacity: 0.85;
-            margin-top: 2px;
-        }
-
-        .change-student-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            padding: 6px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            cursor: pointer;
-            font-family: var(--font-prompt), sans-serif;
-            min-height: 44px;
-        }
-
-        .change-student-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        .allergy-alert {
-            background-color: var(--accent-light);
-            border: 1px solid rgba(217, 119, 6, 0.25);
-            border-radius: var(--radius-sm);
-            padding: 10px 14px;
-            margin-bottom: 16px;
-            font-size: 13px;
-            color: #78350F;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        /* Numpad Login Modal Screen */
-        .student-login-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(15, 23, 42, 0.85);
-            backdrop-filter: blur(8px);
-            z-index: 10000;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .login-box {
-            background: #FFFFFF;
-            border-radius: var(--radius-md);
-            width: 100%;
-            max-width: 340px;
-            padding: 24px;
-            text-align: center;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-        }
-
-        .id-display {
-            font-family: var(--font-prompt), sans-serif;
-            font-size: 26px;
-            font-weight: 700;
-            letter-spacing: 6px;
-            color: var(--primary);
-            background: #F8FAFC;
-            border: 2px solid var(--border-color);
-            border-radius: var(--radius-sm);
-            padding: 12px;
-            margin: 16px 0;
-            min-height: 58px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .numpad-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-bottom: 16px;
-        }
-
-        .num-btn {
-            background-color: #F8FAFC;
-            border: 1px solid var(--border-color);
-            color: var(--text-main);
-            border-radius: var(--radius-sm);
-            height: 48px;
-            font-size: 18px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.1s ease;
-            font-family: var(--font-prompt), sans-serif;
-        }
-
-        .num-btn:active {
-            background-color: var(--primary-light);
-            transform: scale(0.95);
-        }
-
-        body {
-            padding-bottom: 90px;
-        }
-
-        /* SOS Emergency Button - Pinned Bottom (SEC / UI Fix) */
-        .sos-btn {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            width: calc(100% - 32px);
-            max-width: 440px;
-            padding: 16px 24px;
-            background: linear-gradient(135deg, #DC2626 0%, #991B1B 100%);
-            color: #FFFFFF;
-            border: 2px solid #FCA5A5;
-            border-radius: var(--radius-md);
-            font-family: var(--font-prompt), sans-serif;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
-            box-shadow: 0 8px 24px rgba(220, 38, 38, 0.45);
-            transition: all 0.2s ease;
-        }
-
-        .about-link {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            margin-top: 16px;
-            padding: 12px;
-            font-size: 13px;
-            color: var(--text-muted);
-            border: 1px dashed var(--border-color);
-            border-radius: var(--radius-sm);
-            text-decoration: none;
-        }
-    </style>
+    <link rel="stylesheet" href="../css/home.css">
 </head>
-<body>
-    <!-- Student Login Modal -->
-    <div class="student-login-modal" id="student-login-modal" style="display:none;">
+<body class="home-body">
+    <div class="student-login-modal" id="student-login-modal" role="dialog" aria-modal="true" aria-labelledby="login-title">
         <div class="login-box animate-slide-up">
-            <span style="font-size: 32px;">🪪</span>
-            <h2 style="font-size: 18px; color: var(--primary); margin-top: 4px;">เข้าสู่ระบบนักเรียน</h2>
-            <p style="font-size: 12px; color: var(--text-muted);">กรุณากรอกรหัสนักเรียน 5 หลัก</p>
-            
-            <div class="id-display" id="id-display-text">-----</div>
+            <span class="login-icon" aria-hidden="true"><span class="material-symbols-rounded">badge</span></span>
+            <h2 id="login-title" style="font-size:20px; margin-bottom:4px;">ระบุตัวตนนักเรียน</h2>
+            <p style="font-size:12px; color:var(--text-muted);">กรอกรหัสนักเรียน 5 หลัก หรือเลือกใช้งานทั่วไป</p>
+            <div class="id-display" id="id-display-text" aria-live="polite">-----</div>
 
-            <div class="numpad-grid">
-                <button class="num-btn" onclick="pressNum('1')">1</button>
-                <button class="num-btn" onclick="pressNum('2')">2</button>
-                <button class="num-btn" onclick="pressNum('3')">3</button>
-                
-                <button class="num-btn" onclick="pressNum('4')">4</button>
-                <button class="num-btn" onclick="pressNum('5')">5</button>
-                <button class="num-btn" onclick="pressNum('6')">6</button>
-                
-                <button class="num-btn" onclick="pressNum('7')">7</button>
-                <button class="num-btn" onclick="pressNum('8')">8</button>
-                <button class="num-btn" onclick="pressNum('9')">9</button>
-                
-                <button class="num-btn" style="font-size:12px; color:var(--danger);" onclick="clearNum()">ลบ</button>
-                <button class="num-btn" onclick="pressNum('0')">0</button>
-                <button class="num-btn" style="font-size:12px; color:var(--primary);" onclick="quickGuestLogin()">ทั่วไป</button>
+            <div class="numpad-grid" aria-label="แป้นกรอกรหัสนักเรียน">
+                <button class="num-btn" type="button" onclick="pressNum('1')">1</button>
+                <button class="num-btn" type="button" onclick="pressNum('2')">2</button>
+                <button class="num-btn" type="button" onclick="pressNum('3')">3</button>
+                <button class="num-btn" type="button" onclick="pressNum('4')">4</button>
+                <button class="num-btn" type="button" onclick="pressNum('5')">5</button>
+                <button class="num-btn" type="button" onclick="pressNum('6')">6</button>
+                <button class="num-btn" type="button" onclick="pressNum('7')">7</button>
+                <button class="num-btn" type="button" onclick="pressNum('8')">8</button>
+                <button class="num-btn" type="button" onclick="pressNum('9')">9</button>
+                <button class="num-btn" type="button" onclick="clearNum()" style="font-family:var(--font-sarabun); font-size:12px; color:var(--danger);">ลบ</button>
+                <button class="num-btn" type="button" onclick="pressNum('0')">0</button>
+                <button class="num-btn" type="button" onclick="quickGuestLogin()" style="font-family:var(--font-sarabun); font-size:12px; color:var(--primary);">ทั่วไป</button>
             </div>
 
-            <button class="btn btn-primary" onclick="submitStudentLogin()">เข้าสู่ระบบ</button>
+            <button class="btn btn-primary" type="button" onclick="submitStudentLogin()">เข้าสู่ระบบ</button>
+            <button class="btn btn-outline" type="button" onclick="closeLoginModal()" style="margin-top:9px; min-height:46px;">ไว้ทีหลัง</button>
         </div>
     </div>
 
-    <header class="app-header">
-        <button class="header-back" onclick="location.href='/'">← หน้าหลัก</button>
-        <div class="header-title">🏥 บริการปฐมพยาบาลนักเรียน</div>
-        <div style="width: 60px;"></div>
-    </header>
-
-    <div class="container animate-slide-up">
-        <!-- Student Profile Card Bar -->
-        <div class="student-profile-bar" id="student-profile-bar">
-            <div>
-                <div class="student-info-name">
-                    <span>👤</span>
-                    <span id="student-name-label">กำลังโหลดข้อมูล...</span>
-                </div>
-                <div class="student-info-meta" id="student-class-label">รหัสนักเรียน: -</div>
+    <main class="home-app animate-fade-in">
+        <section class="home-hero">
+            <div class="home-brand-row">
+                <a class="home-brand" href="/" aria-label="กลับหน้าแรก">
+                    <img class="home-logo" src="../images/logo_first_aid.webp" width="72" height="72" alt="ตรา Smart First Aid Box">
+                    <span class="home-brand-name">SMART FIRST AID BOX</span>
+                </a>
+                <button class="home-status" type="button" onclick="openLoginModal()" title="เปลี่ยนผู้ใช้งาน">
+                    <span id="student-status-label">พร้อมใช้</span>
+                </button>
             </div>
-            <button class="change-student-btn" onclick="openLoginModal()">เปลี่ยนคน 🔄</button>
+
+            <h1 class="home-title">เจ็บตรงไหน?<br>สแกนแผลได้เลย</h1>
+            <p class="home-description">AI ช่วยดูว่าเป็นแผลแบบไหน แล้วพาทำแผลทีละขั้น พร้อมปลดล็อกช่องยาอัตโนมัติ</p>
+        </section>
+
+        <section class="home-content" aria-label="เลือกบริการ">
+            <div class="home-alert" id="allergy-alert-box" style="display:none;">
+                <span class="material-symbols-rounded" aria-hidden="true">warning</span>
+                <span><strong>ประวัติแพ้ยา:</strong> <span id="allergy-list-text"></span> ระบบจะตรวจซ้ำก่อนเปิดช่องยา</span>
+            </div>
+
+            <a class="home-action primary-action" href="/student/wound-scan">
+                <img class="home-action-media" src="../images/ai_scanner_hero.webp" width="480" height="480" alt="สแกนบาดแผลด้วย AI">
+                <span class="home-action-copy">
+                    <span class="home-action-title">สแกนแผลด้วย AI</span>
+                    <span class="home-action-desc">ถ่ายรูปแผล ระบบบอกวิธีทำแผลให้</span>
+                </span>
+                <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
+            </a>
+
+            <a class="home-action" href="/student/wound-select">
+                <span class="home-action-icon" aria-hidden="true"><span class="material-symbols-rounded">list_alt</span></span>
+                <span class="home-action-copy">
+                    <span class="home-action-title">เลือกประเภทแผลเอง</span>
+                    <span class="home-action-desc">แผลมีดบาด/ถลอก · แมลงกัดต่อย</span>
+                </span>
+                <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
+            </a>
+
+            <a class="home-action" href="/dashboard/">
+                <span class="home-action-icon peach" aria-hidden="true"><span class="material-symbols-rounded">monitoring</span></span>
+                <span class="home-action-copy">
+                    <span class="home-action-title">ครูพยาบาล</span>
+                    <span class="home-action-desc">คลังยา · ประวัติ · แจ้งเตือน</span>
+                </span>
+                <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
+            </a>
+
+            <div style="display:flex; justify-content:center; gap:18px; flex-wrap:wrap;">
+                <a class="home-meta-link" href="/student/history"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติของฉัน</a>
+                <a class="home-meta-link" href="/student/about"><span class="material-symbols-rounded" aria-hidden="true">info</span>เกี่ยวกับโครงงาน</a>
+            </div>
+        </section>
+
+        <div class="sos-dock">
+            <button class="sos-button" id="sos-btn" type="button" onclick="triggerSOS()">
+                <span class="material-symbols-rounded" aria-hidden="true">emergency</span>
+                <span id="sos-label">เรียกครูพยาบาลด่วน</span>
+            </button>
+            <div class="sos-school">โรงเรียนเทศบาล 6 นครเชียงราย</div>
         </div>
+    </main>
 
-        <!-- Drug Allergy Alert -->
-        <div class="allergy-alert" id="allergy-alert-box" style="display:none;">
-            <span style="font-size: 18px;">⚠️</span>
-            <div><strong>แจ้งเตือนประวัติแพ้ยา:</strong> <span id="allergy-list-text"></span> (โปรดหลีกเลี่ยงยาดังกล่าว)</div>
-        </div>
-
-        <p class="portal-desc">
-            กรุณาเลือกรายการที่ต้องการทำเพื่อรับคำแนะนำในการทำแผลเบื้องต้น
-        </p>
-
-        <div class="action-list">
-            <!-- AI Wound Scanning -->
-            <div class="card action-card" onclick="location.href='/student/wound-scan'" style="border-color: var(--secondary); background: linear-gradient(to right, #FFFFFF, var(--primary-light));">
-                <div class="action-icon-wrapper" style="background-color: var(--secondary); color: white;">🧠</div>
-                <div class="action-content">
-                    <div class="action-title" style="color: var(--secondary-hover); display: flex; align-items: center; gap: 6px;">
-                        <span>สแกนแผลด้วยระบบ AI</span>
-                        <span style="background-color: var(--secondary-light); color: var(--secondary); font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold;">แนะนำ</span>
-                    </div>
-                    <div class="action-desc">ถ่ายรูปบาดแผลของคุณด้วยกล้อง หรืออัปโหลดไฟล์ภาพ เพื่อให้ AI ช่วยจำแนกอาการ</div>
-                </div>
-            </div>
-
-            <!-- Select Wound manual -->
-            <div class="card action-card" onclick="location.href='/student/wound-select'">
-                <div class="action-icon-wrapper">🩹</div>
-                <div class="action-content">
-                    <div class="action-title">เริ่มการปฐมพยาบาล (เลือกแผลเอง)</div>
-                    <div class="action-desc">เลือกบาดแผล (มีดบาด/ถลอก หรือ แมลงกัดต่อย) เพื่อดูขั้นตอนและเปิดช่องเก็บยา</div>
-                </div>
-            </div>
-
-            <!-- View History -->
-            <div class="card action-card" onclick="location.href='/student/history'">
-                <div class="action-icon-wrapper">📋</div>
-                <div class="action-content">
-                    <div class="action-title">ตรวจสอบประวัติการใช้ตู้ยา</div>
-                    <div class="action-desc">ตรวจสอบบันทึกรายละเอียดเหตุการณ์และการใช้ยาที่ผ่านมา</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- SOS Emergency Button -->
-        <button class="sos-btn" id="sos-btn" onclick="triggerSOS()">
-            🆘 ขอความช่วยเหลือฉุกเฉิน (SOS)
-        </button>
-
-        <!-- About Project Link -->
-        <a class="about-link" href="/student/about">
-            ℹ️ เกี่ยวกับโครงงาน Smart First Aid Box
-        </a>
-
-        <footer class="app-footer">
-            <p>© 2026 CRMS6 - Smart First Aid Box Project</p>
-        </footer>
-    </div>
-
-    <!-- Scripts -->
     <script src="../js/storage.js"></script>
     <script src="../js/notification.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mqtt@5.15.2/dist/mqtt.min.js"></script>
     <script src="../js/mqtt-bridge.js"></script>
     <script src="../js/api-bridge.js"></script>
     <script>
-        let enteredId = "";
+        let enteredId = '';
         let failedAttempts = parseInt(sessionStorage.getItem('student_login_failed_attempts') || '0', 10);
         let lockoutUntil = parseInt(sessionStorage.getItem('student_login_lockout_until') || '0', 10);
         let lockoutTimer = null;
 
-        document.addEventListener("DOMContentLoaded", () => {
+        document.addEventListener('DOMContentLoaded', () => {
             checkLockoutState();
             checkStudentAuth();
         });
@@ -371,16 +121,14 @@
             if (lockoutUntil > now) {
                 startLockoutCountdown(Math.ceil((lockoutUntil - now) / 1000));
                 return true;
-            } else {
-                sessionStorage.removeItem('student_login_lockout_until');
-                return false;
             }
+            sessionStorage.removeItem('student_login_lockout_until');
+            return false;
         }
 
         function startLockoutCountdown(secondsLeft) {
             updateLockoutUI(secondsLeft);
             if (lockoutTimer) clearInterval(lockoutTimer);
-            
             lockoutTimer = setInterval(() => {
                 const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
                 if (remaining <= 0) {
@@ -389,8 +137,6 @@
                     failedAttempts = 0;
                     sessionStorage.setItem('student_login_failed_attempts', '0');
                     sessionStorage.removeItem('student_login_lockout_until');
-                    const display = document.getElementById('id-display-text');
-                    display.style.color = '#1E293B';
                     updateDisplay();
                 } else {
                     updateLockoutUI(remaining);
@@ -400,33 +146,27 @@
 
         function updateLockoutUI(remainingSec) {
             const display = document.getElementById('id-display-text');
-            display.style.color = '#DC2626';
-            display.innerText = `🔒 ล็อก ${remainingSec}s`;
+            display.style.color = 'var(--danger)';
+            display.textContent = `ล็อก ${remainingSec}s`;
         }
 
         function checkStudentAuth() {
             const student = StorageService.getCurrentStudent();
-            if (!student) {
-                openLoginModal();
-            } else {
-                updateStudentProfileUI(student);
-            }
+            if (student) updateStudentProfileUI(student);
         }
 
         function openLoginModal() {
-            enteredId = "";
-            if (!checkLockoutState()) {
-                updateDisplay();
-            }
+            enteredId = '';
+            if (!checkLockoutState()) updateDisplay();
             document.getElementById('student-login-modal').style.display = 'flex';
         }
 
+        function closeLoginModal() {
+            document.getElementById('student-login-modal').style.display = 'none';
+        }
+
         function pressNum(num) {
-            if (checkLockoutState()) {
-                const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
-                NotificationService.showToast(`⚠️ รหัสผิดครบ 3 ครั้ง ระบบระงับชั่วคราว (เหลือ ${remaining} วินาที)`, "danger");
-                return;
-            }
+            if (checkLockoutState()) return;
             if (enteredId.length < 5) {
                 enteredId += num;
                 updateDisplay();
@@ -435,75 +175,61 @@
 
         function clearNum() {
             if (checkLockoutState()) return;
-            enteredId = "";
+            enteredId = '';
             updateDisplay();
         }
 
         function updateDisplay() {
             if (checkLockoutState()) return;
             const display = document.getElementById('id-display-text');
-            display.style.color = '#1E293B';
-            display.innerText = enteredId.padEnd(5, '-');
+            display.style.color = 'var(--text-main)';
+            display.textContent = enteredId.padEnd(5, '-');
         }
 
         function submitStudentLogin() {
-            if (checkLockoutState()) {
-                const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
-                NotificationService.showToast(`⚠️ รหัสผิดครบ 3 ครั้ง ระบบระงับชั่วคราว (เหลือ ${remaining} วินาที)`, "danger");
-                return;
-            }
-
+            if (checkLockoutState()) return;
             if (enteredId.length < 5) {
-                NotificationService.showToast("กรุณากรอกรหัสนักเรียน 5 หลักให้ครบ", "warning");
+                NotificationService.showToast('กรุณากรอกรหัสนักเรียน 5 หลักให้ครบ', 'warning');
                 return;
             }
 
             const result = StorageService.loginStudent(enteredId);
             if (!result.success) {
-                failedAttempts++;
+                failedAttempts += 1;
                 sessionStorage.setItem('student_login_failed_attempts', String(failedAttempts));
-                
                 if (failedAttempts >= 3) {
-                    lockoutUntil = Date.now() + 30000; // 30 seconds lockout
+                    lockoutUntil = Date.now() + 30000;
                     sessionStorage.setItem('student_login_lockout_until', String(lockoutUntil));
                     startLockoutCountdown(30);
-                    NotificationService.showToast("⚠️ กรอกรหัสผิด 3 ครั้งติด ระบบถูกระงับ 30 วินาที", "danger");
+                    NotificationService.showToast('กรอกรหัสผิด 3 ครั้ง ระบบพักการกรอก 30 วินาที', 'danger');
                 } else {
-                    NotificationService.showToast(`${result.error} (ลองผิดอีก ${3 - failedAttempts} ครั้งจะถูกล็อก)`, "danger");
+                    NotificationService.showToast(`${result.error} (เหลือ ${3 - failedAttempts} ครั้ง)`, 'danger');
                 }
                 clearNum();
                 return;
             }
 
-            // Success
             failedAttempts = 0;
             sessionStorage.setItem('student_login_failed_attempts', '0');
             sessionStorage.removeItem('student_login_lockout_until');
-            document.getElementById('student-login-modal').style.display = 'none';
+            closeLoginModal();
             updateStudentProfileUI(result.student);
-            NotificationService.showToast(`ยินดีต้อนรับ: ${result.student.name}`, "success");
+            NotificationService.showToast(`ยินดีต้อนรับ ${result.student.name}`, 'success');
         }
 
         function quickGuestLogin() {
-            if (checkLockoutState()) {
-                const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
-                NotificationService.showToast(`⚠️ รหัสผิดครบ 3 ครั้ง ระบบระงับชั่วคราว (เหลือ ${remaining} วินาที)`, "danger");
-                return;
-            }
-            const result = StorageService.loginStudent("99999");
-            document.getElementById('student-login-modal').style.display = 'none';
+            if (checkLockoutState()) return;
+            const result = StorageService.loginStudent('99999');
+            closeLoginModal();
             updateStudentProfileUI(result.student);
         }
 
         function updateStudentProfileUI(student) {
-            document.getElementById('student-name-label').innerText = student.name;
-            document.getElementById('student-class-label').innerText = `รหัสนักเรียน: ${student.studentId} | ชั้น: ${student.class}`;
-
+            const compactName = student.studentId === '99999' ? 'พร้อมใช้' : student.name.replace(/^นาย|^นางสาว|^เด็กชาย|^เด็กหญิง/, '');
+            document.getElementById('student-status-label').textContent = compactName;
             const allergyBox = document.getElementById('allergy-alert-box');
-            const allergyText = document.getElementById('allergy-list-text');
-
             if (student.allergies && student.allergies.length > 0) {
-                allergyText.innerText = student.allergies.join(', ');
+                document.getElementById('allergy-list-text').textContent = student.allergies.join(', ');
                 allergyBox.style.display = 'flex';
             } else {
                 allergyBox.style.display = 'none';
@@ -513,34 +239,41 @@
         async function triggerSOS() {
             const student = StorageService.getCurrentStudent();
             const studentName = student ? `${student.name} (${student.class})` : 'นักเรียนทั่วไป';
+            if (!confirm(`ต้องการส่งสัญญาณเรียกครูพยาบาลสำหรับ ${studentName} ใช่หรือไม่?`)) return;
 
-            if (!confirm(`⚠️ คุณ (${studentName}) ต้องการส่งสัญญาณขอความช่วยเหลือฉุกเฉินหรือไม่?`)) {
-                return;
-            }
-
-            const btn = document.getElementById('sos-btn');
-            btn.innerHTML = '⏳ กำลังส่งสัญญาณ...';
+            const button = document.getElementById('sos-btn');
+            const label = document.getElementById('sos-label');
+            button.disabled = true;
+            label.textContent = 'กำลังส่งสัญญาณ...';
 
             try {
-                await ApiBridge.triggerBuzzer('on');
-                const timeString = new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-                const sosFlexPayload = NotificationService.buildSosFlexMessage(studentName, timeString);
-                await NotificationService.sendLineNotification(sosFlexPayload);
-                NotificationService.showToast('📢 ส่งสัญญาณ SOS ถึงครูพยาบาลเรียบร้อย!', 'success');
+                const payload = NotificationService.buildSosFlexMessage(studentName, new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }));
+                const [notificationResult, buzzerResult] = await Promise.all([
+                    NotificationService.sendLineNotification(payload),
+                    ApiBridge.triggerBuzzer('on')
+                ]);
+
+                if (notificationResult.mode === 'simulation' || buzzerResult.mode === 'simulation') {
+                    NotificationService.showToast('โหมดสาธิต: จำลองการส่ง SOS แล้ว', 'warning');
+                } else if (notificationResult.success && buzzerResult.success) {
+                    NotificationService.showToast('ส่ง SOS ถึงครูพยาบาลเรียบร้อยแล้ว', 'success');
+                } else {
+                    NotificationService.showToast('ส่งคำขอได้ไม่ครบ กรุณาเรียกครูใกล้ที่สุดทันที', 'danger');
+                }
 
                 StorageService.addHistoryEntry({
                     woundType: 'sos_emergency',
-                    woundNameTh: '🆘 ขอความช่วยเหลือฉุกเฉิน',
+                    woundNameTh: 'ขอความช่วยเหลือฉุกเฉิน',
                     method: 'ปุ่ม SOS',
                     itemsUsed: []
                 });
-            } catch (e) {
-                NotificationService.showToast('ส่งสัญญาณ SOS ขัดข้อง', 'danger');
+            } catch (error) {
+                console.error('[Student] SOS failed:', error);
+                NotificationService.showToast('ส่ง SOS ไม่สำเร็จ กรุณาเรียกครูใกล้ที่สุดทันที', 'danger');
+            } finally {
+                button.disabled = false;
+                label.textContent = 'เรียกครูพยาบาลด่วน';
             }
-
-            setTimeout(() => {
-                btn.innerHTML = '🆘 ขอความช่วยเหลือฉุกเฉิน (SOS)';
-            }, 4000);
         }
     </script>
 </body>

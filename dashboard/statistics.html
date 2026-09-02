@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#078683">
     <title>สถิติการใช้งาน - Smart First Aid Box</title>
     <script>
         if (sessionStorage.getItem('dashboard_auth') !== 'true') {
@@ -27,7 +28,7 @@
         }
 
         table.db-table th {
-            background-color: #F1F5F9;
+            background-color: var(--secondary-light);
             color: var(--primary);
             padding: 12px;
             font-weight: 700;
@@ -41,88 +42,70 @@
         }
 
         table.db-table tr:hover {
-            background-color: #F8FAFC;
+            background-color: var(--bg-main);
         }
         
-        .school-header-bar {
-            text-align: center;
-            padding: 10px 0;
-            background-color: var(--primary);
-            color: white;
-            font-size: 12px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            font-family: var(--font-prompt), sans-serif;
-        }
+        .report-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+        .report-chart-grid .db-card { min-width: 0; }
+        @media (max-width: 1100px) { .report-chart-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body class="dashboard-body">
+    <div class="dashboard-shell">
+        <aside class="dashboard-sidebar">
+            <a class="sidebar-brand" href="../">
+                <img class="sidebar-logo" src="../images/logo_first_aid.webp" width="72" height="72" alt="Smart First Aid Box">
+                <span><strong>First Aid Box</strong><span style="font-family:var(--font-sarabun); letter-spacing:0; font-size:10px;">ครูพยาบาล</span></span>
+            </a>
+            <nav class="sidebar-nav" aria-label="เมนูแดชบอร์ด">
+                <a class="sidebar-link" href="./"><span class="material-symbols-rounded" aria-hidden="true">dashboard</span>ภาพรวม</a>
+                <a class="sidebar-link" href="medicine-management"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>คลังยา</a>
+                <a class="sidebar-link" id="history-nav-link" href="#history"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติ</a>
+                <a class="sidebar-link active" id="statistics-nav-link" href="statistics"><span class="material-symbols-rounded" aria-hidden="true">monitoring</span>สถิติ</a>
+                <a class="sidebar-link" href="medicine-management#settings"><span class="material-symbols-rounded" aria-hidden="true">settings</span>ตั้งค่า</a>
+            </nav>
+            <div class="sidebar-status">
+                <div class="sidebar-status-title"><span class="sidebar-status-dot"></span>รายงานการใช้งาน</div>
+                <div class="sidebar-status-meta">อิงจากประวัติที่บันทึกไว้</div>
+            </div>
+        </aside>
 
-    <div class="school-header-bar">
-        ระบบบริหารจัดการกล่องปฐมพยาบาลอัจฉริยะ — โรงเรียนเทศบาล 6 นครเชียงราย
+        <main class="dashboard-main animate-fade-in">
+            <header class="dashboard-topbar">
+                <div class="dashboard-greeting">
+                    <h1>สถิติและประวัติ</h1>
+                    <p>ภาพรวมการใช้งานและรายการเบิกเวชภัณฑ์ที่บันทึกไว้</p>
+                </div>
+                <div class="dashboard-actions">
+                    <button class="dashboard-action primary" type="button" onclick="exportCSV()"><span class="material-symbols-rounded" aria-hidden="true">download</span>ส่งออก CSV</button>
+                    <button class="dashboard-action" type="button" onclick="logout()" aria-label="ออกจากระบบ"><span class="material-symbols-rounded" aria-hidden="true">logout</span></button>
+                </div>
+            </header>
+
+            <section class="report-chart-grid" aria-label="กราฟสถิติการใช้งาน">
+                <article class="db-card">
+                    <div class="db-card-header"><h2><span class="material-symbols-rounded" aria-hidden="true">donut_large</span> สัดส่วนประเภทบาดแผล</h2></div>
+                    <div class="chart-container"><canvas id="woundTypeChart"></canvas></div>
+                </article>
+                <article class="db-card">
+                    <div class="db-card-header"><h2><span class="material-symbols-rounded" aria-hidden="true">show_chart</span> การใช้งานแยกตามวัน</h2></div>
+                    <div class="chart-container"><canvas id="timelineChart"></canvas></div>
+                </article>
+            </section>
+
+            <section class="db-card" id="history">
+                <div class="db-card-header"><h2><span class="material-symbols-rounded" aria-hidden="true">history</span> ประวัติการรักษาทั้งหมด</h2></div>
+                <div class="table-wrapper">
+                    <table class="db-table">
+                        <thead><tr><th>วันเวลา</th><th>ประเภทบาดแผล</th><th>วิธีการป้อน</th><th>เวชภัณฑ์ยาที่เบิก</th></tr></thead>
+                        <tbody id="logs-table-body"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <footer class="app-footer"><p>© 2026 CRMS6 · Smart First Aid Box</p></footer>
+        </main>
     </div>
-
-    <header class="dashboard-header">
-        <div class="dashboard-title">
-            <span>📊 ระบบจัดการคลังยา (สำหรับครูพยาบาล)</span>
-        </div>
-        <button class="btn btn-outline" style="width: auto; padding: 6px 14px; font-size: 12px; border-radius: var(--radius-sm); border-color: #CBD5E1; color: var(--text-muted);" onclick="logout()">
-            🚪 ออกจากระบบ
-        </button>
-    </header>
-
-    <div class="container animate-fade-in" style="background-color: transparent;">
-        <!-- Navigation Tabs -->
-        <div class="dashboard-nav">
-            <div class="nav-item" onclick="location.href='/dashboard/'">ภาพรวมระบบ</div>
-            <div class="nav-item active" onclick="location.href='/dashboard/statistics'">สถิติและรายงาน</div>
-            <div class="nav-item" onclick="location.href='/dashboard/medicine-management'">จัดการสต็อกยา</div>
-        </div>
-
-        <!-- Charts Card -->
-        <div class="db-card">
-            <h3 style="font-size: 15px; margin-bottom: 10px; color: var(--primary);">📊 อัตราการเกิดอุบัติเหตุแยกตามอาการแผล</h3>
-            <div class="chart-container">
-                <canvas id="woundTypeChart"></canvas>
-            </div>
-        </div>
-
-        <div class="db-card">
-            <h3 style="font-size: 15px; margin-bottom: 10px; color: var(--primary);">📈 ปริมาณการทำแผลรักษาแยกตามวัน</h3>
-            <div class="chart-container">
-                <canvas id="timelineChart"></canvas>
-            </div>
-        </div>
-
-        <!-- Full Event Logs Database Table -->
-        <div class="db-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h3 style="font-size: 15px; color: var(--primary);">📋 ตารางบันทึกประวัติการรักษารวมทั้งหมด</h3>
-                <button class="btn btn-outline" style="width: auto; padding: 6px 14px; font-size: 12px; border-radius: var(--radius-sm); border-color: #334155; color: #94A3B8;" onclick="exportCSV()">
-                    📥 Export CSV
-                </button>
-            </div>
-            <div class="table-wrapper">
-                <table class="db-table">
-                    <thead>
-                        <tr>
-                            <th>วันเวลา</th>
-                            <th>ประเภทบาดแผล</th>
-                            <th>วิธีการป้อน</th>
-                            <th>เวชภัณฑ์ยาที่เบิก</th>
-                        </tr>
-                    </thead>
-                    <tbody id="logs-table-body">
-                        <!-- Dynamic -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <footer class="app-footer">
-        <p>© 2026 CRMS6 - Smart First Aid Box Project</p>
-    </footer>
 
     <!-- Scripts -->
     <script src="../js/storage.js"></script>
@@ -138,6 +121,14 @@
         }
 
         document.addEventListener("DOMContentLoaded", () => {
+            const updateSidebarState = () => {
+                const showHistory = location.hash === '#history';
+                document.getElementById('history-nav-link').classList.toggle('active', showHistory);
+                document.getElementById('statistics-nav-link').classList.toggle('active', !showHistory);
+            };
+            updateSidebarState();
+            window.addEventListener('hashchange', updateSidebarState);
+
             const history = StorageService.getHistory();
             
             // Build logs database table
@@ -198,7 +189,7 @@
                     datasets: [{
                         data: cleanValues,
                         backgroundColor: history.length === 0 && !showDemo ? ['#CBD5E1'] : [
-                            '#1E3A8A', '#2563EB', '#D97706', '#DC2626', '#059669', '#64748B'
+                            '#078683', '#59C7AE', '#E66A4F', '#F0A05A', '#6AA8A4', '#819694'
                         ],
                         borderWidth: 1,
                         borderColor: '#FFFFFF'
@@ -212,14 +203,14 @@
                             position: 'right',
                             labels: {
                                 color: '#1E293B',
-                                font: { family: 'Prompt', size: 12 }
+                                font: { family: 'IBM Plex Sans Thai', size: 12 }
                             }
                         },
                         title: {
                             display: showDemo,
-                            text: '📌 โหมดแสดงข้อมูลตัวอย่าง (DEMO)',
+                            text: 'โหมดแสดงข้อมูลตัวอย่าง (DEMO)',
                             color: '#D97706',
-                            font: { family: 'Prompt', size: 11 }
+                            font: { family: 'IBM Plex Sans Thai', size: 11 }
                         }
                     }
                 }
@@ -256,8 +247,8 @@
                     datasets: [{
                         label: history.length === 0 && !showDemo ? 'ไม่มีข้อมูลประวัติ' : 'จำนวนเคสปฐมพยาบาล',
                         data: cleanDateValues,
-                        borderColor: history.length === 0 && !showDemo ? '#94A3B8' : '#2563EB',
-                        backgroundColor: history.length === 0 && !showDemo ? 'rgba(148, 163, 184, 0.1)' : 'rgba(37, 99, 235, 0.08)',
+                        borderColor: history.length === 0 && !showDemo ? '#94A3B8' : '#078683',
+                        backgroundColor: history.length === 0 && !showDemo ? 'rgba(148, 163, 184, 0.1)' : 'rgba(7, 134, 131, 0.08)',
                         fill: true,
                         tension: 0.3
                     }]

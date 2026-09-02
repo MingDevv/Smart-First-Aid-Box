@@ -80,6 +80,21 @@ assert.match(
     /<a\b[^>]*class=["'][^"']*menu-item-btn[^"']*["'][^>]*href=["']student\/kiosk["']/i,
     'Landing page must expose the existing touchscreen kiosk mode with a real link'
 );
+assert.match(
+    landingHtml,
+    /href=["']css\/home\.css["']/i,
+    'Landing page must load the shared Care Kit home styling'
+);
+assert.match(
+    landingHtml,
+    /เจ็บตรงไหน\?<br>สแกนแผลได้เลย/,
+    'Landing page must use the Claude Design Care Kit hero copy'
+);
+assert.match(
+    landingHtml,
+    /class=["'][^"']*home-action[^"']*primary-action[^"']*["'][^>]*href=["']student\/wound-scan["']/i,
+    'Landing page must make AI wound scanning the primary Care Kit action'
+);
 
 const kioskHtml = await readFile(path.join(rootDir, 'student', 'kiosk.html'), 'utf8');
 assert.match(
@@ -101,6 +116,99 @@ assert.match(
     kioskHtml,
     /buzzerResult\.mode\s*===\s*['"]simulation['"]/,
     'Kiosk SOS feedback must distinguish a simulated buzzer from real hardware'
+);
+assert.doesNotMatch(
+    kioskHtml,
+    /background:\s*#0F172A/i,
+    'Kiosk must not regress to the discarded dark redesign'
+);
+
+const scannerHtml = await readFile(path.join(rootDir, 'student', 'wound-scan.html'), 'utf8');
+assert.match(
+    scannerHtml,
+    /class=["']scan-frame["']/i,
+    'AI scanner must expose the Care Kit camera targeting frame'
+);
+assert.match(
+    scannerHtml,
+    /<section\b(?=[^>]*id=["']result-section["'])(?=[^>]*class=["'][^"']*result-container[^"']*["'])/i,
+    'AI scanner must include the designed result state'
+);
+
+const guideHtml = await readFile(path.join(rootDir, 'student', 'first-aid-guide.html'), 'utf8');
+assert.match(
+    guideHtml,
+    /id=["']unlock-view["']/i,
+    'First-aid flow must include the full-screen unlock confirmation from Claude Design'
+);
+assert.match(
+    guideHtml,
+    /onclick=["']startTreatment\(\)["']/i,
+    'Compartment opening must wait for the explicit Care Kit start action'
+);
+assert.doesNotMatch(
+    guideHtml,
+    /setTimeout\(\(\)\s*=>\s*openConfirmModal/,
+    'First-aid flow must not auto-open the old confirmation modal on page load'
+);
+
+const dashboardHtml = await readFile(path.join(rootDir, 'dashboard', 'index.html'), 'utf8');
+const medicineManagementHtml = await readFile(path.join(rootDir, 'dashboard', 'medicine-management.html'), 'utf8');
+const statisticsHtml = await readFile(path.join(rootDir, 'dashboard', 'statistics.html'), 'utf8');
+const dashboardCss = await readFile(path.join(rootDir, 'css', 'dashboard.css'), 'utf8');
+assert.match(
+    dashboardHtml,
+    /class=["']dashboard-shell["']/i,
+    'Nurse dashboard must use the Care Kit sidebar workspace layout'
+);
+assert.match(
+    dashboardCss,
+    /--db-sidebar:\s*oklch\(0\.49 0\.10 195\)/,
+    'Nurse dashboard must keep the Claude Design teal sidebar token'
+);
+assert.doesNotMatch(
+    dashboardCss,
+    /--db-dark-bg/,
+    'Nurse dashboard must not keep the discarded dark-theme token'
+);
+for (const [name, html] of [
+    ['medicine management', medicineManagementHtml],
+    ['statistics', statisticsHtml]
+]) {
+    assert.match(
+        html,
+        /class=["']dashboard-shell["']/i,
+        `${name} must remain inside the Claude Design dashboard shell`
+    );
+    assert.doesNotMatch(
+        html,
+        /class=["']dashboard-nav["']/i,
+        `${name} must not fall back to the legacy top-tab dashboard layout`
+    );
+}
+
+const historyHtml = await readFile(path.join(rootDir, 'student', 'history.html'), 'utf8');
+assert.match(
+    historyHtml,
+    /class=["']material-symbols-rounded["'][^>]*>history</i,
+    'Student history empty state must use the Care Kit icon system'
+);
+assert.doesNotMatch(
+    historyHtml,
+    /[📋🗑📁]/u,
+    'Student history must not fall back to emoji UI icons'
+);
+
+const notificationSource = await readFile(path.join(rootDir, 'js', 'notification.js'), 'utf8');
+assert.match(
+    notificationSource,
+    /themes\s*=\s*\{[\s\S]*check_circle[\s\S]*warning/,
+    'In-app toasts must use Material Symbols from the Care Kit icon system'
+);
+assert.doesNotMatch(
+    notificationSource,
+    /backgroundColor\s*=\s*['"]#0F172A/i,
+    'LINE simulation overlay must not regress to the discarded dark card'
 );
 
 const woundDataSource = await readFile(path.join(rootDir, 'js', 'wound-data.js'), 'utf8');
