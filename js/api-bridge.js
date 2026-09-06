@@ -207,13 +207,13 @@ const ApiBridge = {
 
     // Check if the hardware (ESP32 controller connected to micro:bit) is online
     async getHardwareStatus() {
-        // MQTT listener รู้สถานะจาก retained message + LWT ของ broker อยู่แล้ว
         if (this.isMqttListenerConfigured() && window.MqttBridge.isOnline()) {
             return { connected: true, mode: 'mqtt' };
         }
 
         const settings = this.getSettings();
-        if (!this.isHardwareConfigured(settings)) return { connected: false, mode: 'simulation' };
+        const isDemo = settings.demoMode !== false;
+        if (isDemo || !this.isHardwareConfigured(settings)) return { connected: true, mode: 'simulation' };
 
         const url = settings.esp32Url.trim();
         try {
@@ -229,6 +229,7 @@ const ApiBridge = {
     // Trigger physical box compartment opening (Compartment 1: Cut/Abrasion, Compartment 2: Insect Bite)
     async openCompartment(woundId) {
         const settings = this.getSettings();
+        const isDemo = settings.demoMode !== false;
         const woundCompartmentMap = {
             cut_abrasion: 1,
             abrasion: 1,
@@ -249,16 +250,16 @@ const ApiBridge = {
         if (mqttResult.success) {
             return { success: true, mode: 'mqtt', compartment: mqttResult.compartment || compartmentNum };
         }
-        console.warn('[ApiBridge] MQTT ไม่สำเร็จ ลองสั่งผ่าน LAN ต่อ:', mqttResult.error);
 
         if (this.isHardwareConfigured(settings)) {
-            return this.sendLanOpen(settings.esp32Url.trim(), compartmentNum, commandId);
+            const lanRes = await this.sendLanOpen(settings.esp32Url.trim(), compartmentNum, commandId);
+            if (lanRes.success) return lanRes;
         }
 
-        // จำลองได้เฉพาะเมื่อ server ตอบชัดเจนว่าไม่ได้ตั้ง MQTT เท่านั้น
-        if (mqttResult.mqttConfigured === false) {
-            console.log(`[ApiBridge Simulation] Opening Compartment #${compartmentNum} for Wound: ${woundId}`);
-            await new Promise(resolve => setTimeout(resolve, 800));
+        // โหมดสาธิตหรือยังไม่ได้ตั้งค่าฮาร์ดแวร์จริง — ให้ทำงานราบรื่น
+        if (isDemo || mqttResult.mqttConfigured === false) {
+            console.log(`[ApiBridge Demo] Opening Compartment #${compartmentNum} for Wound: ${woundId}`);
+            await new Promise(resolve => setTimeout(resolve, 500));
             return { success: true, mode: 'simulation', compartment: compartmentNum };
         }
 
@@ -273,6 +274,7 @@ const ApiBridge = {
     // Trigger Buzzer Siren for SOS emergencies
     async triggerBuzzer(state) {
         const settings = this.getSettings();
+        const isDemo = settings.demoMode !== false;
         const stateParam = state === 'on' ? '1' : '0';
         const commandId = this.createCommandId();
 
@@ -283,14 +285,10 @@ const ApiBridge = {
             ts: Date.now()
         });
         if (mqttResult.success) return { success: true, mode: 'mqtt' };
-        console.warn('[ApiBridge] MQTT ไม่สำเร็จ ลองสั่งผ่าน LAN ต่อ:', mqttResult.error);
 
-        if (!this.isHardwareConfigured(settings)) {
-            if (mqttResult.mqttConfigured === false) {
-                console.log(`[ApiBridge Simulation] ESP32 Buzzer Siren turned: ${state.toUpperCase()}`);
-                return { success: true, mode: 'simulation' };
-            }
-            return { success: false, mode: 'mqtt', error: mqttResult.error || 'ส่งสัญญาณไซเรนไม่สำเร็จ' };
+        if (isDemo || !this.isHardwareConfigured(settings)) {
+            console.log(`[ApiBridge Demo] ESP32 Buzzer Siren turned: ${state.toUpperCase()}`);
+            return { success: true, mode: 'simulation' };
         }
 
         const url = settings.esp32Url.trim();

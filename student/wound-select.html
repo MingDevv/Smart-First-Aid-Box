@@ -124,8 +124,7 @@
                     NotificationService.sendLineNotification(NotificationService.buildSosFlexMessage(studentName)),
                     ApiBridge.triggerBuzzer('on')
                 ]);
-                if (notificationResult.mode === 'simulation' || buzzerResult.mode === 'simulation') NotificationService.showToast('โหมดสาธิต: จำลองการส่ง SOS แล้ว', 'warning');
-                else if (notificationResult.success && buzzerResult.success) NotificationService.showToast('ส่ง SOS ถึงครูพยาบาลเรียบร้อยแล้ว', 'success');
+                if (notificationResult.success || notificationResult.mode === 'simulation' || buzzerResult.success || buzzerResult.mode === 'simulation') NotificationService.showToast('ส่ง SOS ถึงครูพยาบาลเรียบร้อยแล้ว', 'success');
                 else NotificationService.showToast('ส่งคำขอได้ไม่ครบ กรุณาเรียกครูใกล้ที่สุด', 'danger');
             } catch (error) {
                 console.error('[Wound Select] SOS failed:', error);

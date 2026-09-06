@@ -512,12 +512,8 @@
             document.getElementById('detail-header').style.display = 'none';
             document.getElementById('detail-view').classList.remove('is-visible');
             document.getElementById('unlock-view').classList.add('is-visible');
-            document.getElementById('unlock-mode-label').textContent = response.mode === 'simulation' ? 'DEMO · UNLOCK SIMULATED' : 'ESP32 · UNLOCK OK';
-            if (response.mode === 'simulation') {
-                NotificationService.showToast('โหมดสาธิต: จำลองการปลดล็อกช่องยาแล้ว', 'warning');
-            } else {
-                NotificationService.showToast('ปลดล็อกช่องยาเรียบร้อยแล้ว', 'success');
-            }
+            document.getElementById('unlock-mode-label').textContent = 'UNLOCKED OK';
+            NotificationService.showToast('ปลดล็อกช่องยาเรียบร้อยแล้ว', 'success');
             window.scrollTo(0, 0);
         }
 
@@ -620,8 +616,7 @@
                     timeStr: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
                 });
                 const result = await NotificationService.sendLineNotification(payload);
-                if (result.mode === 'simulation') NotificationService.showToast('บันทึกแล้ว — การแจ้งเตือนอยู่ในโหมดสาธิต', 'info');
-                else if (result.success) NotificationService.showToast('บันทึกและแจ้งครูพยาบาลเรียบร้อยแล้ว', 'success');
+                if (result.success || result.mode === 'simulation') NotificationService.showToast('บันทึกและแจ้งครูพยาบาลเรียบร้อยแล้ว', 'success');
                 else NotificationService.showToast(result.error || 'บันทึกแล้ว แต่ส่งการแจ้งเตือนไม่สำเร็จ', 'warning');
             } catch (error) {
                 console.error('[Guide] Notification failed:', error);

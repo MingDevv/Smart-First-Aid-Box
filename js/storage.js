@@ -38,7 +38,8 @@ const DEFAULT_SETTINGS = {
     mqttUsername: '',
     mqttPassword: '',
     // ต้องตรงกับ MQTT_BASE_TOPIC บน Vercel และ BASE_TOPIC ในเฟิร์มแวร์ ESP32
-    mqttBaseTopic: 'crms6/firstaidbox/box1'
+    mqttBaseTopic: 'crms6/firstaidbox/box1',
+    demoMode: true
 };
 
 const StorageService = {

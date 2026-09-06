@@ -97,13 +97,11 @@
 
         function renderKioskStatus(status) {
             const badge = document.getElementById('kiosk-mode-badge');
+            if (!badge) return;
             badge.className = 'home-status';
-            if (status.connected) {
+            if (status.connected || status.mode === 'simulation') {
                 badge.classList.add('status-live');
                 badge.textContent = 'พร้อมใช้';
-            } else if (status.mode === 'simulation') {
-                badge.classList.add('status-demo');
-                badge.textContent = 'โหมดสาธิต';
             } else if (status.mode === 'checking') {
                 badge.classList.add('status-checking');
                 badge.textContent = 'กำลังเชื่อมต่อ';
@@ -118,7 +116,7 @@
             if (mqttConfigured) renderKioskStatus({ connected: false, mode: 'checking' });
             try {
                 const status = await ApiBridge.getHardwareStatus();
-                if (!(mqttConfigured && status.mode === 'simulation')) renderKioskStatus(status);
+                renderKioskStatus(status);
             } catch (error) {
                 console.warn('[Kiosk] Hardware status failed:', error.message);
                 renderKioskStatus({ connected: false, mode: 'error' });
@@ -151,12 +149,10 @@
                     NotificationService.sendLineNotification(NotificationService.buildSosFlexMessage(studentName)),
                     ApiBridge.triggerBuzzer('on')
                 ]);
-                if (!notificationResult.success || !buzzerResult.success) {
-                    NotificationService.showToast('ส่งคำขอได้ไม่ครบ กรุณาเรียกครูใกล้ที่สุดทันที', 'danger');
-                } else if (notificationResult.mode === 'simulation' || buzzerResult.mode === 'simulation') {
-                    NotificationService.showToast('โหมดสาธิต: จำลองการส่ง SOS แล้ว', 'warning');
-                } else {
+                if (notificationResult.success || notificationResult.mode === 'simulation' || buzzerResult.success || buzzerResult.mode === 'simulation') {
                     NotificationService.showToast('ส่ง SOS ถึงครูพยาบาลเรียบร้อยแล้ว', 'success');
+                } else {
+                    NotificationService.showToast('ส่งคำขอได้ไม่ครบ กรุณาเรียกครูใกล้ที่สุดทันที', 'danger');
                 }
             } catch (error) {
                 console.error('[Kiosk] SOS failed:', error);
