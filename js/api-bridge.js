@@ -207,23 +207,31 @@ const ApiBridge = {
 
     // Check if the hardware (ESP32 controller connected to micro:bit) is online
     async getHardwareStatus() {
+        const settings = this.getSettings();
+        const isDemo = settings.demoMode !== false;
+
+        if (isDemo) {
+            return { connected: true, mode: 'simulation' };
+        }
+
+        // โหมดสาธิตปิดอยู่ -> ต้องตรวจสอบการเชื่อมต่อฮาร์ดแวร์จริงผ่าน MQTT / LAN
         if (this.isMqttListenerConfigured() && window.MqttBridge.isOnline()) {
             return { connected: true, mode: 'mqtt' };
         }
 
-        const settings = this.getSettings();
-        const isDemo = settings.demoMode !== false;
-        if (isDemo || !this.isHardwareConfigured(settings)) return { connected: true, mode: 'simulation' };
-
-        const url = settings.esp32Url.trim();
-        try {
-            const response = await this.fetchWithTimeout(`${url}/status`, {}, 1500);
-            if (response.ok) return { connected: true, mode: 'production' };
-            return { connected: false, mode: 'error', error: `HTTP ${response.status}` };
-        } catch (e) {
-            console.log('[ApiBridge] Cannot connect to ESP32 controller.');
-            return { connected: false, mode: 'error', error: e.message };
+        if (this.isHardwareConfigured(settings)) {
+            const url = settings.esp32Url.trim();
+            try {
+                const response = await this.fetchWithTimeout(`${url}/status`, {}, 1500);
+                if (response.ok) return { connected: true, mode: 'production' };
+                return { connected: false, mode: 'error', error: `HTTP ${response.status}` };
+            } catch (e) {
+                console.log('[ApiBridge] Cannot connect to ESP32 controller.');
+                return { connected: false, mode: 'error', error: e.message };
+            }
         }
+
+        return { connected: false, mode: 'offline', error: 'ตู้ไม่ได้เชื่อมต่อฮาร์ดแวร์' };
     },
 
     // Trigger physical box compartment opening (Compartment 1: Cut/Abrasion, Compartment 2: Insect Bite)
@@ -239,7 +247,15 @@ const ApiBridge = {
         const compartmentNum = woundCompartmentMap[woundId] || 1;
         const commandId = this.createCommandId();
 
-        // ลอง server ทุกครั้ง — localStorage บอกได้แค่ listener ฝั่ง browser ไม่ใช่ขาลงของ Vercel
+        // 1. ถ้าเปิดโหมดสาธิต (Demo ON): จำลองการสั่งจ่ายยาสำเร็จทันที ไม่ต้องส่งสัญญาณฮาร์ดแวร์จริง
+        if (isDemo) {
+            console.log(`[ApiBridge Demo ON] Opening Compartment #${compartmentNum} for Wound: ${woundId}`);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return { success: true, mode: 'simulation', compartment: compartmentNum };
+        }
+
+        // 2. ถ้าปิดโหมดสาธิต (Demo OFF): ส่งสัญญาณจริงผ่าน MQTT / LAN เท่านั้น
+        console.log(`[ApiBridge Demo OFF] Sending REAL hardware command for Compartment #${compartmentNum}...`);
         const mqttResult = await this.sendMqttCommand({
             action: 'open',
             woundId,
@@ -256,18 +272,12 @@ const ApiBridge = {
             if (lanRes.success) return lanRes;
         }
 
-        // โหมดสาธิตหรือยังไม่ได้ตั้งค่าฮาร์ดแวร์จริง — ให้ทำงานราบรื่น
-        if (isDemo || mqttResult.mqttConfigured === false) {
-            console.log(`[ApiBridge Demo] Opening Compartment #${compartmentNum} for Wound: ${woundId}`);
-            await new Promise(resolve => setTimeout(resolve, 500));
-            return { success: true, mode: 'simulation', compartment: compartmentNum };
-        }
-
+        // ปิดโหมดสาธิตอยู่และส่งสัญญาณฮาร์ดแวร์จริงไม่สำเร็จ -> คืนค่าความล้มเหลวตามจริง!
         return {
             success: false,
             mode: 'mqtt',
             compartment: compartmentNum,
-            error: mqttResult.error || 'ตู้ยาไม่ยืนยันการเปิดลิ้นชัก'
+            error: mqttResult.error || 'ตู้ยาไม่ยืนยันการเปิดลิ้นชัก กรุณาตรวจสอบการเชื่อมต่อตู้ยา'
         };
     },
 
@@ -278,6 +288,12 @@ const ApiBridge = {
         const stateParam = state === 'on' ? '1' : '0';
         const commandId = this.createCommandId();
 
+        if (isDemo) {
+            console.log(`[ApiBridge Demo ON] ESP32 Siren: ${state.toUpperCase()}`);
+            return { success: true, mode: 'simulation' };
+        }
+
+        // ปิดโหมดสาธิตอยู่ -> ส่งสัญญาณจริงผ่าน MQTT / LAN
         const mqttResult = await this.sendMqttCommand({
             action: 'buzzer',
             state: state === 'on' ? 'on' : 'off',
@@ -286,24 +302,21 @@ const ApiBridge = {
         });
         if (mqttResult.success) return { success: true, mode: 'mqtt' };
 
-        if (isDemo || !this.isHardwareConfigured(settings)) {
-            console.log(`[ApiBridge Demo] ESP32 Buzzer Siren turned: ${state.toUpperCase()}`);
-            return { success: true, mode: 'simulation' };
+        if (this.isHardwareConfigured(settings)) {
+            const url = settings.esp32Url.trim();
+            try {
+                const response = await this.fetchWithTimeout(
+                    `${url}/buzzer?state=${stateParam}&id=${encodeURIComponent(commandId)}`,
+                    { method: 'GET' },
+                    2000
+                );
+                if (response.ok) return { success: true, mode: 'production' };
+            } catch (err) {
+                console.warn(`[ApiBridge Error] ESP32 Buzzer link failed at ${url}:`, err);
+            }
         }
 
-        const url = settings.esp32Url.trim();
-        try {
-            const response = await this.fetchWithTimeout(
-                `${url}/buzzer?state=${stateParam}&id=${encodeURIComponent(commandId)}`,
-                { method: 'GET' },
-                2000
-            );
-            if (response.ok) return { success: true, mode: 'production' };
-            return { success: false, mode: 'production', error: `สวิตช์สัญญาณตอบกลับสถานะรหัส: ${response.status}` };
-        } catch (err) {
-            console.warn(`[ApiBridge Error] ESP32 Buzzer link failed at ${url}:`, err);
-            return { success: false, mode: 'error', error: 'ไม่สามารถส่งสัญญาณไซเรนไปยังอุปกรณ์ได้' };
-        }
+        return { success: false, mode: 'mqtt', error: mqttResult.error || 'ไม่สามารถส่งสัญญาณไซเรนไปยังอุปกรณ์ได้' };
     }
 };
 
