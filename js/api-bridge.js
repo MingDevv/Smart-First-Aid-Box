@@ -207,8 +207,9 @@ const ApiBridge = {
 
     isDemoMode(settings) {
         const s = settings || this.getSettings();
-        if (s.demoMode === false || s.demoMode === 'false') return false;
-        return true;
+        // Only return true when demoMode is EXPLICITLY boolean true
+        // Any other value (undefined, null, 'false', false) → real hardware mode
+        return s.demoMode === true;
     },
 
     // Check if the hardware (ESP32 controller connected to micro:bit) is online

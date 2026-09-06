@@ -142,15 +142,21 @@
                     <input type="password" id="cfg-pin" class="form-input" style="margin-top:6px;" inputmode="numeric" autocomplete="new-password" maxlength="4" placeholder="PIN 4 หลัก">
                 </div>
 
-                <div class="form-group" style="grid-column: 1 / -1; background: var(--surface); padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between;">
-                    <div>
-                        <label for="cfg-demo-mode" style="font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                            <span class="material-symbols-rounded" style="color: var(--primary);">play_circle</span>
-                            เปิดใช้งานโหมดสาธิต (Demo / Simulation Mode)
-                        </label>
-                        <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px; margin-bottom: 0;">จำลองการเปิดตู้ยาและทดสอบระบบได้โดยไม่ต้องต่ออุปกรณ์จริง (เหมาะสำหรับการนำเสนอ/สาธิต)</p>
+                <div class="form-group" style="grid-column: 1 / -1; background: var(--surface); padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <label for="cfg-demo-mode" style="font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px;">
+                                <span class="material-symbols-rounded" style="color: var(--primary);">play_circle</span>
+                                เปิดใช้งานโหมดสาธิต (Demo / Simulation Mode)
+                            </label>
+                            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px; margin-bottom: 0;">จำลองการเปิดตู้ยาและทดสอบระบบได้โดยไม่ต้องต่ออุปกรณ์จริง (เหมาะสำหรับการนำเสนอ/สาธิต)</p>
+                        </div>
+                        <input type="checkbox" id="cfg-demo-mode" onchange="toggleDemoModeSetting(this.checked)" style="width: 22px; height: 22px; cursor: pointer; accent-color: var(--primary); flex-shrink: 0; margin-left: 12px;">
                     </div>
-                    <input type="checkbox" id="cfg-demo-mode" onchange="toggleDemoModeSetting(this.checked)" style="width: 22px; height: 22px; cursor: pointer; accent-color: var(--primary);">
+                    <div id="demo-status-row" style="margin-top: 10px; font-size: 12px; display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px; background: rgba(0,0,0,0.03);">
+                        <span id="demo-status-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#94A3B8; flex-shrink:0;"></span>
+                        <span id="demo-status-text" style="color: var(--text-muted);">โหมดสาธิต: ปิดอยู่ — ระบบจะส่งสัญญาณฮาร์ดแวร์จริง</span>
+                    </div>
                 </div>
 
                 <hr style="border:0; border-top:1px solid var(--border-color); margin: 20px 0;">
@@ -407,6 +413,21 @@
         }
 
         // Config form saving
+        function updateDemoStatusBadge(isOn) {
+            const dot = document.getElementById('demo-status-dot');
+            const text = document.getElementById('demo-status-text');
+            if (!dot || !text) return;
+            if (isOn) {
+                dot.style.background = 'oklch(0.79 0.18 145)'; // green
+                text.style.color = 'oklch(0.50 0.15 145)';
+                text.textContent = 'โหมดสาธิต: เปิดอยู่ — จำลองการเปิดตู้ยา (ไม่ใช้ฮาร์ดแวร์จริง)';
+            } else {
+                dot.style.background = '#94A3B8'; // grey
+                text.style.color = 'var(--text-muted)';
+                text.textContent = 'โหมดสาธิต: ปิดอยู่ — ระบบจะส่งสัญญาณฮาร์ดแวร์จริง';
+            }
+        }
+
         function loadSystemConfig() {
             const settings = StorageService.getSettings();
             const espElem = document.getElementById("cfg-esp-url");
@@ -424,7 +445,11 @@
             if (mqttUserElem) mqttUserElem.value = settings.mqttUsername || "";
             if (mqttPassElem) mqttPassElem.value = settings.mqttPassword || "";
             if (mqttTopicElem) mqttTopicElem.value = settings.mqttBaseTopic || "crms6/firstaidbox/box1";
-            if (demoModeElem) demoModeElem.checked = settings.demoMode !== false && settings.demoMode !== 'false';
+
+            // Strict boolean check — only ON if explicitly true
+            const isDemoOn = settings.demoMode === true;
+            if (demoModeElem) demoModeElem.checked = isDemoOn;
+            updateDemoStatusBadge(isDemoOn);
         }
 
         function saveSystemConfig(event) {
@@ -442,7 +467,7 @@
             const mqttUsername = (document.getElementById("cfg-mqtt-user")?.value || "").trim();
             const mqttPassword = (document.getElementById("cfg-mqtt-pass")?.value || "").trim();
             const mqttBaseTopic = (document.getElementById("cfg-mqtt-topic")?.value || "crms6/firstaidbox/box1").trim();
-            const demoMode = document.getElementById("cfg-demo-mode")?.checked ?? true;
+            const demoMode = document.getElementById("cfg-demo-mode")?.checked ?? false;
 
             // ws:// จากหน้า https จะถูกเบราว์เซอร์บล็อกเงียบ ๆ แบบเดียวกับ http:// ดักไว้ตั้งแต่ตอนกรอก
             // จะได้ไม่ต้องไปนั่งหาสาเหตุว่าทำไมต่อไม่ติดทั้งที่ค่าดูถูกทุกอย่าง
@@ -468,6 +493,7 @@
         function toggleDemoModeSetting(enabled) {
             const settings = StorageService.getSettings();
             StorageService.saveSettings({ ...settings, demoMode: enabled });
+            updateDemoStatusBadge(enabled);
             if (enabled) {
                 NotificationService.showToast("เปิดโหมดสาธิตแล้ว: จำลองการเปิดตู้และการทำงานทั้งหมด", "success");
             } else {
