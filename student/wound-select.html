@@ -28,6 +28,11 @@
         .picker-help { display: flex; align-items: center; gap: 10px; padding: 13px 14px; border: 1px solid oklch(0.88 0.04 250); border-radius: 18px; background: oklch(0.95 0.02 250); color: oklch(0.42 0.05 255); font-size: 12px; }
         .picker-sos { min-height: 62px; border: 0; border-radius: 20px; background: var(--accent); color: #fff; font-size: 17px; }
         .empty-state { padding: 32px 18px; color: var(--text-muted); text-align: center; }
+        .wound-card.is-locked { opacity: 0.78; background: oklch(0.985 0.005 190); cursor: pointer; border-style: dashed; }
+        .wound-card.is-locked:hover { transform: translateY(-1px); border-color: oklch(0.75 0.05 190); box-shadow: var(--shadow-sm); }
+        .wound-card.is-locked .wound-photo { filter: grayscale(40%) contrast(90%); }
+        .coming-soon-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: oklch(0.92 0.04 60); color: oklch(0.48 0.12 60); font-family: var(--font-mono); font-size: 10px; font-weight: 700; }
+        .lock-indicator { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: oklch(0.93 0.02 60); color: oklch(0.50 0.12 60); font-size: 16px; }
         @media (min-width: 461px) { .picker-app { border-inline: 1px solid var(--border-color); box-shadow: 0 26px 70px -42px oklch(0.30 0.03 200 / .65); } }
     </style>
     <link rel="stylesheet" href="../css/student-responsive.css">
@@ -75,12 +80,37 @@
                 list.innerHTML = '<div class="empty-state">ยังไม่มีประเภทบาดแผลในระบบ</div>';
                 return;
             }
-            list.innerHTML = wounds.map((wound, index) => `
-                <button class="wound-card${index === 0 ? ' featured' : ''}" type="button" onclick="location.href='/student/first-aid-guide?wound=${encodeURIComponent(wound.id)}'">
-                    <span class="wound-photo-wrap"><img class="wound-photo" src="${escapeHtml(wound.image)}" alt="${escapeHtml(wound.name_th)}"></span>
-                    <span class="wound-copy"><span><span class="wound-name">${escapeHtml(wound.name_th)}</span><span class="wound-meta">${wound.steps.length} ขั้นตอน · ช่องเก็บที่ ${Number(wound.drawer) || 1} · เวชภัณฑ์ ${wound.items.length} รายการ</span></span><span class="material-symbols-rounded" aria-hidden="true" style="color:var(--primary);">chevron_right</span></span>
-                </button>
-            `).join('');
+            list.innerHTML = wounds.map((wound, index) => {
+                const isLocked = wound.locked || wound.comingSoon;
+                if (isLocked) {
+                    return `
+                        <button class="wound-card is-locked" type="button" onclick="handleLockedWound('${escapeHtml(wound.name_th)}')" aria-label="${escapeHtml(wound.name_th)} (เร็วๆ นี้)">
+                            <span class="wound-photo-wrap"><img class="wound-photo" src="${escapeHtml(wound.image)}" alt="${escapeHtml(wound.name_th)}"></span>
+                            <span class="wound-copy">
+                                <span>
+                                    <span style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+                                        <span class="wound-name" style="margin-bottom:0;">${escapeHtml(wound.name_th)}</span>
+                                        <span class="coming-soon-badge"><span class="material-symbols-rounded" style="font-size:12px;">lock</span>เร็วๆ นี้</span>
+                                    </span>
+                                    <span class="wound-meta">${escapeHtml(wound.description || 'อยู่ในระหว่างพัฒนาระบบจ่ายยาอัตโนมัติ')}</span>
+                                </span>
+                                <span class="lock-indicator" aria-hidden="true"><span class="material-symbols-rounded">lock</span></span>
+                            </span>
+                        </button>
+                    `;
+                }
+
+                return `
+                    <button class="wound-card${index === 0 ? ' featured' : ''}" type="button" onclick="location.href='/student/first-aid-guide?wound=${encodeURIComponent(wound.id)}'">
+                        <span class="wound-photo-wrap"><img class="wound-photo" src="${escapeHtml(wound.image)}" alt="${escapeHtml(wound.name_th)}"></span>
+                        <span class="wound-copy"><span><span class="wound-name">${escapeHtml(wound.name_th)}</span><span class="wound-meta">${wound.steps.length} ขั้นตอน · ช่องเก็บที่ ${Number(wound.drawer) || 1} · เวชภัณฑ์ ${wound.items.length} รายการ</span></span><span class="material-symbols-rounded" aria-hidden="true" style="color:var(--primary);">chevron_right</span></span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function handleLockedWound(name) {
+            NotificationService.showToast(`ประเภทแผล "${name}" อยู่ในระหว่างพัฒนาระบบจ่ายยาอัตโนมัติ (เร็วๆ นี้) หากมีอาการกรุณาติดต่อครูพยาบาล`, 'warning');
         }
 
         async function triggerSelectSos() {

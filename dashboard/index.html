@@ -36,10 +36,10 @@
                 </a>
                 <nav class="sidebar-nav" aria-label="เมนูแดชบอร์ด">
                     <a class="sidebar-link active" href="./"><span class="material-symbols-rounded" aria-hidden="true">dashboard</span>ภาพรวม</a>
-                    <a class="sidebar-link" href="medicine-management"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>คลังยา</a>
-                    <a class="sidebar-link" href="statistics#history"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติ</a>
-                    <a class="sidebar-link" href="statistics"><span class="material-symbols-rounded" aria-hidden="true">monitoring</span>สถิติ</a>
-                    <a class="sidebar-link" href="medicine-management#settings"><span class="material-symbols-rounded" aria-hidden="true">settings</span>ตั้งค่า</a>
+                    <a class="sidebar-link" href="medicine-management.html"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>คลังยา</a>
+                    <a class="sidebar-link" href="statistics.html#history"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติ</a>
+                    <a class="sidebar-link" href="statistics.html"><span class="material-symbols-rounded" aria-hidden="true">monitoring</span>สถิติ</a>
+                    <a class="sidebar-link" href="medicine-management.html#settings"><span class="material-symbols-rounded" aria-hidden="true">settings</span>ตั้งค่า</a>
                 </nav>
                 <div class="sidebar-status">
                     <div class="sidebar-status-title"><span class="sidebar-status-dot" id="cabinet-dot"></span><span id="cabinet-status-text">กำลังตรวจสอบตู้</span></div>
@@ -55,7 +55,7 @@
                     </div>
                     <div class="dashboard-actions">
                         <button class="dashboard-action" type="button" onclick="exportCSV()"><span class="material-symbols-rounded" aria-hidden="true">download</span>ส่งออก CSV</button>
-                        <a class="dashboard-action primary" href="medicine-management#add"><span class="material-symbols-rounded" aria-hidden="true">add</span>เติมเวชภัณฑ์</a>
+                        <a class="dashboard-action primary" href="medicine-management.html#add"><span class="material-symbols-rounded" aria-hidden="true">add</span>เติมเวชภัณฑ์</a>
                         <button class="dashboard-action" type="button" onclick="logout()" aria-label="ออกจากระบบ"><span class="material-symbols-rounded" aria-hidden="true">logout</span></button>
                     </div>
                 </header>
@@ -87,15 +87,29 @@
 
                 <section class="dashboard-grid">
                     <article class="db-card">
-                        <div class="db-card-header"><h2>คลังเวชภัณฑ์</h2><a href="medicine-management">จัดการคลัง <span aria-hidden="true">→</span></a></div>
+                        <div class="db-card-header"><h2>คลังเวชภัณฑ์</h2><a href="medicine-management.html">จัดการคลัง <span aria-hidden="true">→</span></a></div>
                         <div class="inventory-preview" id="inventory-preview"></div>
                     </article>
                     <article class="db-card">
-                        <div class="db-card-header"><h2>การใช้งานล่าสุด</h2><a href="statistics">ดูทั้งหมด <span aria-hidden="true">→</span></a></div>
+                        <div class="db-card-header"><h2>การใช้งานล่าสุด</h2><a href="statistics.html">ดูทั้งหมด <span aria-hidden="true">→</span></a></div>
                         <div class="timeline-container" id="recent-timeline"></div>
                     </article>
                 </section>
             </main>
+        </div>
+    </div>
+
+    <!-- Case Detail Modal -->
+    <div id="case-modal" class="modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:20px;">
+        <div class="modal-content animate-slide-up" style="background:#fff; border-radius:24px; max-width:440px; width:100%; padding:24px; box-shadow:var(--shadow-lg);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+                <h3 id="case-modal-title" style="font-size:18px; margin:0;">รายละเอียดการรักษา</h3>
+                <button type="button" onclick="closeCaseModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-muted);">✕</button>
+            </div>
+            <div id="case-modal-body" style="font-size:13px; line-height:1.6; color:var(--text-main);"></div>
+            <div style="margin-top:18px; text-align:right;">
+                <button class="btn btn-primary" type="button" onclick="closeCaseModal()">ปิดหน้าต่าง</button>
+            </div>
         </div>
     </div>
 
@@ -216,19 +230,19 @@
                 const target = Math.max(Number(item.minQty || 1) * 3, 1);
                 const percentage = Math.max(4, Math.min(100, Math.round(Number(item.qty || 0) / target * 100)));
                 const low = Number(item.qty) <= Number(item.minQty);
-                return `<div class="inventory-row"><img class="inventory-image" src="${medicineImage(item.name)}" alt=""><div><div class="inventory-name">${escapeHtml(item.name)}</div><div class="inventory-track"><div class="inventory-fill${low ? ' low' : ''}" style="width:${percentage}%"></div></div></div><div class="inventory-qty">${Number(item.qty) || 0}<br>${escapeHtml(item.unit)}</div></div>`;
+                return `<div class="inventory-row" style="cursor:pointer;" onclick="location.href='medicine-management.html'" title="คลิกเพื่อจัดการคลังยา"><img class="inventory-image" src="${medicineImage(item.name)}" alt=""><div><div class="inventory-name">${escapeHtml(item.name)}</div><div class="inventory-track"><div class="inventory-fill${low ? ' low' : ''}" style="width:${percentage}%"></div></div></div><div class="inventory-qty">${Number(item.qty) || 0}<br>${escapeHtml(item.unit)}</div></div>`;
             }).join('');
 
             const timeline = document.getElementById('recent-timeline');
             if (history.length === 0) {
-                timeline.innerHTML = '<div class="db-empty-state"><div><span class="material-symbols-rounded" aria-hidden="true">history</span><strong>ยังไม่มีประวัติการใช้งาน</strong><span>รายการจะปรากฏหลังทำแผลและบันทึกขั้นตอนสำเร็จ</span></div></div>';
+                timeline.innerHTML = '<div class="db-empty-state"><div><span class="material-symbols-rounded" aria-hidden="true">history</span><strong>ยังไม่มีประวัติการใช้งาน</strong><span>รายการจะปรากฏหลังทำแผลและบันทึกขั้นตอนสำเร็จ</span><br><button class="btn btn-outline" style="margin-top:12px; font-size:12px; min-height:36px; padding:6px 14px;" type="button" onclick="loadDemoData()"><span class="material-symbols-rounded" style="font-size:16px;">bolt</span> โหลดข้อมูลตัวอย่างสำหรับทดสอบ</button></div></div>';
             } else {
                 timeline.innerHTML = history.slice(0, 5).map((log, index) => {
                     const date = new Date(log.timestamp || log.created_at);
                     const time = date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
                     const student = log.studentName || 'นักเรียนทั่วไป';
                     const width = Math.max(28, 92 - index * 13);
-                    return `<div class="timeline-item"><img class="timeline-thumb" src="${woundImage(log)}" alt=""><div><div class="timeline-title">${escapeHtml(log.woundNameTh || 'ไม่ระบุอาการ')}</div><div class="timeline-meta">${escapeHtml(student)} · ${time} น.</div></div><div class="timeline-bar" aria-hidden="true"><span style="width:${width}%"></span></div></div>`;
+                    return `<div class="timeline-item" style="cursor:pointer;" onclick="showCaseDetail(${index})" title="คลิกเพื่อดูรายละเอียด"><img class="timeline-thumb" src="${woundImage(log)}" alt=""><div><div class="timeline-title">${escapeHtml(log.woundNameTh || 'ไม่ระบุอาการ')}</div><div class="timeline-meta">${escapeHtml(student)} · ${time} น.</div></div><div class="timeline-bar" aria-hidden="true"><span style="width:${width}%"></span></div></div>`;
                 }).join('');
             }
 
@@ -245,6 +259,70 @@
                 statusText.textContent = 'ตรวจสถานะตู้ไม่ได้';
                 statusDot.style.background = 'oklch(0.72 0.20 28)';
             }
+        }
+
+
+        function showCaseDetail(index) {
+            const history = StorageService.getHistory();
+            const log = history[index];
+            if (!log) return;
+            const modal = document.getElementById('case-modal');
+            const title = document.getElementById('case-modal-title');
+            const body = document.getElementById('case-modal-body');
+            const dateStr = new Date(log.timestamp || log.created_at).toLocaleString('th-TH');
+            const items = Array.isArray(log.itemsUsed) ? log.itemsUsed.join(', ') : (log.itemsUsed || '-');
+
+            title.textContent = `บันทึกการรักษา: ${log.woundNameTh || 'ไม่ระบุอาการ'}`;
+            body.innerHTML = `
+                <div style="display:flex; gap:12px; margin-bottom:14px; align-items:center;">
+                    <img src="${woundImage(log)}" alt="" style="width:60px; height:60px; border-radius:14px; object-fit:cover;">
+                    <div>
+                        <div style="font-weight:700; font-size:15px;">${escapeHtml(log.studentName || 'นักเรียนทั่วไป')}</div>
+                        <div style="color:var(--text-muted); font-size:12px;">ชั้น: ${escapeHtml(log.studentClass || '-')} · รหัส: ${escapeHtml(log.studentId || '-')}</div>
+                        <div style="color:var(--primary); font-size:11px;">เวลา: ${escapeHtml(dateStr)}</div>
+                    </div>
+                </div>
+                <hr style="border:0; border-top:1px solid var(--border-color); margin:12px 0;">
+                <div style="margin-bottom:8px;"><strong>ประเภทแผล:</strong> ${escapeHtml(log.woundNameTh || '-')}</div>
+                <div style="margin-bottom:8px;"><strong>วิธีการระบุ:</strong> ${escapeHtml(log.method || '-')}</div>
+                <div style="margin-bottom:8px;"><strong>เวชภัณฑ์ที่เปิดใช้:</strong> ${escapeHtml(items)}</div>
+            `;
+            modal.style.display = 'flex';
+        }
+
+        function closeCaseModal() {
+            const modal = document.getElementById('case-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function loadDemoData() {
+            const sampleHistory = [
+                {
+                    id: 'H-' + Date.now(),
+                    timestamp: new Date().toISOString(),
+                    studentId: '12345',
+                    studentName: 'นายหมิง',
+                    studentClass: 'ม.4/4',
+                    woundType: 'cut_abrasion',
+                    woundNameTh: 'มีดบาด / แผลถลอก',
+                    method: 'AI สแกนภาพถ่าย (มั่นใจ 95%)',
+                    itemsUsed: ['น้ำเกลือล้างแผล (Normal Saline)', 'ยาเบตาดีน (Antiseptic)', 'พลาสเตอร์ยา & ผ้าก๊อซ']
+                },
+                {
+                    id: 'H-' + (Date.now() - 3600000),
+                    timestamp: new Date(Date.now() - 3600000).toISOString(),
+                    studentId: '12346',
+                    studentName: 'นายเปตอง',
+                    studentClass: 'ม.4/4',
+                    woundType: 'insect',
+                    woundNameTh: 'แมลงสัตว์กัดต่อย',
+                    method: 'เลือกประเภทแผลด้วยตนเอง',
+                    itemsUsed: ['สบู่ล้างทำความสะอาด', 'ถุงน้ำแข็งประคบเย็น', 'ยาคาลาไมน์ / ยาหม่อง']
+                }
+            ];
+            localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(sampleHistory));
+            NotificationService.showToast('โหลดข้อมูลตัวอย่างเรียบร้อยแล้ว', 'success');
+            loadDashboardData();
         }
 
         function exportCSV() {
@@ -288,6 +366,22 @@
             });
             MqttBridge.connect();
         }
+
+        // Support keyboard entry for PIN on lock screen
+        document.addEventListener('keydown', (e) => {
+            const lockOverlay = document.getElementById('lock-overlay');
+            if (!lockOverlay || lockOverlay.style.display === 'none') return;
+            if (e.key >= '0' && e.key <= '9') {
+                pressPin(e.key);
+            } else if (e.key === 'Backspace') {
+                if (currentPinInput.length > 0) {
+                    currentPinInput = currentPinInput.slice(0, -1);
+                    updatePinDots();
+                }
+            } else if (e.key === 'Escape') {
+                clearPin();
+            }
+        });
 
         window.addEventListener('load', () => {
             checkAuth();

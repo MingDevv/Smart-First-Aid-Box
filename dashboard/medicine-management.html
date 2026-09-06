@@ -93,10 +93,10 @@
             </a>
             <nav class="sidebar-nav" aria-label="เมนูแดชบอร์ด">
                 <a class="sidebar-link" href="./"><span class="material-symbols-rounded" aria-hidden="true">dashboard</span>ภาพรวม</a>
-                <a class="sidebar-link active" id="inventory-nav-link" href="medicine-management"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>คลังยา</a>
-                <a class="sidebar-link" href="statistics#history"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติ</a>
-                <a class="sidebar-link" href="statistics"><span class="material-symbols-rounded" aria-hidden="true">monitoring</span>สถิติ</a>
-                <a class="sidebar-link" id="settings-nav-link" href="#settings"><span class="material-symbols-rounded" aria-hidden="true">settings</span>ตั้งค่า</a>
+                <a class="sidebar-link active" id="inventory-nav-link" href="medicine-management.html"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>คลังยา</a>
+                <a class="sidebar-link" href="statistics.html#history"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติ</a>
+                <a class="sidebar-link" href="statistics.html"><span class="material-symbols-rounded" aria-hidden="true">monitoring</span>สถิติ</a>
+                <a class="sidebar-link" id="settings-nav-link" href="medicine-management.html#settings"><span class="material-symbols-rounded" aria-hidden="true">settings</span>ตั้งค่า</a>
             </nav>
             <div class="sidebar-status">
                 <div class="sidebar-status-title"><span class="sidebar-status-dot"></span>คลังเวชภัณฑ์</div>
@@ -107,16 +107,16 @@
         <main class="dashboard-main animate-fade-in">
             <header class="dashboard-topbar">
                 <div class="dashboard-greeting">
-                    <h1>คลังเวชภัณฑ์</h1>
-                    <p>ตรวจสต็อก วันหมดอายุ และการเชื่อมต่อของตู้</p>
+                    <h1 id="page-title">คลังเวชภัณฑ์</h1>
+                    <p id="page-desc">ตรวจสต็อก วันหมดอายุ และการเชื่อมต่อของตู้</p>
                 </div>
                 <div class="dashboard-actions">
-                    <button class="dashboard-action primary" type="button" onclick="openAddModal()"><span class="material-symbols-rounded" aria-hidden="true">add</span>เพิ่มเวชภัณฑ์</button>
+                    <button id="btn-add-med" class="dashboard-action primary" type="button" onclick="openAddModal()"><span class="material-symbols-rounded" aria-hidden="true">add</span>เพิ่มเวชภัณฑ์</button>
                     <button class="dashboard-action" type="button" onclick="logout()" aria-label="ออกจากระบบ"><span class="material-symbols-rounded" aria-hidden="true">logout</span></button>
                 </div>
             </header>
 
-            <section class="db-card">
+            <section class="db-card" id="inventory-section">
                 <div class="db-card-header">
                     <h2><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span> รายการสต็อกยาและเวชภัณฑ์</h2>
                 </div>
@@ -135,8 +135,11 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" for="cfg-pin">รหัส PIN เข้าใช้ Dashboard ของครู (4 หลัก)</label>
-                    <input type="password" id="cfg-pin" class="form-input" inputmode="numeric" autocomplete="new-password" maxlength="4" placeholder="PIN 4 หลัก">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <label class="form-label" for="cfg-pin" style="margin-bottom:0;">รหัส PIN เข้าใช้ Dashboard ของครู (4 หลัก)</label>
+                        <button type="button" class="toggle-btn" onclick="toggleInputVisibility('cfg-pin')">แสดง/ซ่อน</button>
+                    </div>
+                    <input type="password" id="cfg-pin" class="form-input" style="margin-top:6px;" inputmode="numeric" autocomplete="new-password" maxlength="4" placeholder="PIN 4 หลัก">
                 </div>
 
                 <hr style="border:0; border-top:1px solid var(--border-color); margin: 20px 0;">
@@ -157,8 +160,11 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" for="cfg-mqtt-pass">รหัสผ่าน MQTT (สิทธิ์อ่านอย่างเดียว)</label>
-                    <input type="password" id="cfg-mqtt-pass" class="form-input" autocomplete="new-password">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <label class="form-label" for="cfg-mqtt-pass" style="margin-bottom:0;">รหัสผ่าน MQTT (สิทธิ์อ่านอย่างเดียว)</label>
+                        <button type="button" class="toggle-btn" onclick="toggleInputVisibility('cfg-mqtt-pass')">แสดง/ซ่อน</button>
+                    </div>
+                    <input type="password" id="cfg-mqtt-pass" class="form-input" style="margin-top:6px;" autocomplete="new-password">
                 </div>
 
                 <div class="form-group">
@@ -215,17 +221,17 @@
     </div>
 
     <!-- Scripts -->
-    <script src="/js/storage.js"></script>
-    <script src="/js/notification.js"></script>
+    <script src="../js/storage.js"></script>
+    <script src="../js/notification.js"></script>
     <script>
         // Check Auth
         if (sessionStorage.getItem('dashboard_auth') !== 'true') {
-            location.href = '/dashboard/';
+            location.href = './';
         }
 
         function logout() {
             sessionStorage.removeItem('dashboard_auth');
-            location.href = '/dashboard/';
+            location.href = './';
         }
 
         const medContainer = document.getElementById("medicine-list-container");
@@ -453,20 +459,44 @@
             }
         }
 
+        function updateTabVisibility() {
+            const showSettings = location.hash === '#settings';
+            const invLink = document.getElementById('inventory-nav-link');
+            const setLink = document.getElementById('settings-nav-link');
+            if (invLink) invLink.classList.toggle('active', !showSettings);
+            if (setLink) setLink.classList.toggle('active', showSettings);
+
+            const inventorySec = document.getElementById('inventory-section');
+            const settingsSec = document.getElementById('settings');
+            const pageTitle = document.getElementById('page-title');
+            const pageDesc = document.getElementById('page-desc');
+            const addBtn = document.getElementById('btn-add-med');
+
+            if (inventorySec) inventorySec.style.display = showSettings ? 'none' : 'block';
+            if (settingsSec) settingsSec.style.display = showSettings ? 'block' : 'none';
+
+            if (showSettings) {
+                if (pageTitle) pageTitle.textContent = 'ตั้งค่าระบบ';
+                if (pageDesc) pageDesc.textContent = 'กำหนดค่าฮาร์ดแวร์ ESP32, MQTT และรหัสผ่านเข้าแดชบอร์ด';
+                if (addBtn) addBtn.style.display = 'none';
+            } else {
+                if (pageTitle) pageTitle.textContent = 'คลังเวชภัณฑ์';
+                if (pageDesc) pageDesc.textContent = 'ตรวจสต็อก วันหมดอายุ และการเชื่อมต่อของตู้';
+                if (addBtn) addBtn.style.display = 'inline-flex';
+            }
+        }
+
         // On Load
         document.addEventListener("DOMContentLoaded", () => {
-            const showSettings = location.hash === '#settings';
-            document.getElementById('inventory-nav-link').classList.toggle('active', !showSettings);
-            document.getElementById('settings-nav-link').classList.toggle('active', showSettings);
+            updateTabVisibility();
             renderMedicines();
             loadSystemConfig();
             if (location.hash === '#add') openAddModal();
         });
 
         window.addEventListener('hashchange', () => {
-            const showSettings = location.hash === '#settings';
-            document.getElementById('inventory-nav-link').classList.toggle('active', !showSettings);
-            document.getElementById('settings-nav-link').classList.toggle('active', showSettings);
+            updateTabVisibility();
+            if (location.hash === '#add') openAddModal();
         });
     </script>
 </body>

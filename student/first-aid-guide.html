@@ -62,6 +62,148 @@
         .error-layout { display: none; min-height: calc(100dvh - 66px); flex-direction: column; align-items: center; justify-content: center; padding: 30px 20px; text-align: center; }
         .error-icon { display: grid; width: 70px; height: 70px; margin-bottom: 14px; place-items: center; border-radius: 22px; background: var(--accent-light); color: var(--accent); }
         @keyframes unlockPulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 18px oklch(1 0 0 / .08), 0 26px 55px -30px oklch(0.18 0.06 180 / .8); } 50% { transform: scale(1.035); box-shadow: 0 0 0 25px oklch(1 0 0 / .05), 0 26px 55px -30px oklch(0.18 0.06 180 / .8); } }
+
+        /* Dispensing Cooldown & Loading View */
+        .dispensing-view {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: linear-gradient(180deg, oklch(0.35 0.10 180 / 0.98), oklch(0.20 0.08 195 / 0.98));
+            color: #fff;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 20px;
+            text-align: center;
+            backdrop-filter: blur(14px);
+        }
+        .dispensing-view.is-visible { display: flex; }
+        .dispensing-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 390px;
+            width: 100%;
+        }
+        .dispensing-ring-wrap {
+            position: relative;
+            width: 154px;
+            height: 154px;
+            margin-bottom: 22px;
+        }
+        .dispensing-svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+        .dispensing-track {
+            fill: none;
+            stroke: oklch(1 0 0 / 0.14);
+            stroke-width: 9;
+        }
+        .dispensing-progress {
+            fill: none;
+            stroke: oklch(0.86 0.18 150);
+            stroke-width: 9;
+            stroke-linecap: round;
+            stroke-dasharray: 440;
+            stroke-dashoffset: 0;
+            transition: stroke-dashoffset 1s linear;
+        }
+        .dispensing-center {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .dispensing-icon {
+            font-size: 32px;
+            color: oklch(0.90 0.14 150);
+            animation: motorSpin 2.4s linear infinite;
+        }
+        .dispensing-countdown {
+            font-family: var(--font-mono);
+            font-size: 38px;
+            font-weight: 700;
+            line-height: 1;
+            margin-top: 2px;
+            color: #fff;
+        }
+        .dispensing-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 999px;
+            background: oklch(1 0 0 / 0.14);
+            color: oklch(0.95 0.05 160);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            border: 1px solid oklch(1 0 0 / 0.18);
+        }
+        .dispensing-title {
+            font-family: var(--font-prompt);
+            font-size: 23px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #fff;
+        }
+        .dispensing-desc {
+            color: oklch(0.92 0.02 185);
+            font-size: 13px;
+            line-height: 1.5;
+            margin-bottom: 22px;
+        }
+        .dispensing-steps-indicator {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+            background: oklch(1 0 0 / 0.09);
+            padding: 14px 16px;
+            border-radius: 18px;
+            border: 1px solid oklch(1 0 0 / 0.14);
+            text-align: left;
+            font-size: 12px;
+        }
+        .dispensing-flow-step {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: oklch(0.85 0.02 185);
+        }
+        .dispensing-flow-step.done {
+            color: oklch(0.90 0.16 150);
+            font-weight: 600;
+        }
+        .dispensing-flow-step.active {
+            color: #fff;
+            font-weight: 700;
+        }
+        .dispensing-flow-step .material-symbols-rounded {
+            font-size: 18px;
+        }
+        .dispensing-dot-pulse {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: oklch(0.86 0.18 150);
+            box-shadow: 0 0 0 4px oklch(0.86 0.18 150 / 0.35);
+            animation: pulseDot 1s infinite alternate;
+        }
+        @keyframes motorSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        @keyframes pulseDot {
+            from { transform: scale(0.85); opacity: 0.6; }
+            to { transform: scale(1.15); opacity: 1; }
+        }
     </style>
     <link rel="stylesheet" href="../css/student-responsive.css">
 </head>
@@ -107,6 +249,33 @@
             <span>ปลดล็อกช่อง <span id="drawer-button-number">1</span> &amp; เริ่มทำแผล</span>
         </button>
     </main>
+
+    <!-- Dispensing Loading & Cooldown View (ซิงค์เวลากับมอเตอร์จ่ายยา) -->
+    <section class="dispensing-view animate-fade-in" id="dispensing-view" role="status" aria-live="assertive">
+        <div class="dispensing-container">
+            <div class="dispensing-ring-wrap">
+                <svg class="dispensing-svg" viewBox="0 0 160 160">
+                    <circle class="dispensing-track" cx="80" cy="80" r="70"></circle>
+                    <circle class="dispensing-progress" id="dispensing-circle" cx="80" cy="80" r="70"></circle>
+                </svg>
+                <div class="dispensing-center">
+                    <span class="material-symbols-rounded dispensing-icon" aria-hidden="true">settings</span>
+                    <span class="dispensing-countdown" id="dispensing-countdown-num">4</span>
+                </div>
+            </div>
+            <div class="dispensing-badge" id="dispensing-drawer-chip">
+                <span class="material-symbols-rounded" style="font-size:16px;" aria-hidden="true">inventory_2</span>
+                <span>ช่องเก็บที่ <strong id="dispensing-drawer-val">1</strong> · มอเตอร์กำลังหมุน</span>
+            </div>
+            <h1 class="dispensing-title" id="dispensing-heading">กำลังจ่ายยาและเวชภัณฑ์...</h1>
+            <p class="dispensing-desc" id="dispensing-subtext">กรุณารอสักครู่ กล่องปฐมพยาบาลกำลังหมุนจ่ายอุปกรณ์ทำแผล</p>
+            <div class="dispensing-steps-indicator">
+                <div class="dispensing-flow-step done"><span class="material-symbols-rounded">check</span> ส่งคำสั่งเปิดตู้ยาเรียบร้อย</div>
+                <div class="dispensing-flow-step active" id="dispensing-flow-motor"><span class="dispensing-dot-pulse"></span> กำลังหมุนจ่ายอุปกรณ์ทำแผล...</div>
+                <div class="dispensing-flow-step" id="dispensing-flow-ready"><span class="material-symbols-rounded">medical_services</span> เตรียมไปยังขั้นตอนการทำแผล</div>
+            </div>
+        </div>
+    </section>
 
     <section class="unlock-view animate-fade-in" id="unlock-view">
         <div class="unlock-hero">
@@ -253,24 +422,90 @@
             panel.style.background = '';
             panel.style.color = '';
             icon.textContent = 'sync';
-            label.textContent = 'กำลังปลดล็อกช่องยา';
+            label.textContent = 'กำลังจ่ายยาและเวชภัณฑ์';
             log.textContent = 'กำลังส่งคำสั่งผ่าน MQTT/บอร์ด ESP32...';
 
+            showDispensingView();
+
             try {
-                const response = await ApiBridge.openCompartment(wound.id);
+                // ส่งคำสั่งเปิดช่องยาไปที่ฮาร์ดแวร์ / MQTT พร้อมรันคูลดาวน์หมุนมอเตอร์ ~4 วินาที
+                const openPromise = ApiBridge.openCompartment(wound.id);
+                const countdownPromise = runDispensingCountdown(4);
+
+                const [response] = await Promise.all([openPromise, countdownPromise]);
                 if (!response.success) throw new Error(response.error || 'ไม่สามารถปลดล็อกช่องยาได้');
                 drawerOpened = true;
-                showUnlockView(response);
+
+                // เมื่อหมุนเสร็จพร้อมมอเตอร์ เปลี่ยนไปหน้าขั้นตอนทำแผลโดยอัตโนมัติ
+                hideDispensingView();
+                showStepsView();
+                NotificationService.showToast('จ่ายยาและอุปกรณ์เรียบร้อยแล้ว เริ่มทำแผลตามขั้นตอน', 'success');
             } catch (error) {
                 console.error('[Guide] Unlock failed:', error);
+                hideDispensingView();
                 icon.textContent = 'error';
-                label.textContent = 'ปลดล็อกไม่สำเร็จ';
+                label.textContent = 'การจ่ายยาขัดข้อง';
                 log.textContent = `${error.message} กรุณาตรวจการเชื่อมต่อแล้วลองอีกครั้ง`;
                 panel.style.background = 'var(--danger-light)';
                 panel.style.color = 'var(--danger)';
                 button.disabled = false;
                 NotificationService.showToast(error.message || 'การเปิดตู้ยาขัดข้อง', 'danger');
             }
+        }
+
+        function showDispensingView() {
+            const view = document.getElementById('dispensing-view');
+            const drawerVal = document.getElementById('dispensing-drawer-val');
+            if (drawerVal) drawerVal.textContent = wound.drawer || 1;
+            const heading = document.getElementById('dispensing-heading');
+            if (heading) heading.textContent = `กำลังจ่ายยาแผล${wound.name_th}...`;
+            view.classList.add('is-visible');
+            window.scrollTo(0, 0);
+        }
+
+        function hideDispensingView() {
+            const view = document.getElementById('dispensing-view');
+            if (view) view.classList.remove('is-visible');
+        }
+
+        function runDispensingCountdown(totalSeconds = 4) {
+            return new Promise((resolve) => {
+                const countdownNum = document.getElementById('dispensing-countdown-num');
+                const circle = document.getElementById('dispensing-circle');
+                const circumference = 2 * Math.PI * 70; // ~439.82
+                let remaining = totalSeconds;
+
+                if (countdownNum) countdownNum.textContent = remaining;
+                if (circle) {
+                    circle.style.strokeDasharray = `${circumference}`;
+                    circle.style.strokeDashoffset = `0`;
+                }
+
+                const interval = setInterval(() => {
+                    remaining -= 1;
+                    if (remaining >= 0) {
+                        if (countdownNum) countdownNum.textContent = remaining;
+                        if (circle) {
+                            const progress = (totalSeconds - remaining) / totalSeconds;
+                            circle.style.strokeDashoffset = `${circumference * progress}`;
+                        }
+                    }
+                    if (remaining <= 0) {
+                        clearInterval(interval);
+                        const motorStep = document.getElementById('dispensing-flow-motor');
+                        const readyStep = document.getElementById('dispensing-flow-ready');
+                        if (motorStep) {
+                            motorStep.classList.remove('active');
+                            motorStep.classList.add('done');
+                            motorStep.innerHTML = '<span class="material-symbols-rounded">check</span> หมุนจ่ายยาเสร็จสิ้น';
+                        }
+                        if (readyStep) {
+                            readyStep.classList.add('active');
+                        }
+                        setTimeout(resolve, 400);
+                    }
+                }, 1000);
+            });
         }
 
         function showUnlockView(response) {

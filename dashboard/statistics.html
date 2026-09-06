@@ -59,10 +59,10 @@
             </a>
             <nav class="sidebar-nav" aria-label="เมนูแดชบอร์ด">
                 <a class="sidebar-link" href="./"><span class="material-symbols-rounded" aria-hidden="true">dashboard</span>ภาพรวม</a>
-                <a class="sidebar-link" href="medicine-management"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>คลังยา</a>
-                <a class="sidebar-link" id="history-nav-link" href="#history"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติ</a>
-                <a class="sidebar-link active" id="statistics-nav-link" href="statistics"><span class="material-symbols-rounded" aria-hidden="true">monitoring</span>สถิติ</a>
-                <a class="sidebar-link" href="medicine-management#settings"><span class="material-symbols-rounded" aria-hidden="true">settings</span>ตั้งค่า</a>
+                <a class="sidebar-link" href="medicine-management.html"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>คลังยา</a>
+                <a class="sidebar-link" id="history-nav-link" href="statistics.html#history"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติ</a>
+                <a class="sidebar-link active" id="statistics-nav-link" href="statistics.html"><span class="material-symbols-rounded" aria-hidden="true">monitoring</span>สถิติ</a>
+                <a class="sidebar-link" href="medicine-management.html#settings"><span class="material-symbols-rounded" aria-hidden="true">settings</span>ตั้งค่า</a>
             </nav>
             <div class="sidebar-status">
                 <div class="sidebar-status-title"><span class="sidebar-status-dot"></span>รายงานการใช้งาน</div>
@@ -73,8 +73,8 @@
         <main class="dashboard-main animate-fade-in">
             <header class="dashboard-topbar">
                 <div class="dashboard-greeting">
-                    <h1>สถิติและประวัติ</h1>
-                    <p>ภาพรวมการใช้งานและรายการเบิกเวชภัณฑ์ที่บันทึกไว้</p>
+                    <h1 id="page-title">สถิติและประวัติ</h1>
+                    <p id="page-desc">ภาพรวมการใช้งานและรายการเบิกเวชภัณฑ์ที่บันทึกไว้</p>
                 </div>
                 <div class="dashboard-actions">
                     <button class="dashboard-action primary" type="button" onclick="exportCSV()"><span class="material-symbols-rounded" aria-hidden="true">download</span>ส่งออก CSV</button>
@@ -82,7 +82,7 @@
                 </div>
             </header>
 
-            <section class="report-chart-grid" aria-label="กราฟสถิติการใช้งาน">
+            <section class="report-chart-grid" id="charts-section" aria-label="กราฟสถิติการใช้งาน">
                 <article class="db-card">
                     <div class="db-card-header"><h2><span class="material-symbols-rounded" aria-hidden="true">donut_large</span> สัดส่วนประเภทบาดแผล</h2></div>
                     <div class="chart-container"><canvas id="woundTypeChart"></canvas></div>
@@ -112,19 +112,35 @@
     <script>
         // Check Authentication status
         if (sessionStorage.getItem('dashboard_auth') !== 'true') {
-            location.href = '/dashboard/';
+            location.href = './';
         }
 
         function logout() {
             sessionStorage.removeItem('dashboard_auth');
-            location.href = '/dashboard/';
+            location.href = './';
         }
 
         document.addEventListener("DOMContentLoaded", () => {
             const updateSidebarState = () => {
                 const showHistory = location.hash === '#history';
-                document.getElementById('history-nav-link').classList.toggle('active', showHistory);
-                document.getElementById('statistics-nav-link').classList.toggle('active', !showHistory);
+                const histLink = document.getElementById('history-nav-link');
+                const statLink = document.getElementById('statistics-nav-link');
+                const chartsSec = document.getElementById('charts-section');
+                const pageTitle = document.getElementById('page-title');
+                const pageDesc = document.getElementById('page-desc');
+
+                if (histLink) histLink.classList.toggle('active', showHistory);
+                if (statLink) statLink.classList.toggle('active', !showHistory);
+
+                if (showHistory) {
+                    if (chartsSec) chartsSec.style.display = 'none';
+                    if (pageTitle) pageTitle.textContent = 'ประวัติการรักษา';
+                    if (pageDesc) pageDesc.textContent = 'บันทึกการเบิกเวชภัณฑ์และข้อมูลการปฐมพยาบาลทั้งหมด';
+                } else {
+                    if (chartsSec) chartsSec.style.display = 'grid';
+                    if (pageTitle) pageTitle.textContent = 'สถิติการใช้งาน';
+                    if (pageDesc) pageDesc.textContent = 'วิเคราะห์ภาพรวมการใช้งานและสัดส่วนประเภทบาดแผล';
+                }
             };
             updateSidebarState();
             window.addEventListener('hashchange', updateSidebarState);
@@ -140,13 +156,14 @@
             } else {
                 history.forEach(log => {
                     const row = document.createElement("tr");
-                    const date = new Date(log.timestamp).toLocaleDateString('th-TH', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+                    const date = new Date(log.timestamp || log.created_at || Date.now()).toLocaleDateString('th-TH', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+                    const itemsText = Array.isArray(log.itemsUsed) ? log.itemsUsed.join(", ") : (log.itemsUsed || '-');
                     
                     row.innerHTML = `
                         <td>${date} น.</td>
-                        <td style="font-weight:700; color:var(--primary);">${log.woundNameTh}</td>
-                        <td>${log.method}</td>
-                        <td style="color:var(--text-muted);">${log.itemsUsed.join(", ")}</td>
+                        <td style="font-weight:700; color:var(--primary);">${log.woundNameTh || 'ไม่ระบุบาดแผล'}</td>
+                        <td>${log.method || '-'}</td>
+                        <td style="color:var(--text-muted);">${itemsText}</td>
                     `;
                     tableBody.appendChild(row);
                 });
@@ -219,7 +236,7 @@
             // --- Chart 2: Timeline Case Frequency ---
             const dateCounts = {};
             history.forEach(log => {
-                const dateStr = new Date(log.timestamp).toLocaleDateString('th-TH', {day:'numeric', month:'short'});
+                const dateStr = new Date(log.timestamp || log.created_at || Date.now()).toLocaleDateString('th-TH', {day:'numeric', month:'short'});
                 dateCounts[dateStr] = (dateCounts[dateStr] || 0) + 1;
             });
 
