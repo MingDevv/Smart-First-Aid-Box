@@ -78,11 +78,8 @@
     </header>
 
     <div class="container animate-slide-up">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+        <div style="margin-top: 10px; margin-bottom: 12px;">
             <h2 style="font-size: 18px; color: var(--primary);">บันทึกประวัติการปฐมพยาบาล</h2>
-            <button class="btn btn-outline" id="clear-btn" style="padding: 6px 12px; font-size: 12px; width: auto; border-radius: var(--radius-sm);">
-                <span class="material-symbols-rounded" aria-hidden="true" style="font-size:18px;">delete</span>ล้างประวัติ
-            </button>
         </div>
 
         <section class="history-summary" aria-label="สรุปประวัติการใช้งาน">
@@ -136,7 +133,6 @@
             const rowsContainer = document.getElementById("history-rows");
             const tableContainer = document.getElementById("table-container");
             const emptyState = document.getElementById("empty-state");
-            const clearBtn = document.getElementById("clear-btn");
 
             function formatThaiDate(isoString) {
                 const date = new Date(isoString);
@@ -165,13 +161,11 @@
                 if (logs.length === 0) {
                     tableContainer.style.display = "none";
                     emptyState.style.display = "block";
-                    clearBtn.style.display = "none";
                     return;
                 }
 
                 tableContainer.style.display = "block";
                 emptyState.style.display = "none";
-                clearBtn.style.display = "block";
 
                 logs.forEach(log => {
                     const row = document.createElement("tr");
@@ -206,14 +200,6 @@
                     rowsContainer.appendChild(row);
                 });
             }
-
-            clearBtn.addEventListener("click", () => {
-                if (confirm("คุณแน่ใจหรือไม่ว่าต้องการล้างประวัติการรักษาทั้งหมด?")) {
-                    StorageService.clearHistory();
-                    renderHistory();
-                    NotificationService.showToast("ล้างประวัติการรักษาเรียบร้อยแล้ว", "success");
-                }
-            });
 
             // Initial render
             renderHistory();
