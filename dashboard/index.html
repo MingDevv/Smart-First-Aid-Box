@@ -35,11 +35,11 @@
                     <span><strong>First Aid Box</strong><span style="font-family:var(--font-sarabun); letter-spacing:0; font-size:10px;">ครูพยาบาล</span></span>
                 </a>
                 <nav class="sidebar-nav" aria-label="เมนูแดชบอร์ด">
-                    <a class="sidebar-link active" href="index.html"><span class="material-symbols-rounded" aria-hidden="true">dashboard</span>ภาพรวม</a>
-                    <a class="sidebar-link" href="medicine-management.html"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>คลังยา</a>
-                    <a class="sidebar-link" href="statistics.html#history"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติ</a>
-                    <a class="sidebar-link" href="statistics.html"><span class="material-symbols-rounded" aria-hidden="true">monitoring</span>สถิติ</a>
-                    <a class="sidebar-link" href="medicine-management.html#settings"><span class="material-symbols-rounded" aria-hidden="true">settings</span>ตั้งค่า</a>
+                    <a class="sidebar-link active" href="/dashboard"><span class="material-symbols-rounded" aria-hidden="true">dashboard</span>ภาพรวม</a>
+                    <a class="sidebar-link" href="/dashboard/medicine-management"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>คลังยา</a>
+                    <a class="sidebar-link" href="/dashboard/statistics#history"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติ</a>
+                    <a class="sidebar-link" href="/dashboard/statistics"><span class="material-symbols-rounded" aria-hidden="true">monitoring</span>สถิติ</a>
+                    <a class="sidebar-link" href="/dashboard/medicine-management#settings"><span class="material-symbols-rounded" aria-hidden="true">settings</span>ตั้งค่า</a>
                 </nav>
                 <div class="sidebar-status">
                     <div class="sidebar-status-title"><span class="sidebar-status-dot" id="cabinet-dot"></span><span id="cabinet-status-text">กำลังตรวจสอบตู้</span></div>
@@ -55,7 +55,7 @@
                     </div>
                     <div class="dashboard-actions">
                         <button class="dashboard-action" type="button" onclick="exportCSV()"><span class="material-symbols-rounded" aria-hidden="true">download</span>ส่งออก CSV</button>
-                        <a class="dashboard-action primary" href="medicine-management.html#add"><span class="material-symbols-rounded" aria-hidden="true">add</span>เติมเวชภัณฑ์</a>
+                        <a class="dashboard-action primary" href="/dashboard/medicine-management#add"><span class="material-symbols-rounded" aria-hidden="true">add</span>เติมเวชภัณฑ์</a>
                         <button class="dashboard-action" type="button" onclick="logout()" aria-label="ออกจากระบบ"><span class="material-symbols-rounded" aria-hidden="true">logout</span></button>
                     </div>
                 </header>
