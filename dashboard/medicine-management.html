@@ -150,7 +150,7 @@
                         </label>
                         <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px; margin-bottom: 0;">จำลองการเปิดตู้ยาและทดสอบระบบได้โดยไม่ต้องต่ออุปกรณ์จริง (เหมาะสำหรับการนำเสนอ/สาธิต)</p>
                     </div>
-                    <input type="checkbox" id="cfg-demo-mode" style="width: 22px; height: 22px; cursor: pointer; accent-color: var(--primary);">
+                    <input type="checkbox" id="cfg-demo-mode" onchange="toggleDemoModeSetting(this.checked)" style="width: 22px; height: 22px; cursor: pointer; accent-color: var(--primary);">
                 </div>
 
                 <hr style="border:0; border-top:1px solid var(--border-color); margin: 20px 0;">
@@ -463,6 +463,16 @@
             });
 
             NotificationService.showToast("บันทึกการตั้งค่าระบบเรียบร้อยแล้ว", "success");
+        }
+
+        function toggleDemoModeSetting(enabled) {
+            const settings = StorageService.getSettings();
+            StorageService.saveSettings({ ...settings, demoMode: enabled });
+            if (enabled) {
+                NotificationService.showToast("เปิดโหมดสาธิตแล้ว: จำลองการเปิดตู้และการทำงานทั้งหมด", "success");
+            } else {
+                NotificationService.showToast("ปิดโหมดสาธิตแล้ว: บังคับเชื่อมต่อและส่งสัญญาณฮาร์ดแวร์จริง (MQTT/LAN)", "warning");
+            }
         }
 
         // Toggle inputs password/text
