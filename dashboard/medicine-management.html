@@ -424,7 +424,7 @@
             if (mqttUserElem) mqttUserElem.value = settings.mqttUsername || "";
             if (mqttPassElem) mqttPassElem.value = settings.mqttPassword || "";
             if (mqttTopicElem) mqttTopicElem.value = settings.mqttBaseTopic || "crms6/firstaidbox/box1";
-            if (demoModeElem) demoModeElem.checked = settings.demoMode !== false;
+            if (demoModeElem) demoModeElem.checked = settings.demoMode !== false && settings.demoMode !== 'false';
         }
 
         function saveSystemConfig(event) {

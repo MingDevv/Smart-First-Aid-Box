@@ -205,10 +205,16 @@ const ApiBridge = {
         }
     },
 
+    isDemoMode(settings) {
+        const s = settings || this.getSettings();
+        if (s.demoMode === false || s.demoMode === 'false') return false;
+        return true;
+    },
+
     // Check if the hardware (ESP32 controller connected to micro:bit) is online
     async getHardwareStatus() {
         const settings = this.getSettings();
-        const isDemo = settings.demoMode !== false;
+        const isDemo = this.isDemoMode(settings);
 
         if (isDemo) {
             return { connected: true, mode: 'simulation' };
@@ -237,7 +243,7 @@ const ApiBridge = {
     // Trigger physical box compartment opening (Compartment 1: Cut/Abrasion, Compartment 2: Insect Bite)
     async openCompartment(woundId) {
         const settings = this.getSettings();
-        const isDemo = settings.demoMode !== false;
+        const isDemo = this.isDemoMode(settings);
         const woundCompartmentMap = {
             cut_abrasion: 1,
             abrasion: 1,
@@ -284,7 +290,7 @@ const ApiBridge = {
     // Trigger Buzzer Siren for SOS emergencies
     async triggerBuzzer(state) {
         const settings = this.getSettings();
-        const isDemo = settings.demoMode !== false;
+        const isDemo = this.isDemoMode(settings);
         const stateParam = state === 'on' ? '1' : '0';
         const commandId = this.createCommandId();
 
