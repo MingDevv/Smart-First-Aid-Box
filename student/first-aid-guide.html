@@ -248,6 +248,11 @@
             <span class="material-symbols-rounded" aria-hidden="true">lock_open</span>
             <span>ปลดล็อกช่อง <span id="drawer-button-number">1</span> &amp; เริ่มทำแผล</span>
         </button>
+
+        <button class="btn btn-outline" id="demo-guide-btn" type="button" onclick="enableDemoAndProceed()" style="width:100%; border-radius:20px; margin:-10px 0 20px; font-size:14px; min-height:48px; border-color:var(--primary); color:var(--primary); background:#fff;">
+            <span class="material-symbols-rounded" aria-hidden="true" style="font-size:20px;">science</span>
+            <span>เปิดโหมดสาธิต (เข้าดูขั้นตอนทำแผลทันที)</span>
+        </button>
     </main>
 
     <!-- Dispensing Loading & Cooldown View (ซิงค์เวลากับมอเตอร์จ่ายยา) -->
@@ -445,12 +450,25 @@
                 hideDispensingView();
                 icon.textContent = 'error';
                 label.textContent = 'การจ่ายยาขัดข้อง';
-                log.textContent = `${error.message} กรุณาตรวจการเชื่อมต่อแล้วลองอีกครั้ง`;
+                log.innerHTML = `${escapeHtml(error.message)}<br><button type="button" onclick="enableDemoAndProceed()" style="margin-top:10px; width:100%; padding:10px; border-radius:12px; border:1px solid var(--primary); background:#fff; color:var(--primary); font-weight:700; font-family:var(--font-sarabun); cursor:pointer;">🧪 เปิดโหมดสาธิตแล้วเข้าดูวิธีทำแผล</button>`;
                 panel.style.background = 'var(--danger-light)';
                 panel.style.color = 'var(--danger)';
                 button.disabled = false;
                 NotificationService.showToast(error.message || 'การเปิดตู้ยาขัดข้อง', 'danger');
             }
+        }
+
+        function enableDemoAndProceed() {
+            try {
+                const raw = localStorage.getItem('smart_first_aid_settings');
+                const current = raw ? JSON.parse(raw) : {};
+                current.demoMode = true;
+                localStorage.setItem('smart_first_aid_settings', JSON.stringify(current));
+            } catch(e) {}
+            drawerOpened = true;
+            hideDispensingView();
+            showStepsView();
+            NotificationService.showToast('เปิดโหมดสาธิตแล้ว — เข้าสู่หน้าขั้นตอนการทำแผล', 'success');
         }
 
         function showDispensingView() {
