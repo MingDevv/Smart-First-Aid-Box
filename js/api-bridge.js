@@ -212,7 +212,8 @@ const ApiBridge = {
         }
 
         const settings = this.getSettings();
-        if (!this.isHardwareConfigured(settings)) return { connected: false, mode: 'offline' };
+        const isDemo = settings.demoMode !== false;
+        if (isDemo || !this.isHardwareConfigured(settings)) return { connected: true, mode: 'simulation' };
 
         const url = settings.esp32Url.trim();
         try {
@@ -228,6 +229,7 @@ const ApiBridge = {
     // Trigger physical box compartment opening (Compartment 1: Cut/Abrasion, Compartment 2: Insect Bite)
     async openCompartment(woundId) {
         const settings = this.getSettings();
+        const isDemo = settings.demoMode !== false;
         const woundCompartmentMap = {
             cut_abrasion: 1,
             abrasion: 1,
@@ -254,6 +256,13 @@ const ApiBridge = {
             if (lanRes.success) return lanRes;
         }
 
+        // โหมดสาธิตหรือยังไม่ได้ตั้งค่าฮาร์ดแวร์จริง — ให้ทำงานราบรื่น
+        if (isDemo || mqttResult.mqttConfigured === false) {
+            console.log(`[ApiBridge Demo] Opening Compartment #${compartmentNum} for Wound: ${woundId}`);
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return { success: true, mode: 'simulation', compartment: compartmentNum };
+        }
+
         return {
             success: false,
             mode: 'mqtt',
@@ -265,6 +274,7 @@ const ApiBridge = {
     // Trigger Buzzer Siren for SOS emergencies
     async triggerBuzzer(state) {
         const settings = this.getSettings();
+        const isDemo = settings.demoMode !== false;
         const stateParam = state === 'on' ? '1' : '0';
         const commandId = this.createCommandId();
 
@@ -276,8 +286,9 @@ const ApiBridge = {
         });
         if (mqttResult.success) return { success: true, mode: 'mqtt' };
 
-        if (!this.isHardwareConfigured(settings)) {
-            return { success: false, mode: 'error', error: 'ไม่ได้ตั้งค่าอุปกรณ๋ฮาร์ดแวร์' };
+        if (isDemo || !this.isHardwareConfigured(settings)) {
+            console.log(`[ApiBridge Demo] ESP32 Buzzer Siren turned: ${state.toUpperCase()}`);
+            return { success: true, mode: 'simulation' };
         }
 
         const url = settings.esp32Url.trim();

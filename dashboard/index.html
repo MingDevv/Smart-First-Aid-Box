@@ -252,8 +252,8 @@
             updated.textContent = `อัปเดต ${new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
             try {
                 const hardware = await ApiBridge.getHardwareStatus();
-                statusText.textContent = hardware.connected ? 'ตู้พร้อมใช้งาน' : 'ตู้ไม่ได้เชื่อมต่อ';
-                statusDot.style.background = hardware.connected ? 'oklch(0.79 0.18 145)' : 'oklch(0.72 0.20 28)';
+                statusText.textContent = (hardware.mode === 'mqtt' || hardware.mode === 'production') ? 'ตู้พร้อมใช้งาน (ฮาร์ดแวร์)' : hardware.mode === 'simulation' ? 'โหมดสาธิต (เปิดใช้งาน)' : 'ตู้ไม่ได้เชื่อมต่อ';
+                statusDot.style.background = (hardware.connected || hardware.mode === 'simulation') ? 'oklch(0.79 0.18 145)' : 'oklch(0.72 0.20 28)';
             } catch (error) {
                 console.warn('[Dashboard] Hardware status failed:', error);
                 statusText.textContent = 'ตรวจสถานะตู้ไม่ได้';
