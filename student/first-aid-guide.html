@@ -522,6 +522,8 @@
         }
 
         function showStepsView() {
+            document.getElementById('detail-header').style.display = 'none';
+            document.getElementById('detail-view').classList.remove('is-visible');
             document.getElementById('unlock-view').classList.remove('is-visible');
             document.getElementById('steps-view').classList.add('is-visible');
             currentStepIndex = 0;
