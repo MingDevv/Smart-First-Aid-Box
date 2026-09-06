@@ -151,7 +151,7 @@
                             </label>
                             <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px; margin-bottom: 0;">จำลองการเปิดตู้ยาและทดสอบระบบได้โดยไม่ต้องต่ออุปกรณ์จริง (เหมาะสำหรับการนำเสนอ/สาธิต)</p>
                         </div>
-                        <input type="checkbox" id="cfg-demo-mode" onchange="toggleDemoModeSetting(this.checked)" style="width: 22px; height: 22px; cursor: pointer; accent-color: var(--primary); flex-shrink: 0; margin-left: 12px;">
+                        <input type="checkbox" id="cfg-demo-mode" onchange="onDemoModeChange(this.checked)" style="width: 22px; height: 22px; cursor: pointer; accent-color: var(--primary); flex-shrink: 0; margin-left: 12px;">
                     </div>
                     <div id="demo-status-row" style="margin-top: 10px; font-size: 12px; display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px; background: rgba(0,0,0,0.03);">
                         <span id="demo-status-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#94A3B8; flex-shrink:0;"></span>
@@ -416,17 +416,40 @@
         function updateDemoStatusBadge(isOn) {
             const dot = document.getElementById('demo-status-dot');
             const text = document.getElementById('demo-status-text');
-            if (!dot || !text) return;
-            if (isOn) {
-                dot.style.background = 'oklch(0.79 0.18 145)'; // green
-                text.style.color = 'oklch(0.50 0.15 145)';
-                text.textContent = 'โหมดสาธิต: เปิดอยู่ — จำลองการเปิดตู้ยา (ไม่ใช้ฮาร์ดแวร์จริง)';
-            } else {
-                dot.style.background = '#94A3B8'; // grey
-                text.style.color = 'var(--text-muted)';
-                text.textContent = 'โหมดสาธิต: ปิดอยู่ — ระบบจะส่งสัญญาณฮาร์ดแวร์จริง';
+            const checkbox = document.getElementById('cfg-demo-mode');
+            if (dot) dot.style.background = isOn ? 'oklch(0.79 0.18 145)' : '#94A3B8';
+            if (text) {
+                text.style.color = isOn ? 'oklch(0.50 0.15 145)' : 'var(--text-muted)';
+                text.textContent = isOn
+                    ? 'โหมดสาธิต: ✅ เปิดอยู่ — จำลองการเปิดตู้ยา (ไม่ต้องใช้ฮาร์ดแวร์จริง)'
+                    : 'โหมดสาธิต: ❌ ปิดอยู่ — ระบบจะส่งสัญญาณฮาร์ดแวร์จริง';
+            }
+            if (checkbox) checkbox.checked = !!isOn;
+        }
+
+        // Called directly by checkbox onchange - self-contained, no dependencies
+        function onDemoModeChange(enabled) {
+            // Force boolean
+            const isOn = enabled === true || enabled === 'true';
+            // Write directly to localStorage — no helper chain
+            try {
+                const raw = localStorage.getItem('smart_first_aid_settings');
+                const current = raw ? JSON.parse(raw) : {};
+                current.demoMode = isOn;
+                localStorage.setItem('smart_first_aid_settings', JSON.stringify(current));
+            } catch(e) {
+                console.error('[Demo] localStorage write failed:', e);
+            }
+            updateDemoStatusBadge(isOn);
+            if (window.NotificationService) {
+                if (isOn) {
+                    NotificationService.showToast('✅ เปิดโหมดสาธิต: จำลองการเปิดตู้ยาได้ทันที', 'success');
+                } else {
+                    NotificationService.showToast('❌ ปิดโหมดสาธิต: ระบบจะใช้ฮาร์ดแวร์จริง (MQTT/LAN)', 'warning');
+                }
             }
         }
+
 
         function loadSystemConfig() {
             const settings = StorageService.getSettings();
@@ -487,18 +510,12 @@
                 demoMode
             });
 
+            updateDemoStatusBadge(demoMode);
             NotificationService.showToast("บันทึกการตั้งค่าระบบเรียบร้อยแล้ว", "success");
         }
 
         function toggleDemoModeSetting(enabled) {
-            const settings = StorageService.getSettings();
-            StorageService.saveSettings({ ...settings, demoMode: enabled });
-            updateDemoStatusBadge(enabled);
-            if (enabled) {
-                NotificationService.showToast("เปิดโหมดสาธิตแล้ว: จำลองการเปิดตู้และการทำงานทั้งหมด", "success");
-            } else {
-                NotificationService.showToast("ปิดโหมดสาธิตแล้ว: บังคับเชื่อมต่อและส่งสัญญาณฮาร์ดแวร์จริง (MQTT/LAN)", "warning");
-            }
+            onDemoModeChange(enabled);
         }
 
         // Toggle inputs password/text
