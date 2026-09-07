@@ -47,7 +47,7 @@
         .steps-view.is-visible { display: block; }
         .steps-header { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; min-height: 66px; margin-inline: -8px; }
         .steps-counter { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-align: center; text-transform: uppercase; }
-        .step-progress { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin: 2px 0 16px; }
+        .step-progress { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 5px; margin: 2px 0 16px; }
         .step-segment { height: 7px; border-radius: 999px; background: oklch(0.88 0.02 185); }
         .step-segment.done { background: var(--primary); }
         .step-image { width: 100%; height: 262px; border-radius: 24px; object-fit: cover; box-shadow: var(--shadow-md); }
@@ -265,7 +265,7 @@
                 </svg>
                 <div class="dispensing-center">
                     <span class="material-symbols-rounded dispensing-icon" aria-hidden="true">settings</span>
-                    <span class="dispensing-countdown" id="dispensing-countdown-num">4</span>
+                    <span class="dispensing-countdown" id="dispensing-countdown-num">7</span>
                 </div>
             </div>
             <div class="dispensing-badge" id="dispensing-drawer-chip">
@@ -433,9 +433,9 @@
             showDispensingView();
 
             try {
-                // ส่งคำสั่งเปิดช่องยาไปที่ฮาร์ดแวร์ / MQTT พร้อมรันคูลดาวน์หมุนมอเตอร์ ~4 วินาที
+                // ส่งคำสั่งเปิดช่องยาไปที่ฮาร์ดแวร์ / MQTT พร้อมรันคูลดาวน์หมุนมอเตอร์ ~7 วินาทีให้พอดีกับมอเตอร์ฮาร์ดแวร์จริง
                 const openPromise = ApiBridge.openCompartment(wound.id);
-                const countdownPromise = runDispensingCountdown(4);
+                const countdownPromise = runDispensingCountdown(7);
 
                 const [response] = await Promise.all([openPromise, countdownPromise]);
                 if (!response.success) throw new Error(response.error || 'ไม่สามารถปลดล็อกช่องยาได้');
@@ -486,7 +486,7 @@
             if (view) view.classList.remove('is-visible');
         }
 
-        function runDispensingCountdown(totalSeconds = 4) {
+        function runDispensingCountdown(totalSeconds = 7) {
             return new Promise((resolve) => {
                 const countdownNum = document.getElementById('dispensing-countdown-num');
                 const circle = document.getElementById('dispensing-circle');
@@ -609,6 +609,8 @@
             button.innerHTML = '<span class="material-symbols-rounded">sync</span><span>กำลังบันทึก...</span>';
             if (synth.speaking) synth.cancel();
 
+            const isDemo = ApiBridge.isDemoMode();
+
             const student = StorageService.getCurrentStudent() || { studentId: '99999', name: 'นักเรียนทั่วไป', class: '-' };
             const method = urlParams.get('source') === 'ai-scan' ? 'AI วิเคราะห์จากภาพถ่าย' : 'เลือกประเภทแผลเอง';
             StorageService.addHistoryEntry({
@@ -621,6 +623,13 @@
                 itemsUsed: wound.items,
                 timestamp: new Date().toISOString()
             });
+
+            if (isDemo) {
+                // โหมดสาธิต: ไม่เด้งไปที่ไลน์ ให้เด้งกลับมาหน้าที่ผู้ใช้เลือกแผลทันที
+                NotificationService.showToast('เสร็จสิ้นขั้นตอนทำแผล (โหมดสาธิต)', 'success');
+                setTimeout(() => { location.href = '/student/wound-select'; }, 800);
+                return;
+            }
 
             try {
                 const payload = NotificationService.buildFirstAidFlexMessage({
@@ -641,7 +650,7 @@
                 NotificationService.showToast('บันทึกประวัติแล้ว แต่ส่งการแจ้งเตือนไม่สำเร็จ', 'warning');
             }
 
-            setTimeout(() => { location.href = '/student/'; }, 900);
+            setTimeout(() => { location.href = '/student/wound-select'; }, 900);
         }
     </script>
 </body>

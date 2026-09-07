@@ -260,7 +260,7 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
     }
     Serial2.println(drawerNum == 1 ? "OPEN1" : "OPEN2");
     Serial.printf("[MQTT] %s -> เปิดลิ้นชัก %d\n", cmdId, drawerNum);
-    publishEvent("drawer_opened", drawerNum, cmdId);
+    enqueueEvent("drawer_opened", drawerNum, cmdId);
   } else if (strcmp(action, "buzzer") == 0) {
     const char* state = doc["state"] | "";
     if (strcmp(state, "on") != 0 && strcmp(state, "off") != 0) {

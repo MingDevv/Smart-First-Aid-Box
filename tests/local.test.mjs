@@ -168,7 +168,7 @@ assert.match(callbackBody, /enqueueEvent\s*\(/);
 assert.match(commandApiSource, /if \(activeClientState === state\) activeClientState = null/);
 assert.match(commandApiSource, /reconnectPeriod: 0/);
 assert.match(commandApiSource, /MQTT_CONNECT_TIMEOUT_MS = 4500/);
-assert.match(commandApiSource, /DEFAULT_DRAWER_ACK_TIMEOUT_MS = 5500/);
+assert.match(commandApiSource, /DEFAULT_DRAWER_ACK_TIMEOUT_MS = 7500/);
 assert.match(commandApiSource, /'ack_timeout'/);
 
 for (const page of ['student/first-aid-guide.html', 'student/index.html', 'student/kiosk.html']) {
