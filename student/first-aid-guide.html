@@ -616,6 +616,15 @@
 
             const student = StorageService.getCurrentStudent() || { studentId: '99999', name: 'นักเรียนทั่วไป', class: '-' };
             const method = urlParams.get('source') === 'ai-scan' ? 'AI วิเคราะห์จากภาพถ่าย' : 'เลือกประเภทแผลเอง';
+
+            if (isDemo) {
+                // โหมดสาธิต (Demo Mode): ไม่บันทึกประวัติ ไม่เด้งแจ้งเตือน LINE ให้แสดง Toast แล้วเด้งกลับหน้าเลือกแผลทันที
+                NotificationService.showToast('เสร็จสิ้นขั้นตอนทำแผล (โหมดสาธิต — ไม่บันทึกประวัติ)', 'success');
+                setTimeout(() => { location.href = '/student/wound-select'; }, 800);
+                return;
+            }
+
+            // ระบบจริง (Real Mode): บันทึกประวัติ และส่ง LINE Notification แจ้งเตือนครูพยาบาลตามปกติ
             StorageService.addHistoryEntry({
                 studentId: student.studentId,
                 studentName: student.name,
@@ -626,13 +635,6 @@
                 itemsUsed: wound.items,
                 timestamp: new Date().toISOString()
             });
-
-            if (isDemo) {
-                // โหมดสาธิต (Demo Mode): ไม่เด้งแจ้งเตือน LINE ให้แสดง Toast แล้วเด้งกลับหน้าเลือกแผลทันที
-                NotificationService.showToast('เสร็จสิ้นขั้นตอนทำแผล (โหมดสาธิต)', 'success');
-                setTimeout(() => { location.href = '/student/wound-select'; }, 800);
-                return;
-            }
 
             // ระบบจริง (Real Mode): ส่ง LINE Notification แจ้งเตือนครูพยาบาลตามปกติ
             try {
