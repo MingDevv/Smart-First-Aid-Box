@@ -458,7 +458,10 @@
             }
         }
 
+        let isDemoSession = false;
+
         function enableDemoAndProceed() {
+            isDemoSession = true;
             try {
                 const raw = localStorage.getItem('smart_first_aid_settings');
                 const current = raw ? JSON.parse(raw) : {};
@@ -609,6 +612,8 @@
             button.innerHTML = '<span class="material-symbols-rounded">sync</span><span>กำลังบันทึก...</span>';
             if (synth.speaking) synth.cancel();
 
+            const isDemo = isDemoSession || ApiBridge.isDemoMode();
+
             const student = StorageService.getCurrentStudent() || { studentId: '99999', name: 'นักเรียนทั่วไป', class: '-' };
             const method = urlParams.get('source') === 'ai-scan' ? 'AI วิเคราะห์จากภาพถ่าย' : 'เลือกประเภทแผลเอง';
             StorageService.addHistoryEntry({
@@ -622,8 +627,34 @@
                 timestamp: new Date().toISOString()
             });
 
-            NotificationService.showToast('บันทึกประวัติและเสร็จสิ้นการทำแผลเรียบร้อยแล้ว', 'success');
-            setTimeout(() => { location.href = '/student/wound-select'; }, 800);
+            if (isDemo) {
+                // โหมดสาธิต (Demo Mode): ไม่เด้งแจ้งเตือน LINE ให้แสดง Toast แล้วเด้งกลับหน้าเลือกแผลทันที
+                NotificationService.showToast('เสร็จสิ้นขั้นตอนทำแผล (โหมดสาธิต)', 'success');
+                setTimeout(() => { location.href = '/student/wound-select'; }, 800);
+                return;
+            }
+
+            // ระบบจริง (Real Mode): ส่ง LINE Notification แจ้งเตือนครูพยาบาลตามปกติ
+            try {
+                const payload = NotificationService.buildFirstAidFlexMessage({
+                    studentId: student.studentId,
+                    name: student.name,
+                    studentClass: student.class,
+                    woundNameTh: wound.name_th,
+                    woundNameEn: wound.name_en,
+                    items: wound.items,
+                    method,
+                    timeStr: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+                });
+                const result = await NotificationService.sendLineNotification(payload);
+                if (result.success || result.mode === 'simulation') NotificationService.showToast('บันทึกและแจ้งครูพยาบาลเรียบร้อยแล้ว', 'success');
+                else NotificationService.showToast(result.error || 'บันทึกแล้ว แต่ส่งการแจ้งเตือนไม่สำเร็จ', 'warning');
+            } catch (error) {
+                console.error('[Guide] Notification failed:', error);
+                NotificationService.showToast('บันทึกประวัติแล้ว แต่ส่งการแจ้งเตือนไม่สำเร็จ', 'warning');
+            }
+
+            setTimeout(() => { location.href = '/student/wound-select'; }, 900);
         }
     </script>
 </body>
