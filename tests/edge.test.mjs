@@ -250,3 +250,32 @@ test('Pi browser ignores stored MQTT/LAN settings and fails closed; explicit dem
     assert.equal((await window.ApiBridge.openCompartment('cut')).mode, 'simulation');
     assert.equal(calls, 2);
 });
+
+test('browser status failure is safe to retry and command requests use a separate abort signal', async () => {
+    const source = await readFile(new URL('../js/api-bridge.js', import.meta.url), 'utf8');
+    for (const state of ['unconfigured', 'expired-status', 'ready']) {
+        const signals = [];
+        const timers = [];
+        const window = { SFAB_RUNTIME: { transport: 'pi-local' } };
+        const context = vm.createContext({ window, console, AbortController,
+            setTimeout: fn => { timers.push(fn); return timers.length; }, clearTimeout() {},
+            fetch: async (url, options) => {
+                signals.push(options.signal);
+                if (url === '/api/local/status') return { ok: true, json: async () => {
+                    if (state === 'expired-status') timers[0]();
+                    return state === 'unconfigured' ? {} : { commandTimeoutMs: 33000 };
+                } };
+                assert.notEqual(options.signal, signals[0]);
+                assert.equal(options.signal.aborted, false);
+                return { ok: true, json: async () => ({ success: true, mode: 'pi-local', ack: ack(command) }) };
+            } });
+        vm.runInContext(source, context);
+        const result = await window.ApiBridge.sendLocalCommand(command);
+        assert.equal(result.success, state === 'ready');
+        if (state !== 'ready') {
+            assert.equal(result.retrySafe, true);
+            assert.equal(signals.length, 1);
+            assert.ok(!result.error.includes('ห้ามสั่งจ่ายซ้ำ'));
+        }
+    }
+});

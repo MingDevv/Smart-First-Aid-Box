@@ -11,17 +11,25 @@ const ApiBridge = {
     },
 
     async sendLocalCommand(body) {
-        const controller = new AbortController();
-        let timeout = setTimeout(() => controller.abort(), 2500);
+        const statusController = new AbortController();
+        const statusTimeout = setTimeout(() => statusController.abort(), 2500);
+        let commandTimeoutMs;
         try {
-            const statusResponse = await fetch('/api/local/status', { signal: controller.signal });
-            const status = await statusResponse.json();
-            if (!statusResponse.ok || !Number.isInteger(status.commandTimeoutMs) ||
+            const response = await fetch('/api/local/status', { signal: statusController.signal });
+            const status = await response.json();
+            if (statusController.signal.aborted || !response.ok || !Number.isInteger(status.commandTimeoutMs) ||
                 status.commandTimeoutMs < 6000 || status.commandTimeoutMs > 123000) {
                 throw new Error('Missing hardware timing budget');
             }
-            clearTimeout(timeout);
-            timeout = setTimeout(() => controller.abort(), status.commandTimeoutMs + 5000);
+            commandTimeoutMs = status.commandTimeoutMs + 5000;
+        } catch {
+            return { success: false, mode: 'pi-local', commandId: body.id, retrySafe: true,
+                error: 'ยังไม่ได้ส่งคำสั่ง ตู้ยังไม่พร้อมหรือเชื่อมต่อ Pi ไม่ได้ ตรวจการตั้งค่าแล้วลองใหม่ได้' };
+        } finally { clearTimeout(statusTimeout); }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), commandTimeoutMs);
+        try {
             const response = await fetch('/api/command', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body), signal: controller.signal

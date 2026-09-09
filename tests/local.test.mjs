@@ -6,7 +6,7 @@ const root = new URL('../', import.meta.url);
 const apiBridgeSource = await readFile(new URL('js/api-bridge.js', root), 'utf8');
 const mqttBridgeSource = await readFile(new URL('js/mqtt-bridge.js', root), 'utf8');
 const firmwareSource = await readFile(new URL('firmware/esp32_smart_box/esp32_smart_box.ino', root), 'utf8');
-const commandHistorySource = await readFile(new URL('firmware/command_history.h', root), 'utf8');
+const commandHistorySource = await readFile(new URL('firmware/esp32_smart_box/command_history.h', root), 'utf8');
 const commandApiSource = await readFile(new URL('api/command.js', root), 'utf8');
 
 function response(status, data) {

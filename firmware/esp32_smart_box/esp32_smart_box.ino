@@ -392,29 +392,29 @@ void sendDrawerCommandState(CommandRecord* record) {
 }
 
 void handleOpen() {
+  String commandId = server.arg("id");
   server.sendHeader("Access-Control-Allow-Origin", "*");
   if (!server.hasArg("drawer") || !server.hasArg("id")) {
-    sendNotActuated(400, "Missing drawer or id parameter", server.arg("id").c_str());
+    sendNotActuated(400, "Missing drawer or id parameter", commandId.c_str());
     return;
   }
 
   String drawerStr = server.arg("drawer");
-  String commandId = server.arg("id");
   int drawerNum = drawerStr.toInt();
 
   if (drawerNum != 1 && drawerNum != 2) {
-    sendNotActuated(400, "Invalid drawer number", server.arg("id").c_str());
+    sendNotActuated(400, "Invalid drawer number", commandId.c_str());
     return;
   }
   if (!commandIdIsValid(commandId.c_str())) {
-    sendNotActuated(400, "Invalid command id", server.arg("id").c_str());
+    sendNotActuated(400, "Invalid command id", commandId.c_str());
     return;
   }
 
   CommandRecord* duplicate = findCommand(commandId.c_str());
   if (duplicate != nullptr) {
     if (duplicate->drawer != drawerNum) {
-      sendNotActuated(409, "Command id belongs to another action", server.arg("id").c_str());
+      sendNotActuated(409, "Command id belongs to another action", commandId.c_str());
       return;
     }
     if (duplicate->completed) publishEvent("drawer_opened", duplicate->drawer, duplicate->id);
@@ -423,12 +423,12 @@ void handleOpen() {
   }
 
   if (!readyForCommand()) {
-    sendNotActuated(503, "microbit_not_ready", server.arg("id").c_str());
+    sendNotActuated(503, "microbit_not_ready", commandId.c_str());
     return;
   }
   CommandRecord* record = rememberCommand(commandId.c_str(), drawerNum, false);
   if (record == nullptr) {
-    sendNotActuated(503, "Command acknowledgement queue is full", server.arg("id").c_str());
+    sendNotActuated(503, "Command acknowledgement queue is full", commandId.c_str());
     return;
   }
   sendOpenCommand(drawerNum, record->id);
@@ -452,23 +452,23 @@ void handleCommandStatus() {
 }
 
 void handleBuzzer() {
+  String commandId = server.arg("id");
   server.sendHeader("Access-Control-Allow-Origin", "*");
-  if (!server.hasArg("id") || !commandIdIsValid(server.arg("id").c_str())) {
-    sendNotActuated(400, "Missing or invalid command id", server.arg("id").c_str());
+  if (!server.hasArg("id") || !commandIdIsValid(commandId.c_str())) {
+    sendNotActuated(400, "Missing or invalid command id", commandId.c_str());
     return;
   }
 
   String stateStr = server.arg("state");
   if (stateStr != "1" && stateStr != "0") {
-    sendNotActuated(400, "Invalid buzzer state", server.arg("id").c_str());
+    sendNotActuated(400, "Invalid buzzer state", commandId.c_str());
     return;
   }
 
-  String commandId = server.arg("id");
   CommandRecord* duplicate = findCommand(commandId.c_str());
   if (duplicate != nullptr) {
     if (duplicate->drawer != (stateStr == "1" ? 3 : 4)) {
-      sendNotActuated(409, "Command id belongs to another action", server.arg("id").c_str());
+      sendNotActuated(409, "Command id belongs to another action", commandId.c_str());
       return;
     }
     sendDrawerCommandState(duplicate);
@@ -477,7 +477,7 @@ void handleBuzzer() {
 
   CommandRecord* record = rememberCommand(commandId.c_str(), stateStr == "1" ? 3 : 4, false);
   if (record == nullptr) {
-    sendNotActuated(503, "Command acknowledgement queue is full", server.arg("id").c_str());
+    sendNotActuated(503, "Command acknowledgement queue is full", commandId.c_str());
     return;
   }
   Serial2.printf("BUZZ%s:%s\n", stateStr.c_str(), commandId.c_str());
