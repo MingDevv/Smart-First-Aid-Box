@@ -6,6 +6,31 @@
 //      แต่ไม่พึ่งอินเทอร์เน็ต จึงเก็บไว้เป็นเส้นสำรองสำหรับวันที่เน็ตโรงเรียนล่ม
 //   3. โหมดจำลอง — ใช้ได้เมื่อ server ยืนยันว่าไม่ได้ตั้ง MQTT และไม่ได้ตั้ง LAN เท่านั้น
 const ApiBridge = {
+    isPiLocal() {
+        return window.SFAB_RUNTIME?.transport === 'pi-local';
+    },
+
+    async sendLocalCommand(body) {
+        try {
+            const response = await this.fetchWithTimeout('/api/command', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            }, 23000);
+            const data = await response.json();
+            if (response.ok && data.success && data.mode === 'pi-local' &&
+                data.ack?.protocol === 2 && (body.action === 'open'
+                    ? this.isDrawerAck(data.ack, body.id, body.drawer)
+                    : data.ack.event === 'buzzer_set' && data.ack.id === body.id && data.ack.state === body.state)) {
+                return { ...data, mode: 'pi-local' };
+            }
+            return { success: false, mode: 'pi-local', commandId: body.id,
+                error: data.error || 'Pi ยังยืนยันผลจากตู้ยาไม่ได้' };
+        } catch {
+            return { success: false, mode: 'pi-local', commandId: body.id,
+                error: 'การเชื่อมต่อ Pi ขัดข้อง กรุณาตรวจตู้ก่อน ห้ามสั่งจ่ายซ้ำ' };
+        }
+    },
+
     // 2.5s connect + 5.5s device ACK = server budget สูงสุดราว 8s
     // browser ต้องรอนานกว่านั้นเสมอ ไม่เช่นนั้น server อาจ publish หลัง browser fallback ไปแล้ว
     BROWSER_COMMAND_TIMEOUT_MS: 9500,
@@ -221,6 +246,15 @@ const ApiBridge = {
             return { connected: true, mode: 'simulation' };
         }
 
+        if (this.isPiLocal()) {
+            try {
+                const response = await this.fetchWithTimeout('/api/local/status', {}, 2500);
+                const data = await response.json();
+                return { connected: response.ok && data.connected === true,
+                    ready: data.ready === true, mode: 'pi-local' };
+            } catch { return { connected: false, mode: 'pi-local' }; }
+        }
+
         // โหมดสาธิตปิดอยู่ -> ต้องตรวจสอบการเชื่อมต่อฮาร์ดแวร์จริงผ่าน MQTT / LAN
         if (this.isMqttListenerConfigured() && window.MqttBridge.isOnline()) {
             return { connected: true, mode: 'mqtt' };
@@ -261,6 +295,13 @@ const ApiBridge = {
             return { success: true, mode: 'simulation', compartment: compartmentNum };
         }
 
+        if (this.isPiLocal()) {
+            if (!Object.hasOwn(woundCompartmentMap, woundId)) {
+                return { success: false, mode: 'pi-local', error: 'ประเภทแผลนี้ไม่มีช่องยารองรับ' };
+            }
+            return this.sendLocalCommand({ action: 'open', drawer: compartmentNum, id: commandId });
+        }
+
         // 2. ถ้าปิดโหมดสาธิต (Demo OFF): ส่งสัญญาณจริงผ่าน MQTT / LAN เท่านั้น
         console.log(`[ApiBridge Demo OFF] Sending REAL hardware command for Compartment #${compartmentNum}...`);
         const mqttResult = await this.sendMqttCommand({
@@ -298,6 +339,10 @@ const ApiBridge = {
         if (isDemo) {
             console.log(`[ApiBridge Demo ON] ESP32 Siren: ${state.toUpperCase()}`);
             return { success: true, mode: 'simulation' };
+        }
+
+        if (this.isPiLocal()) {
+            return this.sendLocalCommand({ action: 'buzzer', state: state === 'on' ? 'on' : 'off', id: commandId });
         }
 
         // ปิดโหมดสาธิตอยู่ -> ส่งสัญญาณจริงผ่าน MQTT / LAN

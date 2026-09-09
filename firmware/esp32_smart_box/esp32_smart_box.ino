@@ -35,16 +35,24 @@
 #include <ctype.h>
 #include "command_history.h"
 
-const char* ssid = "iPhone";
-const char* password = "thawin123";
-
-// ---------- MQTT config ----------
-// เอาค่าจากหน้า cluster ของ HiveMQ Cloud (ดู MQTT_SETUP.md)
-// ปล่อย MQTT_HOST ว่างไว้ = ปิด MQTT ใช้เฉพาะเส้น LAN
-const char* MQTT_HOST = "dd1fd4b3ede345959ee8abd925ddb1f9.s1.eu.hivemq.cloud";                          // เช่น "abc123.s1.eu.hivemq.cloud"
-const uint16_t MQTT_PORT = 8883;                     // TLS
-const char* MQTT_USER = "esp32-box1";
-const char* MQTT_PASS = "THAWIN123";
+// Local machine configuration is never tracked. Empty MQTT_HOST disables cloud transport.
+#if __has_include("device_config.h")
+#include "device_config.h"
+#else
+#define SFAB_WIFI_SSID ""
+#define SFAB_WIFI_PASSWORD ""
+#endif
+#ifndef SFAB_MQTT_HOST
+#define SFAB_MQTT_HOST ""
+#define SFAB_MQTT_USER ""
+#define SFAB_MQTT_PASSWORD ""
+#endif
+const char* ssid = SFAB_WIFI_SSID;
+const char* password = SFAB_WIFI_PASSWORD;
+const char* MQTT_HOST = SFAB_MQTT_HOST;
+const uint16_t MQTT_PORT = 8883;
+const char* MQTT_USER = SFAB_MQTT_USER;
+const char* MQTT_PASS = SFAB_MQTT_PASSWORD;
 const char* BASE_TOPIC = "crms6/firstaidbox/box1";
 
 // คำสั่งที่เก่ากว่านี้จะถูกทิ้ง กันคำสั่งค้างคิวตอนเน็ตหลุดแล้วเด้งกลับมาเปิดตู้เองตอนไม่มีคนอยู่
@@ -77,6 +85,22 @@ struct PendingMqttEvent {
 };
 
 CommandHistory commandHistory;
+bool microbitReady = false;
+unsigned long microbitSeenAt = 0;
+String readyEpoch = "";
+String consumedEpoch = "";
+String uartLine = "";
+bool uartOverflow = false;
+
+bool readyForCommand() {
+  return microbitReady && readyEpoch != consumedEpoch && millis() - microbitSeenAt < 1500;
+}
+
+void sendOpenCommand(int drawer, const char* id) {
+  consumedEpoch = readyEpoch;
+  microbitReady = false;
+  Serial2.printf("OPEN%d:%s:%s\n", drawer, id, readyEpoch.c_str());
+}
 
 PendingMqttEvent eventQueue[EVENT_QUEUE_SIZE] = {};
 uint8_t eventQueueHead = 0;
@@ -252,15 +276,19 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
       return;
     }
 
+    if (!readyForCommand()) {
+      enqueueEvent("cmd_rejected", drawerNum, cmdId, "microbit_not_ready");
+      return;
+    }
     // จำ id ก่อนส่ง UART: ต่อให้ event ขาขึ้นหาย retry/fallback ก็จะไม่หมุนเซอร์โวซ้ำ
     if (rememberCommand(cmdId, drawerNum, false) == nullptr) {
       Serial.printf("[MQTT] ทิ้งคำสั่ง %s (คิว ACK เต็ม)\n", cmdId);
       enqueueEvent("cmd_rejected", 0, cmdId, "queue_full");
       return;
     }
-    Serial2.println(drawerNum == 1 ? "OPEN1" : "OPEN2");
+    sendOpenCommand(drawerNum, cmdId);
     Serial.printf("[MQTT] %s -> เปิดลิ้นชัก %d\n", cmdId, drawerNum);
-    enqueueEvent("drawer_opened", drawerNum, cmdId);
+
   } else if (strcmp(action, "buzzer") == 0) {
     const char* state = doc["state"] | "";
     if (strcmp(state, "on") != 0 && strcmp(state, "off") != 0) {
@@ -314,9 +342,10 @@ void handleRoot() {
 }
 
 void handleStatus() {
-  server.sendHeader("Access-Control-Allow-Origin", "*");
-  String json = String("{\"status\":\"online\",\"microbit\":\"connected\",\"drawers\":2,\"mode\":\"production\",\"mqtt\":") +
-                (mqtt.connected() ? "true" : "false") + "}";
+  bool connected = microbitSeenAt != 0 && millis() - microbitSeenAt < 1500;
+  String json = String("{\"protocol\":2,\"status\":\"online\",\"microbit\":\"") +
+      (connected ? "connected" : "unknown") + "\",\"ready\":" +
+      (readyForCommand() ? "true" : "false") + "}";
   server.send(200, "application/json", json);
 }
 
@@ -325,8 +354,12 @@ void sendDrawerCommandState(CommandRecord* record) {
     String json = String("{\"success\":false,\"acknowledged\":false,\"event\":\"ack_timeout\",\"id\":\"") +
                   record->id + "\",\"drawer\":" + String(record->drawer) + "}";
     server.send(504, "application/json", json);
+  } else if (record->completed && record->drawer >= 3) {
+    String json = String("{\"protocol\":2,\"success\":true,\"event\":\"buzzer_set\",\"id\":\"") +
+      record->id + "\",\"state\":\"" + (record->drawer == 3 ? "on" : "off") + "\"}";
+    server.send(200, "application/json", json);
   } else if (record->completed) {
-    String json = String("{\"success\":true,\"acknowledged\":true,\"event\":\"drawer_opened\",\"id\":\"") +
+    String json = String("{\"protocol\":2,\"success\":true,\"acknowledged\":true,\"event\":\"drawer_opened\",\"id\":\"") +
                   record->id + "\",\"drawer\":" + String(record->drawer) + "}";
     server.send(200, "application/json", json);
   } else {
@@ -367,15 +400,17 @@ void handleOpen() {
     return;
   }
 
+  if (!readyForCommand()) {
+    server.send(503, "application/json", "{\"success\":false,\"error\":\"microbit_not_ready\"}");
+    return;
+  }
   CommandRecord* record = rememberCommand(commandId.c_str(), drawerNum, false);
   if (record == nullptr) {
     server.send(503, "application/json", "{\"success\":false,\"error\":\"Command acknowledgement queue is full\"}");
     return;
   }
-  Serial2.println(drawerNum == 1 ? "OPEN1" : "OPEN2");
+  sendOpenCommand(drawerNum, record->id);
   Serial.printf("[LAN] %s -> เปิดลิ้นชัก %d\n", record->id, drawerNum);
-  record->completed = true;
-  publishEvent("drawer_opened", drawerNum, record->id);
   sendDrawerCommandState(record);
 }
 
@@ -410,24 +445,21 @@ void handleBuzzer() {
   String commandId = server.arg("id");
   CommandRecord* duplicate = findCommand(commandId.c_str());
   if (duplicate != nullptr) {
-    if (duplicate->drawer != 0) {
+    if (duplicate->drawer != (stateStr == "1" ? 3 : 4)) {
       server.send(409, "application/json", "{\"success\":false,\"error\":\"Command id belongs to another action\"}");
       return;
     }
-    server.send(200, "application/json", "{\"success\":true,\"duplicate\":true}");
+    sendDrawerCommandState(duplicate);
     return;
   }
 
-  if (rememberCommand(commandId.c_str(), 0, true) == nullptr) {
+  CommandRecord* record = rememberCommand(commandId.c_str(), stateStr == "1" ? 3 : 4, false);
+  if (record == nullptr) {
     server.send(503, "application/json", "{\"success\":false,\"error\":\"Command acknowledgement queue is full\"}");
     return;
   }
-  if (stateStr == "1") {
-    Serial2.println("BUZZ1");
-  } else {
-    Serial2.println("BUZZ0");
-  }
-  server.send(200, "application/json", "{\"success\":true}");
+  Serial2.printf("BUZZ%s:%s\n", stateStr.c_str(), commandId.c_str());
+  sendDrawerCommandState(record);
 }
 
 void setup() {
@@ -488,9 +520,17 @@ void loop() {
   flushPendingEvents();
 
   // Read incoming events from micro:bit via Serial2
-  if (Serial2.available()) {
-    String line = Serial2.readStringUntil('\n');
-    line.trim();
+  while (Serial2.available()) {
+    char ch = Serial2.read();
+    if (ch == '\r') continue;
+    if (ch != '\n') {
+      if (!uartOverflow && uartLine.length() < 128) uartLine += ch;
+      else { uartOverflow = true; uartLine = ""; }
+      continue;
+    }
+    String line = uartOverflow ? "" : uartLine;
+    uartLine = "";
+    uartOverflow = false;
     if (line == "DOOR_OPEN") {
       Serial.println("[EVENT] Door Opened Sensor Triggered on micro:bit!");
       publishEvent("door_open", 0);
@@ -500,17 +540,25 @@ void loop() {
     } else if (line == "CANCEL_B") {
       Serial.println("[EVENT] User Pressed Button B (Cancelled) on micro:bit!");
       publishEvent("cancel_b", 0);
-    } else if (line == "OK1" || line == "OK2") {
-      // micro:bit ตอบกลับหลังหมุนเซอร์โวเสร็จ = ยืนยันว่าลิ้นชักเปิดจริง ไม่ใช่แค่ส่งคำสั่งออกไป
-      int drawerNum = (line == "OK1") ? 1 : 2;
-      Serial.printf("[EVENT] Drawer %d opened and closed on micro:bit\n", drawerNum);
-      CommandRecord* command = findOldestPendingDrawer(drawerNum);
-      if (command != nullptr) {
+    } else if (line.startsWith("READY:")) {
+      readyEpoch = line.substring(6);
+      microbitSeenAt = millis();
+      microbitReady = readyEpoch != consumedEpoch;
+    } else if (line == "BUSY") {
+      microbitSeenAt = millis();
+      microbitReady = false;
+    } else if (line.startsWith("BUZZ_DONE1:") || line.startsWith("BUZZ_DONE0:")) {
+      String id = line.substring(11);
+      CommandRecord* command = findCommand(id.c_str());
+      int channel = line.charAt(9) == '1' ? 3 : 4;
+      if (command != nullptr && !command->expired && command->drawer == channel) command->completed = true;
+    } else if (line.startsWith("DONE1:") || line.startsWith("DONE2:")) {
+      int drawerNum = line.charAt(4) - '0';
+      String id = line.substring(6);
+      CommandRecord* command = findCommand(id.c_str());
+      if (command != nullptr && !command->expired && !command->completed && command->drawer == drawerNum) {
         command->completed = true;
         publishEvent("drawer_opened", drawerNum, command->id);
-      } else {
-        // เก็บ event sensor ไว้สำหรับ dashboard แต่ไม่มี id จึงใช้ยืนยันคำสั่งเว็บไม่ได้
-        publishEvent("drawer_opened", drawerNum);
       }
     }
   }
