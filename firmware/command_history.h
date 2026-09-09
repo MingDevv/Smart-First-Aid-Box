@@ -13,6 +13,7 @@ struct CommandRecord {
   uint8_t drawer;
   bool completed;
   bool expired;
+  bool rejected;
   uint32_t sequence;
   uint32_t createdAt;
 };
@@ -38,7 +39,7 @@ class CommandHistory {
     for (uint8_t offset = 0; offset < COMMAND_HISTORY_SIZE; offset++) {
       uint8_t index = (next_ + offset) % COMMAND_HISTORY_SIZE;
       CommandRecord* candidate = &records_[index];
-      if (!candidate->used || candidate->completed || candidate->expired) {
+      if (!candidate->used || candidate->completed || candidate->expired || candidate->rejected) {
         record = candidate;
         selected = index;
         break;
@@ -52,6 +53,7 @@ class CommandHistory {
     record->drawer = drawer;
     record->completed = completed;
     record->expired = false;
+    record->rejected = false;
     record->sequence = ++sequence_;
     record->createdAt = now;
     next_ = (selected + 1) % COMMAND_HISTORY_SIZE;
@@ -62,7 +64,7 @@ class CommandHistory {
     CommandRecord* oldest = nullptr;
     for (uint8_t i = 0; i < COMMAND_HISTORY_SIZE; i++) {
       CommandRecord* record = &records_[i];
-      if (!record->used || record->completed || record->expired || record->drawer != drawer) continue;
+      if (!record->used || record->completed || record->expired || record->rejected || record->drawer != drawer) continue;
       if (oldest == nullptr || record->sequence < oldest->sequence) oldest = record;
     }
     return oldest;
@@ -71,7 +73,7 @@ class CommandHistory {
   CommandRecord* expireNext(uint32_t now, uint32_t timeoutMs) {
     for (uint8_t i = 0; i < COMMAND_HISTORY_SIZE; i++) {
       CommandRecord* record = &records_[i];
-      if (!record->used || record->completed || record->expired) continue;
+      if (!record->used || record->completed || record->expired || record->rejected) continue;
       // unsigned subtraction keeps working when millis() wraps around
       if ((uint32_t)(now - record->createdAt) < timeoutMs) continue;
       record->expired = true;

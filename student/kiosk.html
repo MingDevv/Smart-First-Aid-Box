@@ -99,7 +99,13 @@
             const badge = document.getElementById('kiosk-mode-badge');
             if (!badge) return;
             badge.className = 'home-status';
-            if (status.connected || status.mode === 'simulation') {
+            if (status.mode === 'pi-local' && status.reason === 'awaiting_new_ready_epoch') {
+                badge.className = 'home-status status-offline';
+                badge.textContent = 'ให้ครูตรวจตู้และสายสัญญาณ';
+            } else if (status.mode === 'pi-local' && status.connected && status.ready === false) {
+                badge.className = 'home-status status-checking';
+                badge.textContent = 'ตู้กำลังใช้งาน';
+            } else if (status.connected || status.mode === 'simulation') {
                 badge.classList.add('status-live');
                 badge.textContent = 'พร้อมใช้';
             } else if (status.mode === 'checking') {

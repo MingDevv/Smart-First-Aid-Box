@@ -14,7 +14,7 @@ OLED:
 I2C (P19/P20 auto - ห้ามใช้พินนี้กับอุปกรณ์อื่น)
 
 UART Serial (เชื่อมต่อ ESP32):
-P2 = TX, P3 = RX (หรือ P2=TX, P10=RX) (Baud rate 115200)
+P2 = TX, P3 = RX (Baud rate 115200)
 
 มอเตอร์สเต็ปเปอร์ 4 สาย (28BYJ-48 style):
 มอเตอร์ 1 (Insect Bite / แดง) : P4, P5, P6, P7    + 5V, GND
@@ -261,6 +261,9 @@ def motor_run(motor_pins2: any, steps: number, delay_ms: number):
     # หมุนสเต็ปเปอร์ตามจำนวน step ที่กำหนด แล้วดับคอยล์ทั้งหมดเมื่อจบ
     seq_len = len(STEP_SEQUENCE)
     for i in range(steps):
+        if i % 32 == 0:
+            check_serial_commands()
+            report_hardware_state()
         pattern = STEP_SEQUENCE[i % seq_len]
         for j in range(4):
             pins.digital_write_pin(motor_pins2[j], pattern[j])
@@ -292,7 +295,7 @@ def wait_for_button_again(pin: DigitalPin):
 
 # ---------- ฟังก์ชันจ่ายยา/สเปรย์ ----------
 def dispense_abrasion():
-    basic.pause(SYMPTOM_DISPLAY_MS)
+    pause_with_service(SYMPTOM_DISPLAY_MS)
     show_running()
     motor_run(MOTOR2_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
     acknowledge_motor(1)
@@ -301,12 +304,12 @@ def dispense_abrasion():
     show_abrasion_care2()
     wait_for_button_again(PIN_ABRASION)
     show_care_done()
-    basic.pause(CARE_DONE_MS)
+    pause_with_service(CARE_DONE_MS)
     reset_to_welcome()
 
 
 def dispense_insect():
-    basic.pause(SYMPTOM_DISPLAY_MS)
+    pause_with_service(SYMPTOM_DISPLAY_MS)
     show_running()
     motor_run(MOTOR1_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
     acknowledge_motor(2)
@@ -315,7 +318,7 @@ def dispense_insect():
     show_insect_care2()
     wait_for_button_again(PIN_INSECT)
     show_care_done()
-    basic.pause(CARE_DONE_MS)
+    pause_with_service(CARE_DONE_MS)
     reset_to_welcome()
 
 
@@ -342,7 +345,7 @@ def reset_to_welcome():
     pins.digital_write_pin(PIN_LED_RED, 0)
     motor_stop(MOTOR1_PINS)
     motor_stop(MOTOR2_PINS)
-    basic.pause(RESET_DELAY_MS)
+    pause_with_service(RESET_DELAY_MS)
     lastState = -1
     state = STATE_WELCOME
     lastAction = input.running_time()
@@ -351,6 +354,16 @@ def reset_to_welcome():
 
 # ---------- UART SERIAL CONFIG & HANDLER (เชื่อมต่อ ESP32 ผ่านพิน P2) ----------
 serial.redirect(SerialPin.P2, SerialPin.P3, BaudRate.BAUD_RATE115200)
+# A full command can exceed the MakeCode serial default; configure after redirect.
+serial.set_rx_buffer_size(128)
+
+
+def pause_with_service(duration_ms: number):
+    started = input.running_time()
+    while input.running_time() - started < duration_ms:
+        check_serial_commands()
+        report_hardware_state()
+        basic.pause(20)
 
 
 def acknowledge_motor(drawer: number):

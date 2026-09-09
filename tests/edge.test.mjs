@@ -34,7 +34,7 @@ async function fixture(t, reply, options = {}) {
     t.after(async () => { await controller.close(); await close(esp); await rm(dir, { recursive: true }); });
     return { controller, database, esp32Url, requests };
 }
-const ready = [200, { protocol: 2, microbit: 'connected', ready: true }];
+const ready = [200, { protocol: 2, microbit: 'connected', ready: true, ackTimeoutMs: 30000 }];
 const pending = [202, { success: false, accepted: true }];
 
 test('Pi waits for matching hardware ACK, journals first, and executes duplicate requests only once', async t => {
@@ -109,18 +109,80 @@ test('unconfigured, busy or older firmware never receives an open request', asyn
     }
 });
 
-test('concurrent different commands are rejected and a reused ID cannot change buzzer state', async t => {
+test('a pending buzzer never blocks opening and a reused ID cannot change buzzer state', async t => {
     const buzzer = { action: 'buzzer', state: 'on', id: 'c-edge-buzzer-01' };
     const { controller, requests } = await fixture(t, url => {
         if (url.pathname === '/status') return ready;
         if (url.pathname === '/buzzer') return pending;
+        if (url.pathname === '/open') return [200, ack(command)];
         return [200, { success: true, protocol: 2, event: 'buzzer_set', id: buzzer.id, state: 'on' }];
     });
     const active = controller.command(buzzer);
-    assert.equal((await controller.command(command)).status, 409);
+    assert.equal((await controller.command(command)).body.success, true);
     assert.equal((await active).body.success, true, JSON.stringify(requests.map(u => u.pathname)));
     assert.equal((await controller.command({ ...buzzer, state: 'off' })).status, 409);
     assert.equal(requests.filter(u => u.pathname === '/buzzer').length, 1);
+});
+
+test('SOS is dispatched while an open command is still waiting for acknowledgement', async t => {
+    const buzzer = { action: 'buzzer', state: 'on', id: 'c-sos-during-open' };
+    const { controller, requests } = await fixture(t, url => {
+        if (url.pathname === '/status') return ready;
+        if (url.pathname === '/buzzer' || url.searchParams.get('id') === buzzer.id) {
+            return [200, { success: true, protocol: 2, event: 'buzzer_set', id: buzzer.id, state: 'on' }];
+        }
+        return pending;
+    }, { timeoutMs: 150 });
+    const opening = controller.command(command);
+    assert.equal((await controller.command(buzzer)).body.success, true);
+    assert.ok(requests.some(u => u.pathname === '/buzzer'));
+    assert.equal((await opening).status, 504);
+});
+
+test('only explicit matching not-actuated evidence becomes rejection; bare HTTP errors stay uncertain', async t => {
+    for (const proven of [true, false]) {
+        const { controller } = await fixture(t, url => url.pathname === '/status' ? ready :
+            [409, { success: false, ...(proven ? { actuated: false, id: command.id } : {}) }], { timeoutMs: 60 });
+        const result = await controller.command(command);
+        assert.equal(result.status, proven ? 409 : 504);
+        assert.equal(controller.history()[0].state, proven ? 'rejected' : 'uncertain');
+    }
+});
+
+test('firmware ACK budget determines the outer command deadline and unknown budgets fail closed', async t => {
+    for (const ackTimeoutMs of [30000, 60000, null, 200000]) {
+        const { controller, requests } = await fixture(t, () => [200, { ...ready[1], ackTimeoutMs }]);
+        const status = await controller.status();
+        const valid = ackTimeoutMs === 30000 || ackTimeoutMs === 60000;
+        assert.equal(status.connected, valid);
+        assert.equal(status.commandTimeoutMs, valid ? ackTimeoutMs + 3000 : null);
+        if (!valid) {
+            assert.equal((await controller.command(command)).status, 503);
+            assert.ok(requests.every(r => r.pathname === '/status'));
+        }
+    }
+});
+
+test('local HTTP adapter executes real analyze and notify handlers with no provider credentials', async t => {
+    const keys = ['LINE_NOTIFY_TOKEN', 'LINE_TOKEN', 'Line Token', 'LINE_CHANNEL_ACCESS_TOKEN',
+        'GEMINI_API_KEY', 'GEMINI_KEY', 'Gemini Key'];
+    const saved = new Map(keys.map(k => [k, process.env[k]]));
+    keys.forEach(k => delete process.env[k]);
+    t.after(() => saved.forEach((value, key) => { if (value !== undefined) process.env[key] = value; }));
+    const { controller } = await fixture(t, () => ready);
+    const server = await createLocalServer({ controller });
+    const origin = await listen(server);
+    t.after(() => close(server));
+    for (const [path, body, expected] of [['notify', { message: 'synthetic test' }, 'LINE_CHANNEL_ACCESS_TOKEN'],
+        ['analyze', { image: 'synthetic test' }, 'ระบบ AI วิเคราะห์แผลขัดข้อง']]) {
+        const response = await fetch(`${origin}/api/${path}`, { method: 'POST',
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        assert.equal(response.status, 500);
+        const result = await response.json();
+        assert.equal(result.success, false);
+        assert.ok(result.error.includes(expected));
+        assert.notEqual(result.error, 'Local service error');
+    }
 });
 
 test('local server serves all kiosk routes, suppresses MQTT, and protects source and command origins', async t => {
@@ -167,6 +229,7 @@ test('Pi browser ignores stored MQTT/LAN settings and fails closed; explicit dem
     const window = { SFAB_RUNTIME: { transport: 'pi-local' }, StorageService: { getSettings: () => settings } };
     const context = vm.createContext({ window, console, AbortController, setTimeout, clearTimeout, Map, Set,
         fetch: async (url, opts) => {
+            if (url === '/api/local/status') return { ok: true, json: async () => ({ commandTimeoutMs: 33000 }) };
             calls++;
             assert.equal(url, '/api/command');
             if (fail) throw new Error('connection lost');

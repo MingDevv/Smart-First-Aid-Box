@@ -7,7 +7,7 @@ export const isAck = (ack, command) => ack?.id === command.id && ack.protocol ==
         : ack.event === 'buzzer_set' && ack.state === command.state);
 
 export class LocalController {
-    constructor({ esp32Url = '', database, timeoutMs = 18000, pollMs = 200 }) {
+    constructor({ esp32Url = '', database, timeoutMs, pollMs = 200 }) {
         if (esp32Url) {
             const url = new URL(esp32Url);
             if (url.protocol !== 'http:' || url.username || url.password || url.search ||
@@ -17,6 +17,7 @@ export class LocalController {
         this.timeoutMs = timeoutMs;
         this.pollMs = pollMs;
         this.active = new Map();
+        this.activeOpens = new Set();
         this.db = new DatabaseSync(database);
         this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;
             CREATE TABLE IF NOT EXISTS commands (
@@ -38,8 +39,11 @@ export class LocalController {
         if (!this.origin) return { connected: false, ready: false, mode: 'pi-local', configured: false };
         try {
             const { status, data } = await this.request('/status');
-            const connected = status === 200 && data.protocol === 2 && data.microbit === 'connected';
-            return { connected, ready: connected && data.ready === true, mode: 'pi-local', configured: true };
+            const validBudget = Number.isInteger(data.ackTimeoutMs) && data.ackTimeoutMs >= 3000 && data.ackTimeoutMs <= 120000;
+            const connected = status === 200 && data.protocol === 2 && data.microbit === 'connected' && validBudget;
+            return { connected, ready: connected && data.ready === true, mode: 'pi-local', configured: true,
+                commandTimeoutMs: validBudget ? data.ackTimeoutMs + 3000 : null,
+                reason: data.reason === 'awaiting_new_ready_epoch' ? data.reason : '' };
         } catch {
             return { connected: false, ready: false, mode: 'pi-local', configured: true };
         }
@@ -55,8 +59,7 @@ export class LocalController {
     }
 
     async command(command) {
-        if (!command || typeof command !== 'object' || !ID.test(command.id || '') ||
-            typeof command.id !== 'string' ||
+        if (!command || typeof command !== 'object' || typeof command.id !== 'string' || !ID.test(command.id) ||
             !(command.action === 'open' && [1, 2].includes(command.drawer) ||
               command.action === 'buzzer' && ['on', 'off'].includes(command.state))) {
             return this.failure(400, undefined, 'คำสั่งเปิดช่องยาไม่ถูกต้อง');
@@ -70,11 +73,15 @@ export class LocalController {
             return this.failure(409, command.id, 'ผลคำสั่งเดิมยังไม่แน่นอน กรุณาตรวจตู้ก่อน ห้ามสั่งซ้ำ');
         }
         if (!this.origin) return this.failure(503, command.id, 'ยังไม่ได้ตั้งค่าการเชื่อมต่อ ESP32 บน Pi');
-        if (this.active.size) return this.failure(409, command.id, 'ตู้กำลังทำงาน กรุณารอ');
+        if (command.action === 'open' && this.activeOpens.size) return this.failure(409, command.id, 'ตู้กำลังทำงาน กรุณารอ');
 
         this.db.prepare("INSERT INTO commands (id, drawer, state, created_at) VALUES (?, ?, 'pending', ?)")
             .run(command.id, channel, new Date().toISOString());
-        const task = this.dispatch(command).finally(() => this.active.delete(command.id));
+        if (command.action === 'open') this.activeOpens.add(command.id);
+        const task = this.dispatch(command).finally(() => {
+            this.active.delete(command.id);
+            this.activeOpens.delete(command.id);
+        });
         this.active.set(command.id, task);
         return task;
     }
@@ -91,9 +98,11 @@ export class LocalController {
             const hardware = await this.status();
             if (!hardware.connected || (command.action === 'open' && !hardware.ready)) {
                 return this.finish(command, this.failure(503, command.id,
-                    'ตู้ยังไม่พร้อม ตรวจการเชื่อมต่อหรือทำขั้นตอนหน้าตู้ให้จบก่อน'), 'rejected');
+                    hardware.reason === 'awaiting_new_ready_epoch'
+                        ? 'ตู้รอการตรวจสาย UART และเริ่มบอร์ดทั้งคู่ใหม่ กรุณาให้ครูตรวจตู้ก่อน'
+                        : 'ตู้ยังไม่พร้อม ตรวจการเชื่อมต่อหรือทำขั้นตอนหน้าตู้ให้จบก่อน'), 'rejected');
             }
-            const deadline = Date.now() + this.timeoutMs;
+            const deadline = Date.now() + (this.timeoutMs ?? hardware.commandTimeoutMs);
             // Persisted above BEFORE this side effect. Never retry /open on a network error.
             sent = true;
             let reply;
@@ -110,7 +119,7 @@ export class LocalController {
                         commandId: command.id, ack: reply.data
                     } }, 'confirmed');
                 }
-                if (reply && [400, 409, 503].includes(reply.status)) {
+                if (reply && reply.data.actuated === false && reply.data.id === command.id) {
                     return this.finish(command, this.failure(409, command.id, 'ตู้ปฏิเสธคำสั่ง กรุณาตรวจสถานะหน้าตู้'), 'rejected');
                 }
                 await delay(Math.min(this.pollMs, Math.max(1, deadline - Date.now())));

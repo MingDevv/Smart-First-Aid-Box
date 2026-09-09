@@ -149,7 +149,7 @@ function loadApiBridge(settings, fetchImpl, mqttBridge = null) {
 assert.match(commandHistorySource, /COMMAND_HISTORY_SIZE = 8/);
 assert.match(commandHistorySource, /offset < COMMAND_HISTORY_SIZE/);
 assert.match(commandHistorySource, /record->expired = true/);
-assert.match(firmwareSource, /COMMAND_ACK_TIMEOUT_MS = 15000/);
+assert.match(firmwareSource, /COMMAND_ACK_TIMEOUT_MS = SFAB_COMMAND_ACK_TIMEOUT_MS/);
 assert.match(firmwareSource, /enqueueEvent\("ack_timeout"/);
 assert.match(firmwareSource, /POST_SUBSCRIBE_GUARD_MS = 500/);
 assert.match(firmwareSource, /if \(!doc\["ts"\]\.is<uint64_t>\(\)\)/);

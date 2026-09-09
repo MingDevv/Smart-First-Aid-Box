@@ -12,8 +12,16 @@ const ApiBridge = {
 
     async sendLocalCommand(body) {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 23000);
+        let timeout = setTimeout(() => controller.abort(), 2500);
         try {
+            const statusResponse = await fetch('/api/local/status', { signal: controller.signal });
+            const status = await statusResponse.json();
+            if (!statusResponse.ok || !Number.isInteger(status.commandTimeoutMs) ||
+                status.commandTimeoutMs < 6000 || status.commandTimeoutMs > 123000) {
+                throw new Error('Missing hardware timing budget');
+            }
+            clearTimeout(timeout);
+            timeout = setTimeout(() => controller.abort(), status.commandTimeoutMs + 5000);
             const response = await fetch('/api/command', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body), signal: controller.signal
@@ -253,7 +261,7 @@ const ApiBridge = {
                 const response = await this.fetchWithTimeout('/api/local/status', {}, 2500);
                 const data = await response.json();
                 return { connected: response.ok && data.connected === true,
-                    ready: data.ready === true, mode: 'pi-local' };
+                    ready: data.ready === true, reason: data.reason, mode: 'pi-local' };
             } catch { return { connected: false, mode: 'pi-local' }; }
         }
 
