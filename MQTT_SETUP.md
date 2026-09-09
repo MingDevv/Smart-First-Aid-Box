@@ -1,6 +1,13 @@
 # การตั้งค่า MQTT — Smart First Aid Box
 
-เอกสารนี้อธิบายวิธีต่อหน้าเว็บกับตู้ยาผ่าน MQTT ตั้งแต่ศูนย์
+เอกสารนี้เป็นคู่มือเส้นทาง MQTT เดิม สำหรับ Pi 5 ใช้ [คู่มือ Pi-local](docs/PI_LOCAL_SETUP.md)
+ซึ่งสั่งงานผ่าน LAN โดยไม่ต้องใช้ broker
+
+เฟิร์มแวร์ protocol 2 ชุดปัจจุบันตอบ ACK หลังมอเตอร์จบ แต่เส้นทาง MQTT/LAN เดิมยังรอ ACK
+7.5 วินาที และเบราว์เซอร์รอรวม 9.5 วินาที จึงไม่รองรับการควบคุมฮาร์ดแวร์ด้วยเฟิร์มแวร์
+ชุดนี้จนกว่าจะปรับและทดสอบเวลาให้ตรงกัน การเพิ่ม `MQTT_DRAWER_ACK_TIMEOUT_MS` ฝั่ง
+เซิร์ฟเวอร์อย่างเดียวไม่เพิ่มเวลาเบราว์เซอร์ ใช้ Pi-local สำหรับสั่งตู้จริง
+หน้าเว็บ Vercel, Demo และฟีเจอร์ cloud อื่นยังเปิดใช้งานได้
 
 ## ทำไมต้องใช้ MQTT
 
@@ -92,16 +99,18 @@ MQTT_BASE_TOPIC=crms6/firstaidbox/box1
 - **PubSubClient** (Nick O'Leary)
 - **ArduinoJson** (Benoit Blanchon) เวอร์ชัน 7 ขึ้นไป
 
-แล้วแก้ค่าที่หัวไฟล์ `firmware/esp32_smart_box.ino`
+เปิด sketch `firmware/esp32_smart_box/esp32_smart_box.ino` แล้วคัดลอก
+`device_config.example.h` ในโฟลเดอร์เดียวกันเป็น `device_config.h` (Git ไม่ติดตาม)
+ใส่ค่า Wi-Fi และค่า MQTT ต่อไปนี้ในไฟล์นั้นโดยไม่ commit ข้อมูลลับ
 
 ```cpp
-const char* MQTT_HOST = "abc123def.s1.eu.hivemq.cloud";
-const char* MQTT_USER = "esp32-box1";
-const char* MQTT_PASS = "<รหัสของ esp32-box1>";
-const char* BASE_TOPIC = "crms6/firstaidbox/box1";
+#define SFAB_MQTT_HOST "abc123def.s1.eu.hivemq.cloud"
+#define SFAB_MQTT_USER "esp32-box1"
+#define SFAB_MQTT_PASSWORD "<รหัสของ esp32-box1>"
 ```
 
-ปล่อย `MQTT_HOST` เป็นค่าว่างไว้ = ปิด MQTT ใช้เฉพาะเส้น LAN แบบเดิม
+ปล่อย `SFAB_MQTT_HOST` เป็นค่าว่างไว้ = ปิด MQTT (ค่าเริ่มต้นสำหรับ Pi-local)
+ตั้งค่า broker อย่างเดียวไม่ได้แก้ข้อจำกัดเวลา ACK ที่ระบุไว้ต้นเอกสาร
 
 ## ขั้นตอนที่ 4 — ตั้งค่าหน้าเว็บ
 
@@ -131,20 +140,23 @@ Base Topic         : crms6/firstaidbox/box1
 5. เสียบ ESP32 (ยังไม่ต้องต่อเซอร์โว) ดูว่ามันขึ้นออนไลน์เองไหม
 6. ค่อยต่อ micro:bit และเซอร์โวเป็นขั้นสุดท้าย
 
-## เส้นสำรองวันแข่ง
+## เส้นทาง LAN และการกู้คืน
 
 เฟิร์มแวร์ยังเปิด HTTP endpoint ไว้ครบ (`/status`, `/open?drawer=1&id=...`,
-`/command-status?id=...`, `/buzzer?state=1&id=...`) และหน้าเว็บจะ
-ลองเส้น MQTT ก่อน ถ้าไม่สำเร็จจะตกลงมาใช้เส้น LAN ให้อัตโนมัติ **ห้ามลบเส้นนี้ทิ้ง**
-วันแข่งถ้าเน็ตล่ม MQTT ตายทันที แต่ตู้ยายังต้องเปิดได้
+`/command-status?id=...`, `/buzzer?state=1&id=...`) โดย Pi-local ใช้ LAN เป็นเส้นหลัก
+เมื่ออินเทอร์เน็ตขาดแต่ LAN ยังอยู่ จึงไม่ต้องเปลี่ยน transport หรือส่งคำสั่งซ้ำ
+อย่าใช้ legacy MQTT/LAN เป็นทางแก้ timeout ของเฟิร์มแวร์ชุดนี้ และอย่าส่งซ้ำเมื่อผลยังไม่แน่นอน
 
 `PubSubClient::connect` เป็น synchronous จึงยังหยุด loop ชั่วคราวหนึ่งครั้งต่อความพยายาม
 โค้ดจำกัด socket timeout ไว้ 2 วินาที เว้นอย่างน้อย 5 วินาทีระหว่างครั้ง และข้ามทันทีเมื่อ WiFi
 หลุด เพื่อให้เว็บเซิร์ฟเวอร์ LAN กลับมาตอบได้โดยไม่ติดอยู่ใน reconnect loop
 
-ถ้า micro:bit ไม่ส่ง `OK1/OK2` กลับมาภายใน 15 วินาที ESP32 จะประกาศ `ack_timeout`,
-ทำเครื่องหมาย command นั้นว่าหมดเวลา และข้ามไปใช้ slot อื่นได้ จึงไม่ต้อง power-cycle ESP32
-หลังสาย UART หลุดหรือ micro:bit ถูก reset
+micro:bit ต้องส่ง `DONE1:<id>`/`DONE2:<id>` หลังมอเตอร์จบ โดย ID และช่องตรงกับคำสั่ง
+ESP32 ใช้งบ `SFAB_COMMAND_ACK_TIMEOUT_MS` (3–120 วินาที; ค่าเริ่มต้นชั่วคราว 30 วินาที)
+และประกาศ `ack_timeout` เมื่อหมดเวลา การหมดเวลาไม่ปลดล็อกคำสั่งที่อาจค้างใน UART
+ถ้าไม่มี `REJECT:<id>` ที่ตรงคำสั่งและ READY ใหม่ ตู้จะคงสถานะรอตรวจสอบไว้
+ให้ตรวจผลจ่าย ปิดไฟมอเตอร์ ตรวจสาย และเริ่มบอร์ดทั้งคู่ใหม่ก่อนเปิดไฟมอเตอร์ตาม
+[ขั้นตอนกู้คืน Pi-local](docs/PI_LOCAL_SETUP.md#command-and-acknowledgement-contract)
 
 ## ข้อจำกัดด้านความปลอดภัยที่ยังเหลืออยู่
 

@@ -4,7 +4,14 @@ This deployment removes cloud MQTT from cabinet control:
 
 `Chromium on Pi → localhost API → ESP32 over private LAN → micro:bit UART → motor completion ACK`
 
-The existing Vercel deployment remains available. The Pi service never imports
+The existing Vercel pages, Demo mode and optional cloud features remain available.
+Legacy MQTT/direct-LAN real-hardware control is not supported with this paired
+protocol-2 firmware: its fixed 7.5-second ACK and 9.5-second browser budgets do
+not track motor duration. Raising `MQTT_DRAWER_ACK_TIMEOUT_MS` alone does not
+raise the browser deadline. Use the Pi kiosk for real-hardware control; adapting
+the legacy transport is outside this change.
+
+The Pi service never imports
 the MQTT command handler, never connects the browser to a broker, and never falls
 back to cloud MQTT or simulated success after a real command fails.
 
@@ -127,6 +134,10 @@ functions with hardware stubs; they do not compile the MakeCode extensions.
 Before switching the cabinet, with an operator present:
 
 1. Verify UART TX/RX, separate motor supply, board firmware and fresh READY.
+   P3 (UART RX) and motor pins P4/P6/P7 share the LED matrix. Check the MakeCode
+   project's display configuration and verify complete incoming frames decode
+   reliably; disable the LED matrix with `led.enable(False)` if it is still
+   enabled. OLED output is separate from the LED matrix.
    **Hardware release gate:** measure OPEN-to-DONE on both drawers at the actual
    flashed `STEP_DELAY_MS`, under representative load, record the maximum and
    sample count, configure the firmware ACK budget with the stated headroom, and
