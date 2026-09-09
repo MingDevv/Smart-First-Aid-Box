@@ -228,7 +228,7 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
     Serial.printf("[MQTT] ไม่ทำคำสั่ง %s ซ้ำ\n", cmdId);
     if (duplicate->expired) {
       enqueueEvent("ack_timeout", duplicate->drawer, duplicate->id, "uart_timeout");
-    } else if (duplicate->completed && duplicate->drawer > 0) {
+    } else if (duplicate->completed && duplicate->drawer > 0 && duplicate->drawer <= 2) {
       enqueueEvent("drawer_opened", duplicate->drawer, duplicate->id);
     }
     return;
@@ -296,12 +296,12 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
       enqueueEvent("cmd_rejected", 0, cmdId, "invalid_state");
       return;
     }
-    if (rememberCommand(cmdId, 0, true) == nullptr) {
+    if (rememberCommand(cmdId, strcmp(state, "on") == 0 ? 3 : 4, false) == nullptr) {
       Serial.printf("[MQTT] ทิ้งคำสั่ง %s (คิว ACK เต็ม)\n", cmdId);
       enqueueEvent("cmd_rejected", 0, cmdId, "queue_full");
       return;
     }
-    Serial2.println(strcmp(state, "on") == 0 ? "BUZZ1" : "BUZZ0");
+    Serial2.printf("BUZZ%d:%s\n", strcmp(state, "on") == 0 ? 1 : 0, cmdId);
     Serial.printf("[MQTT] %s -> เสียงแจ้งเตือน %s\n", cmdId, state);
   } else {
     Serial.printf("[MQTT] ไม่รู้จักคำสั่ง: %s\n", action);

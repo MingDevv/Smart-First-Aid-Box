@@ -11,11 +11,13 @@ const ApiBridge = {
     },
 
     async sendLocalCommand(body) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 23000);
         try {
-            const response = await this.fetchWithTimeout('/api/command', {
+            const response = await fetch('/api/command', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            }, 23000);
+                body: JSON.stringify(body), signal: controller.signal
+            });
             const data = await response.json();
             if (response.ok && data.success && data.mode === 'pi-local' &&
                 data.ack?.protocol === 2 && (body.action === 'open'
@@ -28,7 +30,7 @@ const ApiBridge = {
         } catch {
             return { success: false, mode: 'pi-local', commandId: body.id,
                 error: 'การเชื่อมต่อ Pi ขัดข้อง กรุณาตรวจตู้ก่อน ห้ามสั่งจ่ายซ้ำ' };
-        }
+        } finally { clearTimeout(timeout); }
     },
 
     // 2.5s connect + 5.5s device ACK = server budget สูงสุดราว 8s

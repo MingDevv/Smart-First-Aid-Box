@@ -15,6 +15,8 @@ def load():
               serial=SimpleNamespace(write_line=lambda s: events.append(s),
                                      write_string=lambda s: events.append(s.strip()), read_string=lambda: ''),
               basic=SimpleNamespace(pause=lambda _: None),
+              music=SimpleNamespace(ring_tone=lambda _: events.append('sound-on'),
+                                    stop_all_sounds=lambda: events.append('sound-off')),
               input=SimpleNamespace(running_time=lambda: 1000),
               remoteCommandId='c-motor-test-01', readyEpoch=7, serialBuffer='', serialOverflow=False,
               state=0, STATE_WELCOME=0, STATE_MENU=1, STATE_ABRASION=2, STATE_INSECT=3, STATE_SLEEP=4,
@@ -37,6 +39,13 @@ class ProtocolTests(unittest.TestCase):
             ns[name]()
             self.assertEqual(events[0], 'motor-finished', 'ACK must follow motor completion')
             self.assertEqual(events[1:], [f'DONE{drawer}:c-motor-test-01'])
+
+    def test_buzzer_ack_follows_setting_with_exact_id(self):
+        for state in ['1', '0']:
+            ns, events = load()
+            ns['handle_serial_frame']('BUZZ' + state + ':c-sound-test-01')
+            self.assertEqual(events, ['sound-on' if state == '1' else 'sound-off',
+                                      'BUZZ_DONE' + state + ':c-sound-test-01'])
 
     def test_fragmented_command_and_exact_identity(self):
         ns, events = load()
