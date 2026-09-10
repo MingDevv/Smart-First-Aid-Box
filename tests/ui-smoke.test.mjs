@@ -164,16 +164,7 @@ assert.match(
     /ApiBridge\.getHardwareStatus\(\)/,
     'Kiosk status badge must come from the hardware connection state'
 );
-assert.match(
-    kioskHtml,
-    /notificationResult\.mode\s*===\s*['"]simulation['"]/,
-    'Kiosk SOS feedback must distinguish a simulated notification from a real send'
-);
-assert.match(
-    kioskHtml,
-    /buzzerResult\.mode\s*===\s*['"]simulation['"]/,
-    'Kiosk SOS feedback must distinguish a simulated buzzer from real hardware'
-);
+// SOS real/simulated delivery semantics are executed in sos.test.mjs.
 assert.doesNotMatch(
     kioskHtml,
     /background:\s*#0F172A/i,

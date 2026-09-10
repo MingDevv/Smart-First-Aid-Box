@@ -99,30 +99,51 @@ const NotificationService = {
             requestBody = { message: JSON.stringify(payload) };
         }
 
-        try {
-            const serverlessResponse = await fetch('/api/notify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
-            });
-
-            if (serverlessResponse.ok) {
-                const serverlessResult = await serverlessResponse.json();
-                if (serverlessResult.success) {
-                    console.log('[LINE Notify] Sent securely via Vercel Serverless Function!');
-                    return serverlessResult;
-                }
-            } else {
-                const errJson = await serverlessResponse.json().catch(() => ({}));
-                console.warn('[LINE Notify] Serverless notification error:', errJson.error);
-            }
-        } catch (serverlessError) {
-            console.log('[LINE Notify] Backend endpoint inactive/offline, running in local simulation mode...');
+        const settings = window.StorageService?.getSettings() || {};
+        if (settings.demoMode === true || settings.demoMode === 'true') {
+            this.showLineMockModal(requestBody.flexMessage || requestBody.message || payload);
+            return { success: true, mode: 'simulation' };
         }
 
-        // Simulation overlay when offline or backend not active
-        this.showLineMockModal(requestBody.flexMessage || requestBody.message || payload);
-        return { success: true, mode: 'simulation' };
+        const controller = new AbortController();
+        const deadline = setTimeout(() => controller.abort(), 10000);
+        try {
+            const response = await fetch('/api/notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody),
+                signal: controller.signal
+            });
+            const result = await response.json();
+            if (!controller.signal.aborted && response.ok && result?.success === true && result.mode !== 'simulation') {
+                return result;
+            }
+        } catch {
+            console.warn('[LINE] Could not confirm notification');
+        } finally {
+            clearTimeout(deadline);
+        }
+        return { success: false, error: 'ยังยืนยันการส่ง LINE ไม่ได้ กรุณาเรียกครูใกล้ที่สุดทันที' };
+    },
+
+    // LINE acceptance and a cabinet ACK are independent evidence; neither proves the other.
+    async sendSos(payload) {
+        const results = await Promise.allSettled([
+            Promise.resolve().then(() => this.sendLineNotification(payload)),
+            Promise.resolve().then(() => window.ApiBridge.triggerBuzzer('on'))
+        ]);
+        const [line, buzzer] = results.map(result => result.status === 'fulfilled' ? result.value : null);
+        if (line?.mode === 'simulation' && buzzer?.mode === 'simulation') {
+            this.showToast('โหมดสาธิต: จำลอง SOS เท่านั้น ไม่มีการส่ง LINE หรือเปิดเสียงจริง', 'info');
+        } else {
+            const lineSent = line?.success === true && line.mode !== 'simulation';
+            const buzzerConfirmed = buzzer?.success === true && buzzer.mode !== 'simulation';
+            const message = (lineSent ? 'ส่งคำขอ SOS ผ่าน LINE แล้ว' : 'ยังยืนยันการส่ง LINE ไม่ได้') +
+                (buzzerConfirmed ? ' · ตู้ตอบรับคำสั่งเปิดเสียงแล้ว' : ' · ยังยืนยันเสียงที่ตู้ไม่ได้') +
+                (lineSent && buzzerConfirmed ? '' : ' กรุณาเรียกครูใกล้ที่สุดทันที');
+            this.showToast(message, lineSent && buzzerConfirmed ? 'success' : lineSent || buzzerConfirmed ? 'warning' : 'danger');
+        }
+        return { line, buzzer };
     },
 
     // Builder: SOS Emergency Flex Message (Clean, High Contrast, Prominent Student Profile)

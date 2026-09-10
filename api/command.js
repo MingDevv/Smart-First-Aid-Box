@@ -318,7 +318,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method !== 'POST') {
-        return res.status(405).json({ success: false, error: 'Method Not Allowed', mqttConfigured: mqttConfigured() });
+        return res.status(405).json({ success: false, error: 'Method Not Allowed', mqttConfigured: mqttConfigured(), retrySafe: true });
     }
 
     const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown-ip';
@@ -327,7 +327,7 @@ export default async function handler(req, res) {
         return res.status(429).json({
             success: false,
             error: 'ส่งคำสั่งถี่เกินไป กรุณารอสักครู่แล้วลองใหม่',
-            mqttConfigured: mqttConfigured()
+            mqttConfigured: mqttConfigured(), retrySafe: true
         });
     }
 
@@ -337,12 +337,12 @@ export default async function handler(req, res) {
         return res.status(400).json({
             success: false,
             error: 'คำสั่งไม่ถูกต้อง (action ต้องเป็น open หรือ buzzer)',
-            mqttConfigured: mqttConfigured()
+            mqttConfigured: mqttConfigured(), retrySafe: true
         });
     }
 
     if (id !== undefined && !commandIdIsValid(id)) {
-        return res.status(400).json({ success: false, error: 'รหัสคำสั่งไม่ถูกต้อง', mqttConfigured: mqttConfigured() });
+        return res.status(400).json({ success: false, error: 'รหัสคำสั่งไม่ถูกต้อง', mqttConfigured: mqttConfigured(), retrySafe: true });
     }
 
     const baseTopic = (process.env.MQTT_BASE_TOPIC || 'crms6/firstaidbox/box1').trim().replace(/\/+$/, '');
@@ -357,7 +357,7 @@ export default async function handler(req, res) {
             return res.status(400).json({
                 success: false,
                 error: 'หมายเลขลิ้นชักต้องเป็น 1 หรือ 2',
-                mqttConfigured: mqttConfigured()
+                mqttConfigured: mqttConfigured(), retrySafe: true
             });
         }
         payload = { action: 'open', drawer: compartment };
@@ -366,7 +366,7 @@ export default async function handler(req, res) {
             return res.status(400).json({
                 success: false,
                 error: 'สถานะเสียงแจ้งเตือนต้องเป็น on หรือ off',
-                mqttConfigured: mqttConfigured()
+                mqttConfigured: mqttConfigured(), retrySafe: true
             });
         }
         payload = { action: 'buzzer', state };

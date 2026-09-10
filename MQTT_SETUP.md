@@ -44,6 +44,13 @@ deployment environment:
 
 Install dependencies with `npm ci`. `vercel.json` sets `api/command.js`
 `maxDuration` to **180 seconds**; the deployment must honor this setting.
+Enable **Fluid Compute** in the Vercel project's function settings and verify
+the deployed duration before connecting the real cabinet. Vercel's
+[current duration limits](https://vercel.com/docs/functions/configuring-functions/duration)
+(checked 2026-09-10) allow 300 seconds on Hobby with Fluid Compute. The older
+60-second Hobby limit is not the Fluid limit; a legacy non-Fluid deployment
+must be migrated or assessed separately. Do not shorten this handler to 60
+seconds while allowing firmware to advertise a 120-second motor budget.
 No frontend listener credential is required to issue commands or read status:
 a fresh browser obtains readiness from `GET /api/command`.
 
@@ -72,6 +79,8 @@ ESP32 publishes status every second with `protocol:2`, `online`, `microbit`,
 status is missing, older than five seconds, offline, the wrong protocol, or has
 an invalid timing budget. `open` additionally requires `ready:true`; buzzer
 commands can run while the motor is busy. NTP must be working on ESP32.
+If MQTT shows offline despite working LAN control, check ESP32 NTP access
+(UDP 123), broker access and the client/server clock before changing budgets.
 
 Before each command the browser reads this metadata. With firmware budget `B`:
 
@@ -97,6 +106,14 @@ A lost response or timeout after publishing remains uncertain. The browser
 or re-dispatch after a refusal. Inspect the cabinet before starting a new
 command. A response marked `retrySafe:true` means the server/browser had not
 sent an actuator command.
+Validation failures (400) and rate-limit refusals (429) also carry this flag;
+wait for the rate-limit window or correct the request before trying again.
+
+SOS reports LINE acceptance and the cabinet's buzzer ACK separately. A failed
+LINE request never silently becomes a Demo notification. In explicit Demo
+mode, no LINE request is sent. The teacher dashboard provides **หยุดเสียง SOS
+ที่ตู้**, which sends `buzzer:off` and waits for the matching ACK; check the
+actual speaker as well. Stopping sound does not retract the LINE message.
 
 The Pi's SQLite journal survives restarts. ESP32's shared deduplication ring
 covers eight recent IDs from both MQTT and LAN, refuses ID reuse for a different
@@ -140,6 +157,17 @@ Expected after paired firmware/broker setup: `mqttConfigured:true`,
 Then perform the operator-present physical checks in the Pi guide from **both**
 clients. Keep the Pi LAN connected and disconnect internet to prove offline
 local control separately.
+
+**Open hardware gate: MQTT enabled + WAN down.** The current ESP32 sketch calls
+the synchronous MQTT connect/TLS path from the same loop that serves HTTP and
+drains UART. `setSocketTimeout(2)` does not bound DNS/TCP/TLS time. Therefore
+offline Pi responsiveness with MQTT configured is **not yet validated**.
+Keep Wi-Fi/LAN up, block only WAN/DNS/broker access, poll `/status` during
+reconnect attempts, and measure HTTP latency, UART heartbeat loss and an
+operator-supervised open/SOS/stop cycle. Include WAN restoration and check for
+delayed or duplicate actuation. Failure requires moving MQTT I/O off the
+HTTP/UART loop; increasing retry backoff alone does not prove isolation.
+Do not close this gate using a test with `SFAB_MQTT_HOST` empty.
 
 ## Remaining deployment limits
 

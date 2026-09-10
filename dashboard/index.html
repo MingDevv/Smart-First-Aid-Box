@@ -60,6 +60,13 @@
                     </div>
                 </header>
 
+                <section class="db-card" aria-label="ควบคุมเสียงฉุกเฉิน" style="margin-bottom:20px; padding:18px;">
+                    <button class="dashboard-action" id="stop-sos-button" type="button" onclick="stopSosBuzzer()" style="min-height:44px;">
+                        <span class="material-symbols-rounded" aria-hidden="true">volume_off</span>หยุดเสียง SOS ที่ตู้
+                    </button>
+                    <p id="stop-sos-status" role="status" style="margin:10px 0 0;">ใช้เมื่อครูรับทราบเหตุแล้ว การหยุดเสียงไม่ยกเลิกข้อความ LINE ที่ส่งไป</p>
+                </section>
+
                 <div id="alerts-panel"></div>
 
                 <section class="stats-grid" aria-label="สถิติสำคัญ">
@@ -119,6 +126,27 @@
     <script src="../js/api-bridge.js"></script>
     <script src="../js/notification.js"></script>
     <script>
+        async function stopSosBuzzer() {
+            const button = document.getElementById('stop-sos-button');
+            const status = document.getElementById('stop-sos-status');
+            if (button.disabled) return;
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+            status.textContent = 'กำลังรอตู้ยืนยันหยุดเสียง...';
+            try {
+                const result = await ApiBridge.triggerBuzzer('off');
+                status.textContent = result.mode === 'simulation'
+                    ? 'โหมดสาธิต: จำลองการหยุดเสียง ไม่มีการสั่งตู้จริง'
+                    : result.success === true ? 'ตู้ยืนยันหยุดเสียงแล้ว กรุณาตรวจเสียงที่หน้างาน'
+                    : 'ยังยืนยันการหยุดเสียงไม่ได้ กรุณาตรวจตู้และแจ้งผู้ดูแล';
+            } catch {
+                status.textContent = 'ยังยืนยันการหยุดเสียงไม่ได้ กรุณาตรวจตู้และแจ้งผู้ดูแล';
+            } finally {
+                button.disabled = false;
+                button.removeAttribute('aria-busy');
+            }
+        }
+
         let currentPinInput = '';
 
         function updatePinDots() {

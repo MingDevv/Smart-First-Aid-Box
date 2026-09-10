@@ -259,17 +259,7 @@
 
             try {
                 const payload = NotificationService.buildSosFlexMessage(studentName, new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }));
-                const [notificationResult, buzzerResult] = await Promise.all([
-                    NotificationService.sendLineNotification(payload),
-                    ApiBridge.triggerBuzzer('on')
-                ]);
-
-                if (notificationResult.success || notificationResult.mode === 'simulation' || buzzerResult.success || buzzerResult.mode === 'simulation') {
-                    NotificationService.showToast('ส่ง SOS ถึงครูพยาบาลเรียบร้อยแล้ว', 'success');
-                } else {
-                    NotificationService.showToast('ส่งคำขอได้ไม่ครบ กรุณาเรียกครูใกล้ที่สุดทันที', 'danger');
-                }
-
+                await NotificationService.sendSos(payload);
                 StorageService.addHistoryEntry({
                     woundType: 'sos_emergency',
                     woundNameTh: 'ขอความช่วยเหลือฉุกเฉิน',

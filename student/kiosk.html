@@ -158,15 +158,7 @@
             button.disabled = true;
             button.setAttribute('aria-busy', 'true');
             try {
-                const [notificationResult, buzzerResult] = await Promise.all([
-                    NotificationService.sendLineNotification(NotificationService.buildSosFlexMessage(studentName)),
-                    ApiBridge.triggerBuzzer('on')
-                ]);
-                if (notificationResult.success || notificationResult.mode === 'simulation' || buzzerResult.success || buzzerResult.mode === 'simulation') {
-                    NotificationService.showToast('ส่ง SOS ถึงครูพยาบาลเรียบร้อยแล้ว', 'success');
-                } else {
-                    NotificationService.showToast('ส่งคำขอได้ไม่ครบ กรุณาเรียกครูใกล้ที่สุดทันที', 'danger');
-                }
+                await NotificationService.sendSos(NotificationService.buildSosFlexMessage(studentName));
             } catch (error) {
                 console.error('[Kiosk] SOS failed:', error);
                 NotificationService.showToast('ส่ง SOS ไม่สำเร็จ กรุณาเรียกครูใกล้ที่สุดทันที', 'danger');

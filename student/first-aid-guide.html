@@ -621,7 +621,8 @@
                     timeStr: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
                 });
                 const result = await NotificationService.sendLineNotification(payload);
-                if (result.success || result.mode === 'simulation') NotificationService.showToast('บันทึกและแจ้งครูพยาบาลเรียบร้อยแล้ว', 'success');
+                if (result.mode === 'simulation') NotificationService.showToast('บันทึกแล้ว · การแจ้งเตือนเป็นโหมดสาธิต ไม่มีการส่ง LINE จริง', 'warning');
+                else if (result.success === true) NotificationService.showToast('บันทึกแล้ว และส่งคำขอผ่าน LINE แล้ว', 'success');
                 else NotificationService.showToast(result.error || 'บันทึกแล้ว แต่ส่งการแจ้งเตือนไม่สำเร็จ', 'warning');
             } catch (error) {
                 console.error('[Guide] Notification failed:', error);
