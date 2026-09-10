@@ -54,7 +54,10 @@ const char* MQTT_HOST = SFAB_MQTT_HOST;
 const uint16_t MQTT_PORT = 8883;
 const char* MQTT_USER = SFAB_MQTT_USER;
 const char* MQTT_PASS = SFAB_MQTT_PASSWORD;
-const char* BASE_TOPIC = "crms6/firstaidbox/box1";
+#ifndef SFAB_MQTT_BASE_TOPIC
+#define SFAB_MQTT_BASE_TOPIC "crms6/firstaidbox/box1"
+#endif
+const char* BASE_TOPIC = SFAB_MQTT_BASE_TOPIC;
 
 // คำสั่งที่เก่ากว่านี้จะถูกทิ้ง กันคำสั่งค้างคิวตอนเน็ตหลุดแล้วเด้งกลับมาเปิดตู้เองตอนไม่มีคนอยู่
 const uint32_t MAX_CMD_AGE_MS = 30000;
@@ -84,6 +87,7 @@ char statusTopic[128];
 
 unsigned long lastMqttAttempt = 0;
 unsigned long mqttSubscribedAt = 0;
+unsigned long lastStatusPublish = 0;
 
 struct PendingMqttEvent {
   char eventName[24];
@@ -146,8 +150,10 @@ void publishEvent(const char* eventName, int drawer, const char* commandId = nul
   if (!mqtt.connected()) return;
 
   JsonDocument doc;
+  doc["protocol"] = 2;
   doc["event"] = eventName;
-  if (drawer > 0) doc["drawer"] = drawer;
+  if (drawer > 0 && drawer <= 2) doc["drawer"] = drawer;
+  if (drawer == 3 || drawer == 4) doc["state"] = drawer == 3 ? "on" : "off";
   if (commandId != nullptr && commandId[0] != '\0') doc["id"] = commandId;
   if (reason != nullptr && reason[0] != '\0') doc["reason"] = reason;
   doc["ts"] = utcNowMs();
@@ -190,13 +196,19 @@ void expirePendingCommands() {
 }
 
 void publishOnlineStatus() {
+  lastStatusPublish = millis();
   JsonDocument doc;
+  doc["protocol"] = 2;
+  doc["microbit"] = readiness.connected(millis()) ? "connected" : "unknown";
+  doc["ready"] = readyForCommand();
+  doc["ackTimeoutMs"] = COMMAND_ACK_TIMEOUT_MS;
+  doc["reason"] = readiness.needsResync() ? "awaiting_new_ready_epoch" : "";
   doc["online"] = true;
   doc["ip"] = WiFi.localIP().toString();
   doc["rssi"] = WiFi.RSSI();
   doc["ts"] = utcNowMs();
 
-  char buf[192];
+  char buf[384];
   size_t n = serializeJson(doc, buf);
   // retained = หน้าเว็บที่เพิ่งเปิดจะรู้สถานะทันทีโดยไม่ต้องรอ ไม่ต้อง poll เหมือนเดิม
   mqtt.publish(statusTopic, (const uint8_t*)buf, n, true);
@@ -224,10 +236,32 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
     return;
   }
 
+  if (doc["protocol"] != 2) {
+    enqueueEvent("cmd_rejected", 0, cmdId, "unsupported_protocol");
+    return;
+  }
+  int requestedChannel = 0;
+  if (strcmp(action, "open") == 0 && doc["drawer"].is<int>()) {
+    int drawer = doc["drawer"].as<int>();
+    if (drawer == 1 || drawer == 2) requestedChannel = drawer;
+  } else if (strcmp(action, "buzzer") == 0) {
+    const char* state = doc["state"] | "";
+    if (strcmp(state, "on") == 0) requestedChannel = 3;
+    if (strcmp(state, "off") == 0) requestedChannel = 4;
+  }
+  if (requestedChannel == 0) {
+    enqueueEvent("cmd_rejected", 0, cmdId, "invalid_action");
+    return;
+  }
+
   // ตรวจซ้ำก่อน guard อายุ: redelivery ของคำสั่งที่ทำเสร็จแล้วปลอดภัยที่จะ ACK ซ้ำ
   // แต่ห้ามส่ง UART ซ้ำเด็ดขาด เพราะ browser อาจกำลัง fallback มาทาง LAN ด้วย id เดิม
   CommandRecord* duplicate = findCommand(cmdId);
   if (duplicate != nullptr) {
+    if (duplicate->drawer != requestedChannel) {
+      enqueueEvent("cmd_rejected", 0, cmdId, "id_conflict");
+      return;
+    }
     Serial.printf("[MQTT] ไม่ทำคำสั่ง %s ซ้ำ\n", cmdId);
     if (duplicate->rejected) {
       enqueueEvent("cmd_rejected", duplicate->drawer, duplicate->id, "microbit_rejected");
@@ -235,6 +269,8 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
       enqueueEvent("ack_timeout", duplicate->drawer, duplicate->id, "uart_timeout");
     } else if (duplicate->completed && duplicate->drawer > 0 && duplicate->drawer <= 2) {
       enqueueEvent("drawer_opened", duplicate->drawer, duplicate->id);
+    } else if (duplicate->completed && duplicate->drawer >= 3) {
+      enqueueEvent("buzzer_set", duplicate->drawer, duplicate->id);
     }
     return;
   }
@@ -540,6 +576,7 @@ void loop() {
   mqtt.loop();
   // ห้าม publish จาก PubSubClient callback โดยตรง เพราะใช้ packet buffer ชุดเดียวกัน
   flushPendingEvents();
+  if (mqtt.connected() && millis() - lastStatusPublish >= 1000) publishOnlineStatus();
 
   // Read incoming events from micro:bit via Serial2
   while (Serial2.available()) {
@@ -576,12 +613,15 @@ void loop() {
       String id = line.substring(11);
       CommandRecord* command = findCommand(id.c_str());
       int channel = line.charAt(9) == '1' ? 3 : 4;
-      if (command != nullptr && !command->expired && command->drawer == channel) command->completed = true;
+      if (command != nullptr && !command->expired && !command->rejected && !command->completed && command->drawer == channel) {
+        command->completed = true;
+        publishEvent("buzzer_set", channel, command->id);
+      }
     } else if (line.startsWith("DONE1:") || line.startsWith("DONE2:")) {
       int drawerNum = line.charAt(4) - '0';
       String id = line.substring(6);
       CommandRecord* command = findCommand(id.c_str());
-      if (command != nullptr && !command->expired && !command->completed && command->drawer == drawerNum) {
+      if (command != nullptr && !command->expired && !command->rejected && !command->completed && command->drawer == drawerNum) {
         command->completed = true;
         publishEvent("drawer_opened", drawerNum, command->id);
       }

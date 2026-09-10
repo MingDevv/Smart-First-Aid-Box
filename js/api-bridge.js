@@ -1,10 +1,8 @@
 // JS/API-BRIDGE.JS
 //
-// ขาลง (สั่งงานตู้ยา) มีสองเส้นทาง เรียงตามลำดับที่ลอง:
-//   1. MQTT ผ่าน /api/command — ใช้ได้จากทุกที่ที่มีเน็ต ไม่ติด mixed content
-//   2. HTTP ตรงไปที่ ESP32 ในวง LAN — ใช้ได้เฉพาะตอนเปิดหน้าเว็บผ่าน http:// ในวงเดียวกัน
-//      แต่ไม่พึ่งอินเทอร์เน็ต จึงเก็บไว้เป็นเส้นสำรองสำหรับวันที่เน็ตโรงเรียนล่ม
-//   3. โหมดจำลอง — ใช้ได้เมื่อ server ยืนยันว่าไม่ได้ตั้ง MQTT และไม่ได้ตั้ง LAN เท่านั้น
+// Pi uses the local service. Vercel uses MQTT with protocol-2 readiness and ACKs.
+// An explicitly unconfigured MQTT server permits HTTP-LAN fallback. An uncertain
+// command never falls back to another actuator transport. Demo is explicit only.
 const ApiBridge = {
     isPiLocal() {
         return window.SFAB_RUNTIME?.transport === 'pi-local';
@@ -49,10 +47,8 @@ const ApiBridge = {
         } finally { clearTimeout(timeout); }
     },
 
-    // 2.5s connect + 5.5s device ACK = server budget สูงสุดราว 8s
-    // browser ต้องรอนานกว่านั้นเสมอ ไม่เช่นนั้น server อาจ publish หลัง browser fallback ไปแล้ว
-    BROWSER_COMMAND_TIMEOUT_MS: 9500,
-    DRAWER_ACK_TIMEOUT_MS: 7500,
+    // GET may establish MQTT and receive retained hardware metadata (4.5s + 2s).
+    MQTT_STATUS_TIMEOUT_MS: 8000,
 
     // Check if hardware URL is configured and valid
     isHardwareConfigured(settings) {
@@ -97,155 +93,102 @@ const ApiBridge = {
         }
     },
 
-    // server จะตอบ success สำหรับการเปิดลิ้นชักก็ต่อเมื่อมันได้รับ drawer_opened id เดียวกัน
+    isCommandAck(ack, body) {
+        return ack?.protocol === 2 && ack.id === body.id && (body.action === 'open'
+            ? ack.event === 'drawer_opened' && ack.drawer === body.drawer
+            : ack.event === 'buzzer_set' && ack.state === body.state);
+    },
+
+    // Keep the deadline active through JSON body consumption, not only response headers.
+    async fetchJson(url, options, timeoutMs) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const response = await fetch(url, { ...options, signal: controller.signal });
+            const data = await response.json();
+            if (controller.signal.aborted) throw new Error('Response deadline exceeded');
+            return { response, data };
+        } finally { clearTimeout(timeout); }
+    },
+
     async sendMqttCommand(body) {
-        const directAckPromise = body.action === 'open' &&
-            window.MqttBridge &&
-            typeof window.MqttBridge.waitForDrawerOpened === 'function'
-            ? window.MqttBridge.waitForDrawerOpened(body.id, body.drawer, this.DRAWER_ACK_TIMEOUT_MS)
-            : Promise.resolve(null);
+        let hardware;
+        try {
+            const { response, data } = await this.fetchJson('/api/command', {}, this.MQTT_STATUS_TIMEOUT_MS);
+            if (response.ok && data.mqttConfigured === false) {
+                return { success: false, mode: 'mqtt', mqttConfigured: false, retrySafe: true,
+                    error: 'ยังไม่ได้ตั้งค่า MQTT บนเซิร์ฟเวอร์' };
+            }
+            if (!response.ok || !data.connected || data.protocol !== 2 ||
+                !Number.isInteger(data.ackTimeoutMs) || data.ackTimeoutMs < 3000 || data.ackTimeoutMs > 120000 ||
+                data.commandTimeoutMs !== data.ackTimeoutMs + 10000 || (body.action === 'open' && !data.ready)) {
+                throw new Error('Cabinet not ready');
+            }
+            hardware = data;
+        } catch {
+            return { success: false, mode: 'mqtt', retrySafe: true,
+                error: 'ยังไม่ได้ส่งคำสั่ง ตู้ยังไม่พร้อมหรือเชื่อมต่อ MQTT ไม่ได้ ตรวจการตั้งค่าแล้วลองใหม่' };
+        }
 
         try {
-            const response = await this.fetchWithTimeout('/api/command', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            }, this.BROWSER_COMMAND_TIMEOUT_MS);
-            const data = await response.json().catch(() => ({}));
-
-            if (body.action === 'open') {
-                if (response.ok && data.success && this.isDrawerAck(data.ack, body.id, body.drawer)) {
-                    return {
-                        success: true,
-                        mode: 'mqtt',
-                        compartment: data.compartment,
-                        commandId: body.id,
-                        mqttConfigured: true
-                    };
-                }
-
-                // ถ้าหน้านี้มี subscriber ของตัวเอง event ตรงจาก broker ก็เป็นหลักฐานได้เช่นกัน
-                if (data.mqttConfigured !== false) {
-                    const directAck = await directAckPromise;
-                    if (this.isDrawerAck(directAck, body.id, body.drawer)) {
-                        return {
-                            success: true,
-                            mode: 'mqtt',
-                            compartment: Number(body.drawer),
-                            commandId: body.id,
-                            mqttConfigured: true
-                        };
-                    }
-                }
-
-                return {
-                    success: false,
-                    mode: 'mqtt',
-                    commandId: body.id,
-                    mqttConfigured: data.mqttConfigured,
-                    error: data.error || `MQTT ตอบกลับสถานะรหัส: ${response.status}`
-                };
+            const { response, data } = await this.fetchJson('/api/command', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...body, ackTimeoutMs: hardware.ackTimeoutMs })
+            }, hardware.commandTimeoutMs + 5000);
+            if (response.ok && data.success && this.isCommandAck(data.ack, body)) {
+                return { success: true, mode: 'mqtt', compartment: body.drawer, commandId: body.id, mqttConfigured: true };
             }
-
-            if (response.ok && data.success) {
-                return { success: true, mode: 'mqtt', commandId: body.id, mqttConfigured: true };
-            }
-            return {
-                success: false,
-                mode: 'mqtt',
-                commandId: body.id,
-                mqttConfigured: data.mqttConfigured,
-                error: data.error || `MQTT ตอบกลับสถานะรหัส: ${response.status}`
-            };
-        } catch (err) {
-            if (body.action === 'open') {
-                const directAck = await directAckPromise;
-                if (this.isDrawerAck(directAck, body.id, body.drawer)) {
-                    return {
-                        success: true,
-                        mode: 'mqtt',
-                        compartment: Number(body.drawer),
-                        commandId: body.id,
-                        mqttConfigured: true
-                    };
-                }
-            }
-            return {
-                success: false,
-                mode: 'mqtt',
-                commandId: body.id,
-                // ไม่รู้ว่า server ตั้ง MQTT หรือไม่ ต้องถือว่าอาจตั้งไว้และห้ามรายงาน simulation success
-                mqttConfigured: undefined,
-                error: err.name === 'AbortError'
-                    ? 'รอคำยืนยันจากตู้ยาผ่าน MQTT นานเกินไป'
-                    : 'ส่งคำสั่งผ่าน MQTT ไม่สำเร็จ'
-            };
+            return { success: false, mode: 'mqtt', commandId: body.id, mqttConfigured: true,
+                retrySafe: data.retrySafe === true,
+                error: data.error || 'ยังยืนยันผลจากตู้ยาไม่ได้ กรุณาตรวจตู้ก่อน ห้ามสั่งซ้ำ' };
+        } catch {
+            return { success: false, mode: 'mqtt', commandId: body.id, mqttConfigured: true,
+                error: 'การเชื่อมต่อ MQTT ขัดข้อง ผลคำสั่งยังไม่แน่นอน กรุณาตรวจตู้ก่อน ห้ามสั่งซ้ำ' };
         }
     },
 
-    async sendLanOpen(baseUrl, drawer, commandId) {
-        const deadline = Date.now() + this.DRAWER_ACK_TIMEOUT_MS;
-        const openUrl = `${baseUrl}/open?drawer=${drawer}&id=${encodeURIComponent(commandId)}`;
-
-        try {
-            const response = await this.fetchWithTimeout(openUrl, { method: 'GET' }, 2000);
-            const data = await response.json().catch(() => ({}));
-            if (response.status === 200 && this.isDrawerAck(data, commandId, drawer)) {
-                return { success: true, mode: 'production', compartment: drawer, commandId };
-            }
-            if (response.status !== 202) {
-                return {
-                    success: false,
-                    mode: 'production',
-                    compartment: drawer,
-                    commandId,
-                    error: data.error || `ตู้ยาตอบกลับสถานะรหัส: ${response.status}`
-                };
-            }
-
-            while (Date.now() < deadline) {
-                await new Promise(resolve => setTimeout(resolve, 250));
-                const remaining = deadline - Date.now();
-                if (remaining <= 0) break;
-
-                const statusResponse = await this.fetchWithTimeout(
-                    `${baseUrl}/command-status?id=${encodeURIComponent(commandId)}`,
-                    { method: 'GET' },
-                    Math.min(1000, remaining)
-                );
-                const statusData = await statusResponse.json().catch(() => ({}));
-
-                if (statusResponse.status === 200 && this.isDrawerAck(statusData, commandId, drawer)) {
-                    return { success: true, mode: 'production', compartment: drawer, commandId };
-                }
-                if (statusResponse.status !== 202 && statusResponse.status !== 404) {
-                    return {
-                        success: false,
-                        mode: 'production',
-                        compartment: drawer,
-                        commandId,
-                        error: statusData.error || `ตู้ยาตอบกลับสถานะรหัส: ${statusResponse.status}`
-                    };
-                }
-            }
-
-            return {
-                success: false,
-                mode: 'production',
-                compartment: drawer,
-                commandId,
-                error: 'ไม่พบคำยืนยันว่าลิ้นชักเปิดภายในเวลาที่กำหนด'
-            };
-        } catch (err) {
-            console.warn(`[ApiBridge Error] Connection to ESP32 failed at ${baseUrl}:`, err);
-            return {
-                success: false,
-                mode: 'error',
-                compartment: drawer,
-                commandId,
-                error: 'ไม่สามารถเชื่อมต่อกับตู้ยาได้ กรุณาตรวจสอบสายสัญญาณหรือ WiFi'
-            };
+    async sendLanCommand(baseUrl, body) {
+        // HTTPS Vercel cannot call an HTTP cabinet. The Pi kiosk provides the offline path.
+        if (window.location?.protocol === 'https:' && baseUrl.startsWith('http:')) {
+            return { success: false, mode: 'production', retrySafe: true,
+                error: 'เว็บ HTTPS ต้องตั้งค่า MQTT หรือใช้หน้าตู้บน Pi สำหรับการสั่งงานใน LAN' };
         }
+        let budget;
+        try {
+            const { response, data } = await this.fetchJson(`${baseUrl}/status`, {}, 2500);
+            if (!response.ok || data.protocol !== 2 || data.microbit !== 'connected' ||
+                !Number.isInteger(data.ackTimeoutMs) || data.ackTimeoutMs < 3000 || data.ackTimeoutMs > 120000 ||
+                (body.action === 'open' && !data.ready)) throw new Error('Not ready');
+            budget = data.ackTimeoutMs + 3000;
+        } catch {
+            return { success: false, mode: 'production', retrySafe: true, error: 'ยังไม่ได้ส่งคำสั่ง ตู้ใน LAN ยังไม่พร้อม' };
+        }
+        const deadline = Date.now() + budget;
+        let reply;
+        try {
+            const path = body.action === 'open' ? `/open?drawer=${body.drawer}` : `/buzzer?state=${body.state === 'on' ? 1 : 0}`;
+            reply = await this.fetchJson(`${baseUrl}${path}&id=${encodeURIComponent(body.id)}`, {}, 2000);
+        } catch { /* Possibly sent. From here, query only; never issue another actuator request. */ }
+        while (Date.now() < deadline) {
+            if (reply?.response.ok && reply.data.success === true && this.isCommandAck(reply.data, body)) {
+                return { success: true, mode: 'production', compartment: body.drawer, commandId: body.id };
+            }
+            if (reply?.data.actuated === false && reply.data.id === body.id) {
+                return { success: false, mode: 'production', error: 'ตู้ปฏิเสธคำสั่ง กรุณาตรวจสถานะหน้าตู้' };
+            }
+            await new Promise(resolve => setTimeout(resolve, 250));
+            const remaining = deadline - Date.now();
+            if (remaining <= 0) break;
+            try {
+                reply = await this.fetchJson(`${baseUrl}/command-status?id=${encodeURIComponent(body.id)}`, {}, Math.min(1000, remaining));
+            } catch { reply = null; }
+        }
+        return { success: false, mode: 'production', commandId: body.id,
+            error: 'ยังยืนยันผลจากตู้ไม่ได้ กรุณาตรวจตู้ก่อน ห้ามสั่งซ้ำ' };
+    },
+
+    sendLanOpen(baseUrl, drawer, commandId) {
+        return this.sendLanCommand(baseUrl, { action: 'open', drawer, id: commandId });
     },
 
     isDemoMode(settings) {
@@ -273,22 +216,19 @@ const ApiBridge = {
             } catch { return { connected: false, mode: 'pi-local' }; }
         }
 
-        // โหมดสาธิตปิดอยู่ -> ต้องตรวจสอบการเชื่อมต่อฮาร์ดแวร์จริงผ่าน MQTT / LAN
-        if (this.isMqttListenerConfigured() && window.MqttBridge.isOnline()) {
-            return { connected: true, mode: 'mqtt' };
-        }
-
-        if (this.isHardwareConfigured(settings)) {
-            const url = settings.esp32Url.trim();
-            try {
-                const response = await this.fetchWithTimeout(`${url}/status`, {}, 1500);
-                if (response.ok) return { connected: true, mode: 'production' };
-                return { connected: false, mode: 'error', error: `HTTP ${response.status}` };
-            } catch (e) {
-                console.log('[ApiBridge] Cannot connect to ESP32 controller.');
-                return { connected: false, mode: 'error', error: e.message };
+        try {
+            const { response, data } = await this.fetchJson('/api/command', {}, this.MQTT_STATUS_TIMEOUT_MS);
+            if (data.mqttConfigured !== false) {
+                return { connected: response.ok && data.connected === true,
+                    ready: data.ready === true, reason: data.reason, mode: 'mqtt' };
             }
-        }
+            if (this.isHardwareConfigured(settings) &&
+                !(window.location?.protocol === 'https:' && settings.esp32Url.startsWith('http:'))) {
+                const lan = await this.fetchJson(`${settings.esp32Url.trim()}/status`, {}, 2500);
+                return { connected: lan.response.ok && lan.data.protocol === 2 && lan.data.microbit === 'connected',
+                    ready: lan.data.ready === true, mode: 'production' };
+            }
+        } catch { return { connected: false, mode: 'mqtt' }; }
 
         return { connected: false, mode: 'offline', error: 'ตู้ไม่ได้เชื่อมต่อฮาร์ดแวร์' };
     },
@@ -313,10 +253,11 @@ const ApiBridge = {
             return { success: true, mode: 'simulation', compartment: compartmentNum };
         }
 
+        if (!Object.hasOwn(woundCompartmentMap, woundId)) {
+            return { success: false, mode: this.isPiLocal() ? 'pi-local' : 'mqtt', retrySafe: true,
+                error: 'ประเภทแผลนี้ไม่มีช่องยารองรับ' };
+        }
         if (this.isPiLocal()) {
-            if (!Object.hasOwn(woundCompartmentMap, woundId)) {
-                return { success: false, mode: 'pi-local', error: 'ประเภทแผลนี้ไม่มีช่องยารองรับ' };
-            }
             return this.sendLocalCommand({ action: 'open', drawer: compartmentNum, id: commandId });
         }
 
@@ -333,9 +274,10 @@ const ApiBridge = {
             return { success: true, mode: 'mqtt', compartment: mqttResult.compartment || compartmentNum };
         }
 
-        if (this.isHardwareConfigured(settings)) {
-            const lanRes = await this.sendLanOpen(settings.esp32Url.trim(), compartmentNum, commandId);
-            if (lanRes.success) return lanRes;
+        // Only an explicitly unconfigured cloud path may dispatch via LAN.
+        // Timeout/refusal after publishing must not start a second attempt on another transport.
+        if (mqttResult.mqttConfigured === false && this.isHardwareConfigured(settings)) {
+            return this.sendLanOpen(settings.esp32Url.trim(), compartmentNum, commandId);
         }
 
         // ปิดโหมดสาธิตอยู่และส่งสัญญาณฮาร์ดแวร์จริงไม่สำเร็จ -> คืนค่าความล้มเหลวตามจริง!
@@ -343,6 +285,7 @@ const ApiBridge = {
             success: false,
             mode: 'mqtt',
             compartment: compartmentNum,
+            retrySafe: mqttResult.retrySafe === true,
             error: mqttResult.error || 'ตู้ยาไม่ยืนยันการเปิดลิ้นชัก กรุณาตรวจสอบการเชื่อมต่อตู้ยา'
         };
     },
@@ -351,7 +294,6 @@ const ApiBridge = {
     async triggerBuzzer(state) {
         const settings = this.getSettings();
         const isDemo = this.isDemoMode(settings);
-        const stateParam = state === 'on' ? '1' : '0';
         const commandId = this.createCommandId();
 
         if (isDemo) {
@@ -372,21 +314,13 @@ const ApiBridge = {
         });
         if (mqttResult.success) return { success: true, mode: 'mqtt' };
 
-        if (this.isHardwareConfigured(settings)) {
-            const url = settings.esp32Url.trim();
-            try {
-                const response = await this.fetchWithTimeout(
-                    `${url}/buzzer?state=${stateParam}&id=${encodeURIComponent(commandId)}`,
-                    { method: 'GET' },
-                    2000
-                );
-                if (response.ok) return { success: true, mode: 'production' };
-            } catch (err) {
-                console.warn(`[ApiBridge Error] ESP32 Buzzer link failed at ${url}:`, err);
-            }
+        if (mqttResult.mqttConfigured === false && this.isHardwareConfigured(settings)) {
+            return this.sendLanCommand(settings.esp32Url.trim(), {
+                action: 'buzzer', state: state === 'on' ? 'on' : 'off', id: commandId
+            });
         }
 
-        return { success: false, mode: 'mqtt', error: mqttResult.error || 'ไม่สามารถส่งสัญญาณไซเรนไปยังอุปกรณ์ได้' };
+        return { success: false, mode: 'mqtt', retrySafe: mqttResult.retrySafe === true, error: mqttResult.error || 'ไม่สามารถส่งสัญญาณไซเรนไปยังอุปกรณ์ได้' };
     }
 };
 

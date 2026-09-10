@@ -16,11 +16,12 @@ const MAX_REQUESTS_PER_IP = 10;
 // เพดานรวมทุก IP กันกรณีมีคนยิงจากหลายที่พร้อมกัน เซอร์โวจะได้ไม่ถูกสั่งรัว
 const MAX_REQUESTS_GLOBAL = 12;
 
-// micro:bit หมุนเซอร์โวและ sleep 3 วินาทีก่อนตอบ OK จึงต้องเผื่อเวลารับ event
-// แต่ยังคุมงบรวมฝั่งเซิร์ฟเวอร์ให้สั้นกว่า timeout 9.5 วินาทีของเบราว์เซอร์
+// Firmware advertises its measured motor budget. Include connect/status overhead
+// in the browser deadline; Vercel allows 180 seconds for this handler.
 const MQTT_CONNECT_TIMEOUT_MS = 4500;
 const MQTT_PUBLISH_TIMEOUT_MS = 2500;
-const DEFAULT_DRAWER_ACK_TIMEOUT_MS = 7500;
+const MQTT_STATUS_TIMEOUT_MS = 2000;
+const STATUS_MAX_AGE_MS = 5000;
 
 const rateLimitMap = new Map();
 let globalWindow = { count: 0, resetTime: 0 };
@@ -50,10 +51,26 @@ function mqttConfigured() {
     return (process.env.MQTT_URL || '').trim() !== '';
 }
 
-function drawerAckTimeoutMs() {
-    // ใช้เฉพาะ test harness ลดเวลารอได้ โดย production ไม่ต้องตั้งค่านี้
-    const override = Number(process.env.MQTT_DRAWER_ACK_TIMEOUT_MS);
-    return Number.isFinite(override) && override >= 100 ? override : DEFAULT_DRAWER_ACK_TIMEOUT_MS;
+function hardwareStatus(state) {
+    const data = state?.hardware;
+    const validBudget = Number.isInteger(data?.ackTimeoutMs) && data.ackTimeoutMs >= 3000 && data.ackTimeoutMs <= 120000;
+    const age = Date.now() - data?.ts;
+    const connected = !!(state?.ready && state.client.connected && data?.protocol === 2 &&
+        data.online === true && data.microbit === 'connected' && validBudget &&
+        Number.isFinite(age) && age >= -2000 && age <= STATUS_MAX_AGE_MS);
+    return { connected, ready: connected && data.ready === true, protocol: data?.protocol,
+        ackTimeoutMs: connected ? data.ackTimeoutMs : null,
+        commandTimeoutMs: connected ? data.ackTimeoutMs + 10000 : null,
+        reason: data?.reason === 'awaiting_new_ready_epoch' ? data.reason : '', mode: 'mqtt' };
+}
+
+async function readHardwareStatus(client) {
+    const deadline = Date.now() + MQTT_STATUS_TIMEOUT_MS;
+    while (activeClientState?.client === client && !activeClientState.hardware &&
+        client.connected && Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    return hardwareStatus(activeClientState?.client === client ? activeClientState : null);
 }
 
 function commandIdIsValid(value) {
@@ -75,25 +92,27 @@ let clientCreationCount = 0;
 const drawerAckWaiters = new Map();
 
 function settleDrawerAck(data) {
-    if (!data || !['drawer_opened', 'cmd_rejected', 'ack_timeout'].includes(data.event)) return;
+    if (!data || data.protocol !== 2 || !['drawer_opened', 'buzzer_set', 'cmd_rejected', 'ack_timeout'].includes(data.event)) return;
     if (!commandIdIsValid(data.id)) return;
 
     const waiters = drawerAckWaiters.get(data.id);
     if (!waiters) return;
 
     for (const waiter of [...waiters]) {
-        if (data.event === 'drawer_opened' && Number(data.drawer) !== waiter.drawer) continue;
+        if (data.event === 'drawer_opened' && (waiter.action !== 'open' || data.drawer !== waiter.drawer)) continue;
+        if (data.event === 'buzzer_set' && (waiter.action !== 'buzzer' || data.state !== waiter.state)) continue;
         waiter.finish(data);
     }
 }
 
-function createDrawerAckWaiter(commandId, drawer) {
+function createDrawerAckWaiter(command, timeoutMs) {
+    const commandId = command.id;
     let settled = false;
     let resolvePromise;
     const promise = new Promise((resolve) => { resolvePromise = resolve; });
 
     const waiter = {
-        drawer,
+        action: command.action, drawer: command.drawer, state: command.state,
         finish(value) {
             if (settled) return;
             settled = true;
@@ -114,7 +133,7 @@ function createDrawerAckWaiter(commandId, drawer) {
     }
     waiters.add(waiter);
 
-    const timer = setTimeout(() => waiter.finish(null), drawerAckTimeoutMs());
+    const timer = setTimeout(() => waiter.finish(null), timeoutMs);
     return { promise, cancel: () => waiter.finish(null) };
 }
 
@@ -180,13 +199,15 @@ async function getClient(baseTopic) {
         });
         clientCreationCount++;
 
-        const state = { client, baseTopic, ready: false };
+        const state = { client, baseTopic, ready: false, hardware: null };
         activeClientState = state;
 
-        client.on('message', (topic, payload) => {
-            if (topic !== `${baseTopic}/evt`) return;
+        client.on('message', (topic, payload, packet) => {
             try {
-                settleDrawerAck(JSON.parse(payload.toString()));
+                const data = JSON.parse(payload.toString());
+                if (topic === `${baseTopic}/status`) state.hardware = data;
+                // A retained result from an earlier connection is never completion evidence.
+                if (topic === `${baseTopic}/evt` && !packet.retain) settleDrawerAck(data);
             } catch {
                 console.warn('[MQTT] ignored non-JSON event');
             }
@@ -217,14 +238,16 @@ async function getClient(baseTopic) {
             const onPrematureClose = () => fail(new Error('MQTT connection closed before it was ready'));
             client.once('close', onPrematureClose);
             client.once('connect', () => {
-                client.subscribe(`${baseTopic}/evt`, { qos: 1 }, (err) => {
-                    if (err) return fail(err);
+                client.subscribe([`${baseTopic}/evt`, `${baseTopic}/status`], { qos: 1 }, (err, granted) => {
+                    if (err || granted?.length !== 2 || granted.some(g => g.qos > 2)) {
+                        return fail(new Error('MQTT event/status subscription denied'));
+                    }
                     if (settled) return;
                     settled = true;
                     clearTimeout(readyTimer);
                     client.removeListener('error', fail);
                     client.removeListener('close', onPrematureClose);
-                    client.on('error', (mqttError) => console.error('[MQTT] error:', mqttError.message));
+                    client.on('error', () => console.error('[MQTT] connection error'));
                     state.ready = true;
                     resolve(client);
                 });
@@ -283,11 +306,15 @@ export default async function handler(req, res) {
 
     // localStorage ไม่ใช่แหล่งจริงว่าขาลง MQTT ใช้ได้หรือไม่ — ให้ server รายงานเอง
     if (req.method === 'GET') {
-        return res.status(200).json({
-            success: true,
-            mqttConfigured: mqttConfigured(),
-            mqttConnected: !!(activeClientState?.ready && activeClientState.client.connected)
-        });
+        if (!mqttConfigured()) return res.status(200).json({ success: true, mqttConfigured: false, connected: false });
+        try {
+            const baseTopic = (process.env.MQTT_BASE_TOPIC || 'crms6/firstaidbox/box1').trim().replace(/\/+$/, '');
+            const client = await getClient(baseTopic);
+            const hardware = await readHardwareStatus(client);
+            return res.status(200).json({ success: true, mqttConfigured: true, mqttConnected: client.connected, ...hardware });
+        } catch {
+            return res.status(503).json({ success: false, mqttConfigured: true, connected: false });
+        }
     }
 
     if (req.method !== 'POST') {
@@ -304,7 +331,7 @@ export default async function handler(req, res) {
         });
     }
 
-    const { action, woundId, drawer, state, id } = req.body || {};
+    const { action, woundId, drawer, state, id, ackTimeoutMs } = req.body || {};
 
     if (action !== 'open' && action !== 'buzzer') {
         return res.status(400).json({
@@ -325,7 +352,7 @@ export default async function handler(req, res) {
     let compartment = null;
 
     if (action === 'open') {
-        compartment = Number(drawer) || WOUND_COMPARTMENT_MAP[woundId] || 1;
+        compartment = drawer === undefined ? WOUND_COMPARTMENT_MAP[woundId] : drawer;
         if (compartment !== 1 && compartment !== 2) {
             return res.status(400).json({
                 success: false,
@@ -347,7 +374,7 @@ export default async function handler(req, res) {
 
     // ใช้ id จาก browser ซ้ำในเส้น LAN ได้ ส่วนเวลาใช้ clock ของ server ที่เชื่อถือได้
     payload.id = commandId;
-    payload.ts = Date.now();
+    payload.protocol = 2;
 
     if (!mqttConfigured()) {
         return res.status(503).json({
@@ -360,57 +387,46 @@ export default async function handler(req, res) {
 
     let ackWaiter = null;
     let client = null;
+    let published = false;
 
     try {
         client = await getClient(baseTopic);
-        // เริ่มนับ 5.5 วินาทีหลัง connect สำเร็จ ไม่เอา cold-start budget มากินเวลา servo
-        ackWaiter = action === 'open' ? createDrawerAckWaiter(commandId, compartment) : null;
+        const hardware = await readHardwareStatus(client);
+        if (!hardware.connected || (action === 'open' && !hardware.ready) ||
+            (ackTimeoutMs !== undefined && ackTimeoutMs !== hardware.ackTimeoutMs)) {
+            return res.status(503).json({ success: false, mqttConfigured: true, commandId, retrySafe: true,
+                error: 'ยังไม่ได้ส่งคำสั่ง ตู้ยังไม่พร้อมหรือข้อมูลเวลารอเปลี่ยน กรุณาตรวจสถานะแล้วลองใหม่' });
+        }
+        // Reserve the waiter before publishing: a fast board may ACK before broker PUBACK.
+        ackWaiter = createDrawerAckWaiter(payload, hardware.ackTimeoutMs + 3000);
+        payload.ts = Date.now();
+        published = true;
         await publish(client, `${baseTopic}/cmd`, payload);
-        console.log(`[MQTT Command] published ${payload.id} action=${payload.action}`);
-
-        // PUBACK ยืนยันเพียงว่า broker รับข้อความ ไม่ได้แปลว่าลิ้นชักเปิด
-        if (action === 'open') {
-            const ack = await ackWaiter.promise;
-            if (!ack || ack.event !== 'drawer_opened') {
-                const rejected = ack?.event === 'cmd_rejected';
-                const uartTimedOut = ack?.event === 'ack_timeout';
-                return res.status(rejected ? 409 : 504).json({
-                    success: false,
-                    mqttConfigured: true,
-                    commandId,
-                    error: uartTimedOut
-                        ? 'ตู้ยาไม่ได้รับคำยืนยันจาก micro:bit ทาง UART'
-                        : rejected
-                            ? `ตู้ยาปฏิเสธคำสั่ง${ack.reason ? ` (${ack.reason})` : ''}`
-                            : 'ไม่พบคำยืนยันจากลิ้นชักภายในเวลาที่กำหนด — ระบบจะลองสั่งผ่านสาย LAN แทน'
-                });
-            }
-
-            return res.status(200).json({
-                success: true,
-                mode: 'mqtt',
-                mqttConfigured: true,
-                compartment,
-                commandId,
-                ack: { event: ack.event, id: ack.id, drawer: Number(ack.drawer) }
+        const ack = await ackWaiter.promise;
+        if (!ack || !['drawer_opened', 'buzzer_set'].includes(ack.event)) {
+            return res.status(ack?.event === 'cmd_rejected' ? 409 : 504).json({
+                success: false, mqttConfigured: true, commandId,
+                error: ack?.event === 'cmd_rejected'
+                    ? 'ตู้ปฏิเสธคำสั่ง กรุณาตรวจสถานะหน้าตู้'
+                    : 'ยังยืนยันผลจาก micro:bit ไม่ได้ กรุณาตรวจตู้ก่อน ห้ามสั่งซ้ำ'
             });
         }
-
         return res.status(200).json({
-            success: true,
-            mode: 'mqtt',
-            mqttConfigured: true,
-            commandId
+            success: true, mode: 'mqtt', mqttConfigured: true, compartment, commandId,
+            ack: { protocol: 2, event: ack.event, id: ack.id,
+                ...(action === 'open' ? { drawer: ack.drawer } : { state: ack.state }) }
         });
     } catch (err) {
         ackWaiter?.cancel();
         if (client) await retireClient(client);
-        console.error('[MQTT Command] publish failed:', err.message);
+        console.error('[MQTT Command] transport failed');
         return res.status(502).json({
             success: false,
             mqttConfigured: true,
             commandId,
-            error: 'ส่งคำสั่งขึ้น MQTT broker ไม่สำเร็จ — ระบบจะลองสั่งผ่านสาย LAN แทน'
+            retrySafe: !published,
+            error: published ? 'การเชื่อมต่อขัดข้อง ผลคำสั่งยังไม่แน่นอน กรุณาตรวจตู้ก่อน ห้ามสั่งซ้ำ'
+                : 'ยังไม่ได้ส่งคำสั่ง เชื่อมต่อ MQTT ไม่สำเร็จ กรุณาตรวจการตั้งค่า'
         });
     }
 }

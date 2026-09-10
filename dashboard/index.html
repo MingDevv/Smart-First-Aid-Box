@@ -252,7 +252,10 @@
             updated.textContent = `อัปเดต ${new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
             try {
                 const hardware = await ApiBridge.getHardwareStatus();
-                statusText.textContent = (hardware.mode === 'mqtt' || hardware.mode === 'production') ? 'ตู้พร้อมใช้งาน (ฮาร์ดแวร์)' : hardware.mode === 'simulation' ? 'โหมดสาธิต (เปิดใช้งาน)' : 'ตู้ไม่ได้เชื่อมต่อ';
+                statusText.textContent = hardware.mode === 'simulation' ? 'โหมดสาธิต (เปิดใช้งาน)'
+                    : hardware.reason === 'awaiting_new_ready_epoch' ? 'ให้ครูตรวจตู้และสายสัญญาณ'
+                    : !hardware.connected ? 'ตู้ไม่ได้เชื่อมต่อ'
+                    : hardware.ready === false ? 'ตู้กำลังใช้งาน' : 'ตู้พร้อมใช้งาน (ฮาร์ดแวร์)';
                 statusDot.style.background = (hardware.connected || hardware.mode === 'simulation') ? 'oklch(0.79 0.18 145)' : 'oklch(0.72 0.20 28)';
             } catch (error) {
                 console.warn('[Dashboard] Hardware status failed:', error);
@@ -354,10 +357,12 @@
         function startMqttListener() {
             if (!window.MqttBridge || !MqttBridge.isConfigured()) return;
             MqttBridge.onStatus(status => {
+                if (ApiBridge.isDemoMode()) return;
                 const text = document.getElementById('cabinet-status-text');
                 const dot = document.getElementById('cabinet-dot');
                 if (!text || !dot) return;
-                text.textContent = status.online ? 'ตู้พร้อมใช้งาน' : 'ตู้ไม่ได้เชื่อมต่อ';
+                text.textContent = status.reason === 'awaiting_new_ready_epoch' ? 'ให้ครูตรวจตู้และสายสัญญาณ'
+                    : !status.online ? 'ตู้ไม่ได้เชื่อมต่อ' : status.ready === false ? 'ตู้กำลังใช้งาน' : 'ตู้พร้อมใช้งาน';
                 dot.style.background = status.online ? 'oklch(0.79 0.18 145)' : 'oklch(0.72 0.20 28)';
             });
             MqttBridge.onEvent(data => {

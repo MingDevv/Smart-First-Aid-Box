@@ -25,7 +25,13 @@ function loadApiBridge(settings, fetchImpl, mqttBridge = null) {
     };
     const context = vm.createContext({
         window,
-        fetch: fetchImpl,
+        fetch: (url, options = {}) => {
+            if (url === '/api/command' && options.method !== 'POST') {
+                return Promise.resolve(response(200, { mqttConfigured: true, protocol: 2,
+                    connected: true, ready: true, ackTimeoutMs: 30000, commandTimeoutMs: 40000 }));
+            }
+            return fetchImpl(url, options);
+        },
         AbortController,
         setTimeout,
         clearTimeout,
@@ -52,12 +58,12 @@ function loadApiBridge(settings, fetchImpl, mqttBridge = null) {
                 mqttConfigured: true,
                 compartment: command.drawer,
                 commandId: command.id,
-                ack: { event: 'drawer_opened', id: command.id, drawer: command.drawer }
+                ack: { protocol: 2, event: 'drawer_opened', id: command.id, drawer: command.drawer }
             });
         }
     );
 
-    assert.ok(api.BROWSER_COMMAND_TIMEOUT_MS > 2500 + 5500);
+
     const result = await api.openCompartment('cut');
     assert.deepEqual(
         { success: result.success, mode: result.mode, compartment: result.compartment },
@@ -85,37 +91,17 @@ function loadApiBridge(settings, fetchImpl, mqttBridge = null) {
     assert.notEqual(result.mode, 'simulation');
 }
 
-// MQTT timeout falls through to LAN with the same id and waits for LAN UART completion.
+// MQTT timeout never causes a second actuator dispatch through LAN.
 {
-    let commandId;
-    let lanOpenId;
-    let statusPolls = 0;
-    const api = loadApiBridge(
-        { esp32Url: 'http://smart-box', mqttWsUrl: '' },
-        async (url, options = {}) => {
-            if (url === '/api/command') {
-                const command = JSON.parse(options.body);
-                commandId = command.id;
-                return response(504, { success: false, mqttConfigured: true, commandId, error: 'ACK timeout' });
-            }
-            if (url.startsWith('http://smart-box/open?')) {
-                lanOpenId = new URL(url).searchParams.get('id');
-                return response(202, { success: false, accepted: true, id: lanOpenId, drawer: 1 });
-            }
-            if (url.startsWith('http://smart-box/command-status?')) {
-                statusPolls++;
-                const id = new URL(url).searchParams.get('id');
-                return response(200, { success: true, event: 'drawer_opened', id, drawer: 1 });
-            }
-            throw new Error(`unexpected URL: ${url}`);
-        }
-    );
-
+    const calls = [];
+    const api = loadApiBridge({ esp32Url: 'http://smart-box' }, async (url) => {
+        calls.push(url);
+        return response(504, { success: false, mqttConfigured: true, error: 'ACK timeout' });
+    });
     const result = await api.openCompartment('abrasion');
-    assert.equal(result.success, true);
-    assert.equal(result.mode, 'production');
-    assert.equal(lanOpenId, commandId);
-    assert.equal(statusPolls, 1);
+    assert.equal(result.success, false);
+    assert.equal(result.retrySafe, false);
+    assert.deepEqual(calls, ['/api/command']);
 }
 
 // Direct browser MQTT listener resolves only an exact id + drawer event.
@@ -138,10 +124,10 @@ function loadApiBridge(settings, fetchImpl, mqttBridge = null) {
         resolved = true;
         return value;
     });
-    bridge.settleDrawerOpened({ event: 'drawer_opened', id: 'c-command-123', drawer: 1 });
+    bridge.settleDrawerOpened({ protocol: 2, event: 'drawer_opened', id: 'c-command-123', drawer: 1 });
     await Promise.resolve();
     assert.equal(resolved, false);
-    bridge.settleDrawerOpened({ event: 'drawer_opened', id: 'c-command-123', drawer: 2 });
+    bridge.settleDrawerOpened({ protocol: 2, event: 'drawer_opened', id: 'c-command-123', drawer: 2 });
     assert.equal((await waiter).drawer, 2);
 }
 
@@ -168,7 +154,7 @@ assert.match(callbackBody, /enqueueEvent\s*\(/);
 assert.match(commandApiSource, /if \(activeClientState === state\) activeClientState = null/);
 assert.match(commandApiSource, /reconnectPeriod: 0/);
 assert.match(commandApiSource, /MQTT_CONNECT_TIMEOUT_MS = 4500/);
-assert.match(commandApiSource, /DEFAULT_DRAWER_ACK_TIMEOUT_MS = 7500/);
+
 assert.match(commandApiSource, /'ack_timeout'/);
 
 for (const page of ['student/first-aid-guide.html', 'student/index.html', 'student/kiosk.html']) {

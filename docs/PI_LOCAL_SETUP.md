@@ -4,12 +4,10 @@ This deployment removes cloud MQTT from cabinet control:
 
 `Chromium on Pi → localhost API → ESP32 over private LAN → micro:bit UART → motor completion ACK`
 
-The existing Vercel pages, Demo mode and optional cloud features remain available.
-Legacy MQTT/direct-LAN real-hardware control is not supported with this paired
-protocol-2 firmware: its fixed 7.5-second ACK and 9.5-second browser budgets do
-not track motor duration. Raising `MQTT_DRAWER_ACK_TIMEOUT_MS` alone does not
-raise the browser deadline. Use the Pi kiosk for real-hardware control; adapting
-the legacy transport is outside this change.
+The same paired protocol-2 firmware also supports Vercel/MQTT control; see
+[MQTT_SETUP.md](../MQTT_SETUP.md) for the independent cloud path. Both transports
+wait for the same ID-specific motor/speaker completion and use the firmware's
+advertised timing budget. MQTT stays optional for the Pi deployment.
 
 The Pi service never imports
 the MQTT command handler, never connects the browser to a broker, and never falls

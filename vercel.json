@@ -1,5 +1,8 @@
 {
   "cleanUrls": true,
+  "functions": {
+    "api/command.js": { "maxDuration": 180 }
+  },
   "trailingSlash": false,
   "rewrites": [
     { "source": "/dashboard", "destination": "/dashboard/index.html" },
