@@ -1,0 +1,20 @@
+[Unit]
+Description=Smart First Aid Box — cabinet screen (Chromium kiosk)
+After=sfab-edge.service
+Requires=sfab-edge.service
+StartLimitBurst=20
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+# รอสองอย่างก่อน ไม่ใช่เชื่อว่า systemd บอก start แล้วคือพร้อม:
+#   1. คอมโพสิเตอร์เปิดซ็อกเก็ต wayland แล้วจริง
+#   2. บริการ edge ตอบ /api/local/status แล้วจริง
+ExecStartPre=/bin/sh -c "for i in $(seq 1 60); do [ -e \"$XDG_RUNTIME_DIR/wayland-0\" ] && exit 0; sleep 1; done; echo \"no wayland socket after 60s\" >&2; exit 1"
+ExecStartPre=/bin/sh -c "for i in $(seq 1 30); do curl -sf -o /dev/null http://localhost:8787/api/local/status && exit 0; sleep 1; done; echo \"edge did not answer in 30s\" >&2; exit 1"
+ExecStart=%h/sfab-kiosk-start.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

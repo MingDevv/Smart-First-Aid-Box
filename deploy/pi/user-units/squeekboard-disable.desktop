@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=squeekboard
+Hidden=true
+# ทับ /etc/xdg/autostart/squeekboard.desktop — หน้าตู้ไม่มีช่องพิมพ์
+# แต่แถบสลับภาษา Thai/English ของมันลอยทับแถบสถานะบนจอ 800x480
+# ถอยกลับ: rm ~/.config/autostart/squeekboard.desktop

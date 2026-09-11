@@ -52,6 +52,11 @@
     let idleTicker = null;
     let sosBusy = false;
 
+    // หน้าแรกของตู้ ขึ้นกับว่ามีกล้องให้สแกนแผลไหม
+    // ตู้ที่ไม่มีกล้อง ไม่ควรมีหน้าให้เลือกระหว่างสองอย่างทั้งที่เลือกได้อย่างเดียว
+    // เด็กที่กำลังเจ็บควรเห็นรูปแผลให้แตะทันที ไม่ใช่แตะผ่านอีกชั้นหนึ่งก่อน
+    let landingView = 'start';
+
     // คำตอบเรื่องแพ้ยาของรอบนี้: null | 'yes' | 'unsure' | 'no'
     // null คือยังไม่ตอบ ไม่ใช่ "ไม่แพ้" — ต้องแยกให้ขาด
     let allergyAnswer = null;
@@ -400,7 +405,40 @@
         invalidateAsyncWork();
         session.setMethod('manual');
         el('select-lead').textContent = lead || 'แตะรูปที่ใกล้เคียงที่สุด อาการอื่นให้กดเรียกครู';
+        // ตู้ที่ไม่มีกล้อง หน้านี้คือหน้าแรก จึงไม่มีที่ให้ย้อนกลับไป
+        el('select-back').hidden = landingView === 'select';
         showView('select');
+    }
+
+    // ไม่ถามสิทธิ์กล้อง แค่ถามว่ามีอุปกรณ์รับภาพอยู่ไหม — ตอบได้โดยไม่ต้องขออนุญาต
+    // ระวัง: /dev/video* บน Pi ส่วนใหญ่เป็นโหนด codec/ISP ไม่ใช่กล้อง การนับไฟล์จึงตอบผิด
+    // ต้องถามผ่าน enumerateDevices ซึ่งนับเฉพาะอุปกรณ์ที่จับภาพได้จริง
+    async function hasCamera() {
+        if (!navigator.mediaDevices?.enumerateDevices) return false;
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            return devices.some(device => device.kind === 'videoinput');
+        } catch (error) {
+            console.warn('[Kiosk] enumerateDevices failed:', error && error.message);
+            return false;
+        }
+    }
+
+    // ซ่อนทางสแกนแผลทั้งเส้นเมื่อไม่มีกล้อง แล้วให้หน้าเลือกแผลเป็นหน้าแรกแทน
+    async function configureEntryPoint() {
+        const camera = await hasCamera();
+        const scanCard = document.querySelector('[data-action="go-scan"]');
+        if (camera) {
+            landingView = 'start';
+            if (scanCard) scanCard.hidden = false;
+            return;
+        }
+        landingView = 'select';
+        if (scanCard) scanCard.hidden = true;
+        // ปุ่ม "เลือกแผลเอง" บนหน้าสแกนก็ไม่มีความหมายแล้ว แต่ทั้งหน้าสแกนเข้าไม่ถึงอยู่ดี
+        if (session.state.view === 'start') {
+            goSelect('แตะรูปที่ใกล้เคียงที่สุด อาการอื่นให้กดปุ่มเรียกครูทางขวาล่าง');
+        }
     }
 
     // ── หน้ายืนยัน ──────────────────────────────────────────────────────
@@ -719,7 +757,8 @@
         const store = storage();
         if (store) store.logoutStudent();
         el('scan-lead').textContent = 'ถือให้นิ่ง แล้วกดปุ่มถ่ายภาพ';
-        showView('start');
+        if (landingView === 'select') goSelect();
+        else showView('start');
     }
 
     // ── เรียกครู ────────────────────────────────────────────────────────
@@ -774,7 +813,7 @@
 
     function onIdleWarning(info) {
         // หน้าแรกไม่ต้องถามว่ายังอยู่ไหม — ไม่มีอะไรให้เสีย
-        if (session.state.view === 'start') return;
+        if (session.state.view === landingView) return;
         let left = Math.round(info.remainingMs / 1000);
         el('idle-countdown').textContent = String(left);
         el('overlay-idle').hidden = false;
@@ -787,7 +826,7 @@
     }
 
     function onIdleExpired() {
-        if (session.state.view === 'start') return;
+        if (session.state.view === landingView) return;
         resetToStart('idle');
     }
 
@@ -869,6 +908,8 @@
         showView('start');
         session.start();
         startStatusPolling();
+        // ตรวจกล้องแล้วค่อยตัดสินว่าหน้าแรกคือหน้าไหน ทำหลัง render แรกเพื่อไม่ให้จอว่าง
+        configureEntryPoint();
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
@@ -881,6 +922,8 @@
         KIOSK_WOUND_IDS,
         canDispenseNow,
         matchedAllergies,
+        hasCamera,
+        landingView: () => landingView,
         session: () => session
     };
 }());

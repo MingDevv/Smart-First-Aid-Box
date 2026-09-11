@@ -471,13 +471,15 @@ img {
     flex: 1 1 auto;
     min-height: 0;
     grid-template-columns: repeat(2, 1fr);
+    /* การ์ดสองใบไม่ต้องยืดเต็มความสูงจนกลายเป็นกล่องโหว่ — จัดกลางแล้วให้สูงตามเนื้อ */
+    align-content: center;
     gap: 16px;
 }
 
 .wound-card {
     display: grid;
-    min-height: 0;
-    grid-template-columns: 96px 1fr;
+    min-height: 132px;
+    grid-template-columns: 120px 1fr;
     align-items: center;
     gap: 14px;
     padding: 12px 16px 12px 12px;
@@ -501,20 +503,24 @@ img {
 }
 
 .wound-card img {
-    width: 96px;
-    height: 96px;
+    width: 120px;
+    height: 120px;
     border-radius: 16px;
     background: var(--secondary-light);
     object-fit: cover;
 }
 
+/* ทั้งสองบรรทัดต้องเป็นบล็อก ไม่งั้น span สองอันไหลต่อกันเป็นบรรทัดเดียว
+ * แล้วเลขจำนวนของไปเกาะท้ายชื่อแผลเป็น "แผลถลอก3" (เห็นบนจอจริง) */
 .wound-card-name {
-    font-size: 25px;
+    display: block;
+    font-size: 24px;
     font-weight: 600;
     line-height: 1.2;
 }
 
 .wound-card-note {
+    display: block;
     margin-top: 4px;
     color: var(--text-muted);
     font-size: var(--fs-small);
