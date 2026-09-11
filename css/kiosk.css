@@ -1,0 +1,847 @@
+/* CSS/KIOSK.CSS — หน้าตู้ (kiosk) สำหรับจอสัมผัส 5 นิ้ว 800x480 แนวนอน
+ *
+ * ตั้งใจไม่ import css/global.css, css/home.css หรือ css/student-responsive.css
+ * ทั้งสามไฟล์นั้นตั้งสมมติฐานว่าเป็นจอมือถือแนวตั้งที่เลื่อนได้ (`.container` กว้าง 460px,
+ * `min-height: 100dvh`, header เหนียวติดบน) ซึ่งบนจอ 800x480 แนวนอนจะดันปุ่มสำคัญตกจอ
+ * ไฟล์นี้จึงประกาศโทเคนชุดเดียวกันซ้ำ (Care Kit palette) แต่วางเลย์เอาต์ใหม่ทั้งหมด
+ *
+ * ฟอนต์โฮสต์เองจาก fonts/ ไม่ใช่ Google Fonts — ดู fonts/README.md ว่าทำไม
+ */
+
+/* ── ฟอนต์: ไทย + ละติน น้ำหนัก 400/500/600 ───────────────────────────── */
+
+@font-face {
+    font-family: 'IBM Plex Sans Thai';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../fonts/ibm-plex-sans-thai-400-thai.woff2') format('woff2');
+    unicode-range: U+02D7, U+0303, U+0331, U+0E01-0E5B, U+200C-200D, U+25CC;
+}
+@font-face {
+    font-family: 'IBM Plex Sans Thai';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../fonts/ibm-plex-sans-thai-400-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+        U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+        U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'IBM Plex Sans Thai';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('../fonts/ibm-plex-sans-thai-500-thai.woff2') format('woff2');
+    unicode-range: U+02D7, U+0303, U+0331, U+0E01-0E5B, U+200C-200D, U+25CC;
+}
+@font-face {
+    font-family: 'IBM Plex Sans Thai';
+    font-style: normal;
+    font-weight: 500;
+    font-display: swap;
+    src: url('../fonts/ibm-plex-sans-thai-500-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+        U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+        U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'IBM Plex Sans Thai';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('../fonts/ibm-plex-sans-thai-600-thai.woff2') format('woff2');
+    unicode-range: U+02D7, U+0303, U+0331, U+0E01-0E5B, U+200C-200D, U+25CC;
+}
+@font-face {
+    font-family: 'IBM Plex Sans Thai';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('../fonts/ibm-plex-sans-thai-600-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+        U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+        U+FEFF, U+FFFD;
+}
+
+/* ── โทเคน ─────────────────────────────────────────────────────────────── */
+
+:root {
+    /* Care Kit palette — ค่าเดียวกับ css/global.css ตั้งใจซ้ำเพื่อให้ไฟล์นี้ยืนเองได้ */
+    --primary: oklch(0.50 0.10 195);
+    --primary-deep: oklch(0.40 0.10 195);
+    --primary-light: oklch(0.93 0.045 165);
+    --secondary-light: oklch(0.94 0.035 180);
+    --danger: oklch(0.55 0.20 28);
+    --danger-deep: oklch(0.46 0.18 28);
+    --danger-light: oklch(0.95 0.045 30);
+    --warning: oklch(0.55 0.14 55);
+    --warning-light: oklch(0.94 0.055 45);
+    --success: oklch(0.52 0.13 155);
+    --success-light: oklch(0.94 0.045 155);
+    --text-main: oklch(0.24 0.025 210);
+    --text-muted: oklch(0.45 0.025 210);
+    --bg-main: oklch(0.985 0.008 165);
+    --bg-canvas: oklch(0.955 0.008 180);
+    --border-color: oklch(0.86 0.018 190);
+
+    /* เลย์เอาต์เฉพาะหน้าตู้ — ค่าทดลอง ต้องตรวจด้วยนิ้วจริงบนจอ (แผน §2) */
+    --safe-x: 22px;
+    --safe-y: 20px;
+    --gap: 18px;
+    --radius: 20px;
+
+    /* ขนาดตัวอักษร: หัวเรื่อง 30-36 / ปุ่ม 26-30 / คำอธิบาย 20-24 */
+    --fs-title: 32px;
+    --fs-button: 27px;
+    --fs-body: 21px;
+    --fs-small: 17px;
+
+    /* ความสูงเป้าหมายการแตะ: ปุ่มทั่วไป >= 64px ปุ่มสำคัญ >= 72px */
+    --tap: 68px;
+    --tap-major: 76px;
+
+    /* ปุ่มเรียกครูกว้างคงที่ เพื่อให้แถวปุ่มล่างกันที่ให้มันได้แน่นอน */
+    --sos-width: 190px;
+
+    --font: 'IBM Plex Sans Thai', 'Noto Sans Thai', 'Sarabun', system-ui, sans-serif;
+}
+
+/* ── รากของหน้า ────────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* ทุกอย่างในหน้านี้ซ่อน/แสดงด้วยแอตทริบิวต์ hidden ไม่ใช่ style.display
+ * ต้องประกาศไว้ที่นี่เพราะ display ของคลาส (.btn, .notice, .overlay-actions)
+ * มี specificity เท่ากับ [hidden] ของเบราว์เซอร์แล้วชนะเพราะมาทีหลัง
+ */
+[hidden] {
+    display: none !important;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    /* จอตู้ไม่เลื่อน เส้นทางหลักต้องพอดีจอทุกหน้า ถ้าล้นคือออกแบบผิด ไม่ใช่ให้ผู้ใช้ปัด */
+    overflow: hidden;
+    color-scheme: light;
+    overscroll-behavior: none;
+}
+
+body {
+    background: var(--bg-canvas);
+    color: var(--text-main);
+    font-family: var(--font);
+    font-size: var(--fs-body);
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    /* จอ resistive: ปิดการเลือกข้อความและการซูมด้วยนิ้ว ป้องกันกดค้างแล้วเมนูเด้ง */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+}
+
+img {
+    max-width: 100%;
+    -webkit-user-drag: none;
+    user-select: none;
+}
+
+/* NotificationService ยัด <span class="material-symbols-rounded">check_circle</span>
+ * ลงใน toast เอง หน้าตู้ไม่โหลดฟอนต์ไอคอน (ต้องทำงานตอนเน็ตล่ม) ถ้าปล่อยไว้
+ * ligature จะกลายเป็นคำว่า "check_circle" กลาง toast — ซ่อนทิ้ง ไอคอนของหน้าตู้ใช้ SVG
+ */
+.material-symbols-rounded {
+    display: none !important;
+}
+
+/* ── โครงหน้าจอ ────────────────────────────────────────────────────────── */
+
+.kiosk-shell {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    background: var(--bg-main);
+}
+
+.kiosk-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px var(--safe-x) 0;
+    gap: 12px;
+    flex: 0 0 auto;
+}
+
+.kiosk-brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--primary-deep);
+    font-size: var(--fs-small);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.kiosk-brand img {
+    width: 26px;
+    height: 26px;
+}
+
+.kiosk-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: #fff;
+    font-size: var(--fs-small);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.kiosk-status::before {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    content: '';
+    flex: 0 0 auto;
+}
+
+.kiosk-status[data-state='ready']::before { background: var(--success); }
+.kiosk-status[data-state='busy']::before { background: var(--warning); }
+.kiosk-status[data-state='offline']::before { background: var(--danger); }
+.kiosk-status[data-state='checking']::before { background: var(--text-muted); }
+.kiosk-status[data-state='demo']::before { background: var(--warning); }
+
+/* พื้นที่เนื้อหา — ทุก view ซ้อนกันในกรอบเดียว สลับด้วย hidden ไม่ใช่การเปลี่ยนหน้า */
+.kiosk-main {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 8px var(--safe-x) var(--safe-y);
+}
+
+.view {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    gap: var(--gap);
+}
+
+.view[hidden] {
+    display: none;
+}
+
+/* ── ข้อความ ───────────────────────────────────────────────────────────── */
+
+.view-title {
+    font-size: var(--fs-title);
+    font-weight: 600;
+    line-height: 1.2;
+    text-wrap: balance;
+}
+
+.view-lead {
+    color: var(--text-muted);
+    font-size: var(--fs-body);
+    /* คำอธิบายหนึ่งคำสั่งหลักต่อหน้า 1-2 บรรทัด (แผน §2) */
+    max-width: 62ch;
+}
+
+.view-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex: 0 0 auto;
+}
+
+.view-body {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    flex-direction: column;
+    gap: var(--gap);
+}
+
+.view-foot {
+    display: flex;
+    align-items: stretch;
+    gap: 14px;
+    flex: 0 0 auto;
+    /* กันชนของปุ่มเรียกครูซึ่งลอยอยู่มุมขวาล่างทุกหน้า
+     * ถ้าไม่กันไว้ ปุ่มหลักจะยาวไปใต้ปุ่มเรียกครู แล้วแตะขอบขวาของ
+     * "รับอุปกรณ์" จะไปโดน "เรียกครู" แทน — เห็นจากภาพจริงที่ 800x480 */
+    padding-right: calc(var(--sos-width) + 14px);
+}
+
+.view-foot .btn {
+    flex: 1 1 0;
+}
+
+/* ปุ่มย้อนกลับใช้ตัวเล็กกว่าปุ่มหลัก คำไทยอย่าง "ก่อนหน้า" จะได้ไม่ตกบรรทัด
+ * ปุ่มรองที่อ่านง่ายอยู่แล้วไม่ต้องใหญ่เท่าปุ่มที่อยากให้กด */
+.view-foot .btn-back {
+    flex: 0 0 180px;
+    font-size: var(--fs-body);
+}
+
+/* ── ปุ่ม ──────────────────────────────────────────────────────────────── */
+
+.btn {
+    display: inline-flex;
+    min-height: var(--tap);
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 10px 22px;
+    border: 2px solid transparent;
+    border-radius: var(--radius);
+    background: #fff;
+    color: var(--text-main);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: var(--fs-button);
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    /* แสดงสถานะกดภายใน 100ms — ไม่มี transition ตอนกด ให้ตอบทันที */
+    transition: background-color 90ms linear, border-color 90ms linear;
+}
+
+.btn-major {
+    min-height: var(--tap-major);
+}
+
+.btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.btn-primary {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+}
+
+.btn-primary:active:not(:disabled) {
+    background: var(--primary-deep);
+    border-color: var(--primary-deep);
+}
+
+.btn-outline {
+    border-color: var(--border-color);
+    background: #fff;
+    color: var(--text-main);
+}
+
+.btn-outline:active:not(:disabled) {
+    background: var(--secondary-light);
+    border-color: var(--primary);
+}
+
+.btn-danger {
+    border-color: var(--danger);
+    background: var(--danger);
+    color: #fff;
+}
+
+.btn-danger:active:not(:disabled) {
+    background: var(--danger-deep);
+    border-color: var(--danger-deep);
+}
+
+.btn .icon {
+    flex: 0 0 auto;
+}
+
+/* ปุ่มเรียกครู: ตำแหน่งคงที่ทุกหน้า มุมขวาล่าง หาเจอโดยไม่ต้องอ่าน */
+.sos-fixed {
+    position: absolute;
+    right: var(--safe-x);
+    bottom: var(--safe-y);
+    z-index: 40;
+    width: var(--sos-width);
+    min-height: var(--tap);
+    padding-inline: 16px;
+    box-shadow: 0 10px 26px -18px oklch(0.35 0.12 28 / 0.9);
+}
+
+/* ── หน้าแรก: สองปุ่มใหญ่เคียงกัน ───────────────────────────────────────── */
+
+.start-grid {
+    display: grid;
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.start-card {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+    border: 2px solid var(--border-color);
+    border-radius: 26px;
+    background: #fff;
+    color: var(--text-main);
+    cursor: pointer;
+    font-family: inherit;
+    text-align: center;
+    transition: background-color 90ms linear, border-color 90ms linear;
+}
+
+.start-card:active:not(:disabled) {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+
+.start-card:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.start-card .icon {
+    width: 56px;
+    height: 56px;
+    color: var(--primary);
+}
+
+.start-card-title {
+    font-size: 30px;
+    font-weight: 600;
+    line-height: 1.15;
+}
+
+.start-card-desc {
+    color: var(--text-muted);
+    font-size: var(--fs-small);
+    line-height: 1.35;
+}
+
+.start-card-primary {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+}
+
+.start-card-primary .icon { color: #fff; }
+.start-card-primary .start-card-desc { color: oklch(0.93 0.03 190); }
+.start-card-primary:active:not(:disabled) { background: var(--primary-deep); }
+
+/* หน้าแรกกันปุ่ม SOS ไม่ให้ทับการ์ด */
+#view-start .start-grid {
+    margin-bottom: calc(var(--tap) + 8px);
+}
+
+/* ── เลือกแผลเอง ───────────────────────────────────────────────────────── */
+
+.wound-grid {
+    display: grid;
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.wound-card {
+    display: grid;
+    min-height: 0;
+    grid-template-columns: 96px 1fr;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px 12px 12px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    background: #fff;
+    color: var(--text-main);
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+}
+
+.wound-card:active:not(:disabled) {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+
+.wound-card:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.wound-card img {
+    width: 96px;
+    height: 96px;
+    border-radius: 16px;
+    background: var(--secondary-light);
+    object-fit: cover;
+}
+
+.wound-card-name {
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.wound-card-note {
+    margin-top: 4px;
+    color: var(--text-muted);
+    font-size: var(--fs-small);
+}
+
+/* ── กล้อง ─────────────────────────────────────────────────────────────── */
+
+.camera-row {
+    display: grid;
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-columns: 1fr 260px;
+    gap: 18px;
+}
+
+.camera-frame {
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    background: oklch(0.28 0.02 200);
+}
+
+.camera-frame video,
+.camera-frame img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.camera-hint {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    padding: 8px 12px;
+    border-radius: 14px;
+    background: oklch(0.22 0.02 200 / 0.72);
+    color: #fff;
+    font-size: var(--fs-small);
+    text-align: center;
+}
+
+.camera-side {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.camera-side .btn {
+    width: 100%;
+}
+
+/* ── กำลังสั่งตู้ ───────────────────────────────────────────────────────── */
+
+.dispensing {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    text-align: center;
+}
+
+.dispensing-dots {
+    display: flex;
+    gap: 10px;
+}
+
+.dispensing-dots span {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--primary);
+    animation: kioskPulse 1.1s ease-in-out infinite;
+}
+
+.dispensing-dots span:nth-child(2) { animation-delay: 0.15s; }
+.dispensing-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes kioskPulse {
+    0%, 100% { opacity: 0.25; transform: scale(0.82); }
+    50% { opacity: 1; transform: scale(1); }
+}
+
+.dispensing-elapsed {
+    color: var(--text-muted);
+    font-size: var(--fs-small);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── รายการเวชภัณฑ์ ────────────────────────────────────────────────────── */
+
+.supply-row {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    gap: 14px;
+}
+
+.supply-item {
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    background: #fff;
+    text-align: center;
+}
+
+.supply-item img {
+    width: 84px;
+    height: 84px;
+    border-radius: 14px;
+    background: var(--secondary-light);
+    object-fit: cover;
+}
+
+.supply-item-name {
+    font-size: var(--fs-small);
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+/* ── ขั้นตอนทำแผล ──────────────────────────────────────────────────────── */
+
+.step-row {
+    display: grid;
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-columns: 268px 1fr;
+    gap: 18px;
+}
+
+.step-image {
+    min-height: 0;
+    overflow: hidden;
+    border-radius: var(--radius);
+    background: var(--secondary-light);
+}
+
+/* ภาพขั้นตอนเป็นอินโฟกราฟิกที่มีตัวหนังสือไทยอยู่ในภาพ
+ * ถ้าใช้ cover เหมือนรูปแผล ขอบภาพจะถูกตัดจนอ่านคำอธิบายในภาพไม่ครบ */
+.step-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.step-copy {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.step-counter {
+    color: var(--primary-deep);
+    font-size: var(--fs-small);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.step-progress {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 6px;
+}
+
+.step-progress span {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--border-color);
+}
+
+.step-progress span.done {
+    background: var(--primary);
+}
+
+.step-desc {
+    /* คำแนะนำยาวได้ ให้เลื่อนเฉพาะกล่องนี้ ไม่ให้ทั้งหน้าเลื่อน */
+    overflow-y: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+    color: var(--text-main);
+    font-size: var(--fs-body);
+    line-height: 1.5;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ── กล่องข้อความสถานะ ─────────────────────────────────────────────────── */
+
+.notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    background: #fff;
+    font-size: var(--fs-body);
+    line-height: 1.4;
+}
+
+.notice .icon {
+    flex: 0 0 auto;
+    margin-top: 2px;
+}
+
+.notice[data-tone='danger'] {
+    border-color: var(--danger);
+    background: var(--danger-light);
+    color: oklch(0.38 0.12 28);
+}
+
+.notice[data-tone='warning'] {
+    border-color: var(--warning);
+    background: var(--warning-light);
+    color: oklch(0.40 0.10 45);
+}
+
+.notice[data-tone='success'] {
+    border-color: var(--success);
+    background: var(--success-light);
+    color: oklch(0.35 0.09 155);
+}
+
+.notice[data-tone='info'] {
+    border-color: var(--primary);
+    background: var(--primary-light);
+    color: var(--primary-deep);
+}
+
+.notice-strong {
+    font-weight: 600;
+}
+
+/* ── โอเวอร์เลย์ (หมดเวลา / ข้อผิดพลาดเต็มจอ) ──────────────────────────── */
+
+.overlay {
+    position: absolute;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    padding: 28px;
+    background: oklch(0.985 0.008 165 / 0.97);
+    inset: 0;
+    text-align: center;
+}
+
+.overlay[hidden] {
+    display: none;
+}
+
+.overlay-title {
+    font-size: var(--fs-title);
+    font-weight: 600;
+}
+
+.overlay-actions {
+    display: flex;
+    gap: 14px;
+}
+
+.overlay-actions .btn {
+    min-width: 230px;
+}
+
+.overlay-countdown {
+    color: var(--text-muted);
+    font-size: var(--fs-body);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── ไอคอน ─────────────────────────────────────────────────────────────── */
+
+.icon {
+    width: 28px;
+    height: 28px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+}
+
+.icon-lg {
+    width: 48px;
+    height: 48px;
+}
+
+/* ── toast ของ NotificationService: ย้ายให้พ้นปุ่มเรียกครู ───────────────── */
+
+#toast-container {
+    bottom: auto !important;
+    top: 14px !important;
+    max-width: 520px !important;
+    width: auto !important;
+}
+
+/* ── เคารพการตั้งค่าลดการเคลื่อนไหว ─────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* จอสูงกว่า 480 (เช่นตอนทดสอบบนเดสก์ท็อป) ยังคงจัดกึ่งกลางและไม่ยืดจนเสียสัดส่วน */
+@media (min-height: 560px) {
+    .kiosk-shell {
+        max-width: 1000px;
+        max-height: 620px;
+        margin: auto;
+        border: 1px solid var(--border-color);
+        border-radius: 18px;
+        overflow: hidden;
+    }
+
+    body {
+        display: flex;
+        padding: 16px;
+        background: var(--bg-canvas);
+    }
+}

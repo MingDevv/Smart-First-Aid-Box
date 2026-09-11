@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <!-- จอตู้มีขนาดตายตัว ไม่ให้ซูมและไม่ให้ปรับ scale ด้วยนิ้ว -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#f7fcf9">
+    <meta name="robots" content="noindex">
+    <title>ตู้ปฐมพยาบาลอัจฉริยะ</title>
+    <!--
+      หน้านี้คือ "หน้าตู้" ไม่ใช่หน้าเว็บ ข้อจำกัดที่ตั้งใจ:
+        · ไม่มี <a href> ออกนอกหน้า ไม่มีลิงก์ไปหน้าครู/เกี่ยวกับ/ประวัติ
+        · ไม่มี <input type="file"> ทุกชนิด — ตู้ต้องเปิดหน้าต่างเลือกไฟล์ของ OS ไม่ได้
+        · ไม่มี <script src="https://..."> และไม่มี <link> ไป Google Fonts — ต้องขึ้นตอนเน็ตล่ม
+        · ไม่โหลด css/global.css ซึ่งออกแบบสำหรับมือถือแนวตั้งที่เลื่อนได้
+      ตรรกะฮาร์ดแวร์ ข้อมูลบาดแผล และการแจ้งเตือน ใช้ไฟล์เดียวกับเว็บ ไม่ได้ก๊อปมาไว้อีกชุด
+    -->
+    <!-- href="data:," บอกเบราว์เซอร์ว่าไม่ต้องไปขอ /favicon.ico ซึ่งบน Pi จะได้ 404
+         ทุกครั้งที่เปิดจอ (allowlist ของ edge/server.mjs ไม่มีไฟล์นั้น) -->
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="../css/kiosk.css">
+</head>
+<body>
+
+<!-- ไอคอนทั้งหมดเป็น SVG ในไฟล์ ไม่ใช้ฟอนต์ไอคอน เพราะฟอนต์ ligature ที่โหลดไม่ได้
+     จะแสดงเป็นคำภาษาอังกฤษกลางปุ่ม (เช่น chevron_right) ตอนไม่มีเน็ต -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+        <symbol id="i-scan" viewBox="0 0 24 24">
+            <path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/>
+            <circle cx="12" cy="12" r="3.2"/>
+        </symbol>
+        <symbol id="i-list" viewBox="0 0 24 24">
+            <path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>
+        </symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24">
+            <path d="M12 3.5 2.7 19.5h18.6L12 3.5Z"/>
+            <path d="M12 9.5v4.2M12 17h.01"/>
+        </symbol>
+        <symbol id="i-back" viewBox="0 0 24 24">
+            <path d="M19 12H5M11 18l-6-6 6-6"/>
+        </symbol>
+        <symbol id="i-next" viewBox="0 0 24 24">
+            <path d="M5 12h14M13 6l6 6-6 6"/>
+        </symbol>
+        <symbol id="i-camera" viewBox="0 0 24 24">
+            <path d="M4 7h3l1.6-2.4h6.8L17 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"/>
+            <circle cx="12" cy="13" r="3.6"/>
+        </symbol>
+        <symbol id="i-check" viewBox="0 0 24 24">
+            <path d="m4.5 12.5 5 5 10-11"/>
+        </symbol>
+        <symbol id="i-box" viewBox="0 0 24 24">
+            <path d="M3 8.5 12 4l9 4.5V16L12 20.5 3 16V8.5Z"/>
+            <path d="M3 8.5 12 13l9-4.5M12 13v7.5"/>
+        </symbol>
+        <symbol id="i-teacher" viewBox="0 0 24 24">
+            <circle cx="12" cy="8" r="3.6"/>
+            <path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>
+        </symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="8.6"/>
+            <path d="M12 7.4V12l3 2"/>
+        </symbol>
+    </defs>
+</svg>
+
+<div class="kiosk-shell">
+    <div class="kiosk-topbar">
+        <div class="kiosk-brand">
+            <img src="../images/logo_first_aid.webp" width="26" height="26" alt="">
+            <span>ตู้ปฐมพยาบาลอัจฉริยะ</span>
+        </div>
+        <span class="kiosk-status" id="hw-status" data-state="checking" role="status" aria-live="polite">กำลังตรวจสถานะตู้</span>
+    </div>
+
+    <main class="kiosk-main">
+
+        <!-- 1 · เริ่ม ─────────────────────────────────────────────────── -->
+        <section class="view" id="view-start" aria-label="เริ่มใช้งาน">
+            <div class="view-head">
+                <div>
+                    <h1 class="view-title">เจ็บตรงไหน แตะเลือกได้เลย</h1>
+                    <p class="view-lead">ถ้าอาการรุนแรงหรือไม่แน่ใจ ให้กดปุ่มเรียกครูทางขวาล่าง</p>
+                </div>
+            </div>
+            <div class="start-grid">
+                <button class="start-card start-card-primary" type="button" data-action="go-scan">
+                    <svg class="icon" aria-hidden="true"><use href="#i-scan"></use></svg>
+                    <span class="start-card-title">สแกนแผล</span>
+                    <span class="start-card-desc">ให้กล้องช่วยดูว่าเป็นแผลแบบไหน</span>
+                </button>
+                <button class="start-card" type="button" data-action="go-select">
+                    <svg class="icon" aria-hidden="true"><use href="#i-list"></use></svg>
+                    <span class="start-card-title">เลือกแผลเอง</span>
+                    <span class="start-card-desc">รู้อยู่แล้วว่าเป็นแผลแบบไหน</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- 2 · สแกนแผล ───────────────────────────────────────────────── -->
+        <section class="view" id="view-scan" aria-label="สแกนแผล" hidden>
+            <div class="view-head">
+                <div>
+                    <h1 class="view-title">วางแผลให้อยู่ในกรอบ</h1>
+                    <p class="view-lead" id="scan-lead">ถือให้นิ่ง แล้วกดปุ่มถ่ายภาพ</p>
+                </div>
+            </div>
+            <div class="camera-row">
+                <div class="camera-frame">
+                    <video id="scan-video" playsinline muted autoplay></video>
+                    <img id="scan-preview" alt="ภาพแผลที่เพิ่งถ่าย" hidden>
+                    <div class="camera-hint" id="scan-hint">ให้แสงส่องถึงแผล อย่าให้เงามือบัง</div>
+                </div>
+                <div class="camera-side">
+                    <button class="btn btn-primary btn-major" type="button" id="scan-capture" data-action="capture">
+                        <svg class="icon" aria-hidden="true"><use href="#i-camera"></use></svg>
+                        ถ่ายภาพ
+                    </button>
+                    <button class="btn btn-outline" type="button" data-action="go-select">เลือกแผลเอง</button>
+                    <button class="btn btn-outline btn-back" type="button" data-action="go-start">
+                        <svg class="icon" aria-hidden="true"><use href="#i-back"></use></svg>
+                        กลับ
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3 · เลือกแผลเอง ──────────────────────────────────────────── -->
+        <section class="view" id="view-select" aria-label="เลือกประเภทแผล" hidden>
+            <div class="view-head">
+                <div>
+                    <h1 class="view-title">แผลของหนูเป็นแบบไหน</h1>
+                    <p class="view-lead" id="select-lead">แตะรูปที่ใกล้เคียงที่สุด อาการอื่นให้กดเรียกครู</p>
+                </div>
+            </div>
+            <div class="wound-grid" id="wound-grid"></div>
+            <div class="view-foot">
+                <button class="btn btn-outline btn-back" type="button" data-action="go-start">
+                    <svg class="icon" aria-hidden="true"><use href="#i-back"></use></svg>
+                    กลับ
+                </button>
+            </div>
+        </section>
+
+        <!-- 4 · ตรวจและยืนยัน ────────────────────────────────────────── -->
+        <section class="view" id="view-confirm" aria-label="ตรวจและยืนยัน" hidden>
+            <div class="view-head">
+                <div>
+                    <h1 class="view-title" id="confirm-title">ตรวจก่อนรับอุปกรณ์</h1>
+                    <p class="view-lead" id="confirm-lead"></p>
+                </div>
+            </div>
+            <div class="view-body">
+                <div class="supply-row" id="confirm-supplies"></div>
+                <div class="notice" id="confirm-notice" data-tone="info" hidden>
+                    <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
+                    <span id="confirm-notice-text"></span>
+                </div>
+            </div>
+            <div class="view-foot">
+                <button class="btn btn-outline btn-back" type="button" data-action="confirm-back">
+                    <svg class="icon" aria-hidden="true"><use href="#i-back"></use></svg>
+                    กลับ
+                </button>
+                <button class="btn btn-primary btn-major" type="button" id="confirm-dispense" data-action="dispense">
+                    <svg class="icon" aria-hidden="true"><use href="#i-box"></use></svg>
+                    รับอุปกรณ์
+                </button>
+            </div>
+        </section>
+
+        <!-- 5 · กำลังดำเนินการ ───────────────────────────────────────── -->
+        <section class="view" id="view-dispensing" aria-label="กำลังสั่งตู้" hidden>
+            <div class="dispensing" role="status" aria-live="assertive">
+                <div class="dispensing-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+                <h1 class="view-title" id="dispensing-title">กำลังสั่งตู้เปิดช่องยา</h1>
+                <p class="view-lead">รอสักครู่ อย่าเพิ่งกดอะไร ตู้กำลังทำงานอยู่</p>
+                <p class="dispensing-elapsed"><span id="dispensing-elapsed">0</span> วินาที</p>
+            </div>
+        </section>
+
+        <!-- 6 · รับอุปกรณ์ ───────────────────────────────────────────── -->
+        <section class="view" id="view-collect" aria-label="รับอุปกรณ์" hidden>
+            <div class="view-head">
+                <div>
+                    <h1 class="view-title" id="collect-title">เปิดช่องที่ 1 แล้ว</h1>
+                    <p class="view-lead">หยิบของตามรูป แล้วปิดช่องให้สนิท</p>
+                </div>
+            </div>
+            <div class="view-body">
+                <div class="supply-row" id="collect-supplies"></div>
+                <div class="notice" data-tone="info">
+                    <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
+                    <span>ตู้ตอบรับคำสั่งแล้ว ถ้าของยังไม่ออกมา ให้กดเรียกครู อย่ากดสั่งซ้ำ</span>
+                </div>
+            </div>
+            <div class="view-foot">
+                <button class="btn btn-primary btn-major" type="button" data-action="go-steps">
+                    ดูวิธีทำแผล
+                    <svg class="icon" aria-hidden="true"><use href="#i-next"></use></svg>
+                </button>
+            </div>
+        </section>
+
+        <!-- 7 · วิธีทำแผลทีละขั้น ────────────────────────────────────── -->
+        <section class="view" id="view-steps" aria-label="ขั้นตอนทำแผล" hidden>
+            <div class="step-row">
+                <figure class="step-image">
+                    <img id="step-image" src="../images/step_wash_hands.webp" alt="">
+                </figure>
+                <div class="step-copy">
+                    <div class="step-counter" id="step-counter">ขั้นที่ 1 จาก 4</div>
+                    <div class="step-progress" id="step-progress" aria-hidden="true"></div>
+                    <h1 class="view-title" id="step-title">ล้างมือให้สะอาด</h1>
+                    <p class="step-desc" id="step-desc"></p>
+                </div>
+            </div>
+            <div class="view-foot">
+                <button class="btn btn-outline btn-back" type="button" id="step-prev" data-action="step-prev">
+                    <svg class="icon" aria-hidden="true"><use href="#i-back"></use></svg>
+                    ก่อนหน้า
+                </button>
+                <button class="btn btn-primary btn-major" type="button" id="step-next" data-action="step-next">
+                    <span id="step-next-label">ทำเสร็จแล้ว</span>
+                    <svg class="icon" aria-hidden="true"><use href="#i-next"></use></svg>
+                </button>
+            </div>
+        </section>
+
+        <!-- 8 · จบรอบ ────────────────────────────────────────────────── -->
+        <section class="view" id="view-done" aria-label="เสร็จแล้ว" hidden>
+            <div class="dispensing">
+                <svg class="icon icon-lg" id="done-icon" aria-hidden="true" style="color:var(--success)"><use href="#i-check"></use></svg>
+                <h1 class="view-title" id="done-title">เรียบร้อยแล้ว หายไวๆ นะ</h1>
+                <p class="view-lead" id="done-lead">ถ้าแผลยังปวดหรือเลือดไม่หยุด ให้ไปหาครูพยาบาล</p>
+                <p class="dispensing-elapsed">กลับหน้าแรกใน <span id="done-countdown">8</span> วินาที</p>
+            </div>
+            <div class="view-foot">
+                <button class="btn btn-primary btn-major" type="button" data-action="finish-now">กลับหน้าแรก</button>
+            </div>
+        </section>
+
+        <!-- 9 · มีปัญหา (สั่งไม่ผ่าน / ผลไม่ชัด) ─────────────────────── -->
+        <section class="view" id="view-problem" aria-label="ตู้ขัดข้อง" hidden>
+            <div class="view-head">
+                <div>
+                    <h1 class="view-title" id="problem-title">ตู้ยังจ่ายของไม่ได้</h1>
+                </div>
+            </div>
+            <div class="view-body">
+                <div class="notice" id="problem-notice" data-tone="danger">
+                    <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
+                    <span id="problem-text"></span>
+                </div>
+                <div class="notice" data-tone="info">
+                    <svg class="icon" aria-hidden="true"><use href="#i-teacher"></use></svg>
+                    <span>ยังดูวิธีทำแผลได้ แต่ของในตู้ต้องให้ครูเปิดให้</span>
+                </div>
+            </div>
+            <div class="view-foot">
+                <button class="btn btn-outline" type="button" id="problem-retry" data-action="dispense" hidden>ลองสั่งใหม่</button>
+                <button class="btn btn-outline" type="button" data-action="go-steps">ดูวิธีทำแผล</button>
+                <button class="btn btn-primary btn-major" type="button" data-action="finish-now">จบและกลับหน้าแรก</button>
+            </div>
+        </section>
+
+        <!-- ปุ่มเรียกครู: อยู่ตำแหน่งเดิมทุกหน้า -->
+        <button class="btn btn-danger sos-fixed" type="button" id="sos-button" data-action="sos-open">
+            <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
+            เรียกครู
+        </button>
+
+        <!-- โอเวอร์เลย์ · ยืนยันเรียกครู ─────────────────────────────── -->
+        <div class="overlay" id="overlay-sos" role="dialog" aria-modal="true" aria-labelledby="sos-overlay-title" hidden>
+            <svg class="icon icon-lg" aria-hidden="true" style="color:var(--danger)"><use href="#i-alert"></use></svg>
+            <h2 class="overlay-title" id="sos-overlay-title">เรียกครูพยาบาลใช่ไหม</h2>
+            <p class="view-lead" id="sos-overlay-text">ตู้จะส่งเสียงและแจ้งครูทาง LINE</p>
+            <div class="overlay-actions" id="sos-overlay-actions">
+                <button class="btn btn-outline btn-major" type="button" data-action="sos-cancel">ยังไม่เรียก</button>
+                <button class="btn btn-danger btn-major" type="button" id="sos-confirm" data-action="sos-send">เรียกครูเลย</button>
+            </div>
+            <div class="overlay-actions" id="sos-overlay-close" hidden>
+                <button class="btn btn-primary btn-major" type="button" data-action="sos-cancel">ปิดหน้าต่างนี้</button>
+            </div>
+        </div>
+
+        <!-- โอเวอร์เลย์ · ใกล้หมดเวลา ────────────────────────────────── -->
+        <div class="overlay" id="overlay-idle" role="dialog" aria-modal="true" aria-labelledby="idle-overlay-title" hidden>
+            <svg class="icon icon-lg" aria-hidden="true" style="color:var(--primary)"><use href="#i-clock"></use></svg>
+            <h2 class="overlay-title" id="idle-overlay-title">ยังใช้งานอยู่ไหม</h2>
+            <p class="overlay-countdown">จะกลับหน้าแรกใน <span id="idle-countdown">15</span> วินาที</p>
+            <div class="overlay-actions">
+                <button class="btn btn-primary btn-major" type="button" data-action="idle-stay">ใช้งานต่อ</button>
+                <button class="btn btn-outline btn-major" type="button" data-action="finish-now">จบแล้ว</button>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- ตรรกะที่ใช้ร่วมกับเว็บ ไม่ได้คัดลอกมาไว้ในหน้าตู้ -->
+<script src="../js/wound-data.js"></script>
+<script src="../js/storage.js"></script>
+<script src="../js/notification.js"></script>
+<script src="../js/api-bridge.js"></script>
+<!-- เฉพาะของหน้าตู้ -->
+<script src="../js/kiosk-session.js"></script>
+<script src="../js/kiosk-app.js"></script>
+</body>
+</html>

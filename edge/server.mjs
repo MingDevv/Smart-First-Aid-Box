@@ -76,7 +76,9 @@ export async function createLocalServer({ controller, root = ROOT } = {}) {
             if (route.endsWith('/')) route += 'index.html';
             if (!extname(route)) route += '.html';
             // Allow only web assets. Never expose source APIs, firmware, database, dotfiles or config.
-            if (!/^\/(?:index\.html|(?:student|dashboard)\/[a-z0-9-]+\.html|(?:css|js|images|fonts)\/[a-zA-Z0-9_./-]+)$/.test(route) ||
+            // `kiosk` is the cabinet's own single-page app; it needs its own directory because it
+            // shares nothing with the phone/teacher pages under student/ and dashboard/.
+            if (!/^\/(?:index\.html|(?:student|dashboard|kiosk)\/[a-z0-9-]+\.html|(?:css|js|images|fonts)\/[a-zA-Z0-9_./-]+)$/.test(route) ||
                 route.split('/').some(part => part.startsWith('.')) || !TYPES[extname(route)]) {
                 return json(res, 404, { error: 'Not found' });
             }
@@ -108,8 +110,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     const server = await createLocalServer({ controller });
     const port = Number(process.env.SFAB_PORT || 8787);
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid SFAB_PORT');
-    server.listen(port, '127.0.0.1', () => console.log(`Pi kiosk: http://localhost:${port}/student/kiosk`));
-    const stop = () => server.close(async () => { await controller.close(); process.exit(0); });
+    server.listen(port, '127.0.0.1', () => console.log(`Pi kiosk: http://localhost:${port}/kiosk`));
+    // Chromium holds keep-alive sockets open, so close() alone never resolves while the kiosk
+    // is running: systemctl waits out TimeoutStopSec and then SIGKILLs, which can cut a command
+    // mid-flight and leave a row the next start has to mark uncertain. Drop idle sockets, keep
+    // in-flight requests (closeAllConnections would abort those too).
+    const stop = () => {
+        server.close(async () => { await controller.close(); process.exit(0); });
+        server.closeIdleConnections();
+    };
     process.once('SIGTERM', stop);
     process.once('SIGINT', stop);
 }

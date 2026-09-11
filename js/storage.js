@@ -147,10 +147,9 @@ const StorageService = {
         let anonKey = (settings.supabaseAnonKey || '').trim();
 
         if (!baseUrl || !anonKey) {
+            // ข้อความชวนตั้งค่า Supabase เป็นเรื่องของผู้ดูแล ไม่ใช่ของคนที่กำลังทำแผลอยู่
+            // เดิมเด้ง toast ใส่ผู้ใช้ทุกครั้งที่บันทึกประวัติ ซึ่งบนหน้าตู้ยิ่งไม่ควร
             console.log('[Supabase] URL or Anon Key not configured in settings. Local fallback active.');
-            if (window.NotificationService) {
-                window.NotificationService.showToast('คุณสามารถตั้งค่า Supabase URL และ Key เพื่อบันทึกลงฐานข้อมูลออนไลน์ได้', 'info');
-            }
             return;
         }
 
