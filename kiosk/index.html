@@ -152,7 +152,22 @@
                 </div>
             </div>
             <div class="view-body">
-                <div class="supply-row" id="confirm-supplies"></div>
+                <div class="supply-row supply-row-compact" id="confirm-supplies"></div>
+                <!-- คำถามที่ต้องตอบก่อน ไม่ใช่คำเตือนให้อ่านผ่าน · ไม่มีปุ่มไหนถูกเลือกไว้ล่วงหน้า
+                     โดยเฉพาะปุ่มที่ปลอดภัยที่สุด เพราะการเลือกไว้ให้เท่ากับตอบแทนเด็ก -->
+                <!-- ไม่ใช้ fieldset/legend เพราะ legend วางตัวเองนอกกระแส flex แล้วทับเนื้อหาข้างบน
+                     บนจอ 800x480 ที่ไม่มีที่ว่างให้พลาด ใช้ span + role=group แทน -->
+                <div class="allergy-gate" id="allergy-gate" role="group" aria-labelledby="allergy-question">
+                    <span class="allergy-question" id="allergy-question">เคยแพ้สิ่งที่แสดงนี้ไหม</span>
+                    <div class="allergy-choices">
+                        <button class="btn btn-outline allergy-choice" type="button"
+                                data-action="allergy-answer" data-answer="yes" aria-pressed="false">เคยแพ้</button>
+                        <button class="btn btn-outline allergy-choice" type="button"
+                                data-action="allergy-answer" data-answer="unsure" aria-pressed="false">ไม่แน่ใจ</button>
+                        <button class="btn btn-outline allergy-choice" type="button"
+                                data-action="allergy-answer" data-answer="no" aria-pressed="false">ไม่เคยแพ้</button>
+                    </div>
+                </div>
                 <div class="notice" id="confirm-notice" data-tone="info" hidden>
                     <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
                     <span id="confirm-notice-text"></span>
@@ -163,7 +178,9 @@
                     <svg class="icon" aria-hidden="true"><use href="#i-back"></use></svg>
                     กลับ
                 </button>
-                <button class="btn btn-primary btn-major" type="button" id="confirm-dispense" data-action="dispense">
+                <!-- ดูวิธีทำแผลได้เสมอ ไม่ว่าตู้จะจ่ายของได้หรือไม่ และไม่ส่งคำสั่งอะไรทั้งนั้น -->
+                <button class="btn btn-outline btn-guide" type="button" data-action="guide-only">วิธีทำแผล</button>
+                <button class="btn btn-primary btn-major" type="button" id="confirm-dispense" data-action="dispense" disabled>
                     <svg class="icon" aria-hidden="true"><use href="#i-box"></use></svg>
                     รับอุปกรณ์
                 </button>
@@ -184,7 +201,9 @@
         <section class="view" id="view-collect" aria-label="รับอุปกรณ์" hidden>
             <div class="view-head">
                 <div>
-                    <h1 class="view-title" id="collect-title">เปิดช่องที่ 1 แล้ว</h1>
+                    <!-- ตู้ตอบรับคำสั่ง ไม่เท่ากับลิ้นชักเปิดจริงหรือของออกมาจริง
+                         ยังไม่มีเซนเซอร์ที่พิสูจน์ได้ พาดหัวจึงพูดได้แค่ว่ารับคำสั่งแล้ว -->
+                    <h1 class="view-title" id="collect-title">ตู้รับคำสั่งเปิดช่องที่ 1 แล้ว</h1>
                     <p class="view-lead">หยิบของตามรูป แล้วปิดช่องให้สนิท</p>
                 </div>
             </div>

@@ -103,7 +103,7 @@
     --tap-major: 76px;
 
     /* ปุ่มเรียกครูกว้างคงที่ เพื่อให้แถวปุ่มล่างกันที่ให้มันได้แน่นอน */
-    --sos-width: 190px;
+    --sos-width: 170px;
 
     --font: 'IBM Plex Sans Thai', 'Noto Sans Thai', 'Sarabun', system-ui, sans-serif;
 }
@@ -287,17 +287,28 @@ img {
     /* กันชนของปุ่มเรียกครูซึ่งลอยอยู่มุมขวาล่างทุกหน้า
      * ถ้าไม่กันไว้ ปุ่มหลักจะยาวไปใต้ปุ่มเรียกครู แล้วแตะขอบขวาของ
      * "รับอุปกรณ์" จะไปโดน "เรียกครู" แทน — เห็นจากภาพจริงที่ 800x480 */
-    padding-right: calc(var(--sos-width) + 14px);
+    padding-right: calc(var(--sos-width) + 28px);
+    /* flex item มี min-width:auto เป็นค่าเริ่มต้น = ย่อต่ำกว่าความกว้างเนื้อหาไม่ได้
+     * ปุ่มจึงล้นออกนอก padding-right ที่กันไว้ให้ปุ่มเรียกครู แล้วไปทับกันจริงๆ
+     * (วัดแล้ว: ขวาสุดของ "รับอุปกรณ์" 598 ทั้งที่เขตของแถวจบที่ 560)
+     * บังคับ min-width:0 ให้มันยอมย่อและตัดบรรทัดแทนการล้น */
 }
 
 .view-foot .btn {
     flex: 1 1 0;
+    min-width: 0;
 }
 
 /* ปุ่มย้อนกลับใช้ตัวเล็กกว่าปุ่มหลัก คำไทยอย่าง "ก่อนหน้า" จะได้ไม่ตกบรรทัด
  * ปุ่มรองที่อ่านง่ายอยู่แล้วไม่ต้องใหญ่เท่าปุ่มที่อยากให้กด */
 .view-foot .btn-back {
-    flex: 0 0 180px;
+    flex: 0 0 150px;
+    font-size: var(--fs-body);
+}
+
+/* ปุ่มรองบนหน้ายืนยัน — แถวนี้มีสามใบบวกที่กันไว้ให้ปุ่มเรียกครู ปุ่มหลักต้องยังใหญ่กว่าเพื่อน */
+.view-foot .btn-guide {
+    flex: 0 0 160px;
     font-size: var(--fs-body);
 }
 
@@ -630,6 +641,33 @@ img {
     object-fit: cover;
 }
 
+/* หน้ายืนยันมีคำถามเรื่องแพ้ยาแทรกเข้ามา ที่เหลือให้รายการของจึงน้อยลง
+ * ย่อเป็นแถวเตี้ยแนวนอน ไม่ใช่ปล่อยให้ flex บีบจนรูปกับชื่อหายไปทั้งคู่ */
+.supply-row-compact {
+    flex: 0 0 auto;
+}
+
+.supply-row-compact .supply-item {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 8px 12px;
+    text-align: left;
+}
+
+.supply-row-compact .supply-item img {
+    width: 46px;
+    height: 46px;
+    border-radius: 10px;
+    flex: 0 0 auto;
+}
+
+.supply-row-compact .supply-item-name {
+    font-size: 15px;
+    line-height: 1.25;
+}
+
 .supply-item-name {
     font-size: var(--fs-small);
     font-weight: 600;
@@ -701,6 +739,59 @@ img {
     font-size: var(--fs-body);
     line-height: 1.5;
     -webkit-overflow-scrolling: touch;
+}
+
+/* ── คำถามเรื่องแพ้ยา ──────────────────────────────────────────────────── */
+
+.allergy-gate {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 14px;
+    border: 2px solid var(--warning);
+    border-radius: var(--radius);
+    background: var(--warning-light);
+}
+
+.allergy-gate[data-answered='no'] {
+    border-color: var(--success);
+    background: var(--success-light);
+}
+
+.allergy-gate[data-answered='yes'],
+.allergy-gate[data-answered='unsure'] {
+    border-color: var(--danger);
+    background: var(--danger-light);
+}
+
+.allergy-question {
+    padding: 0;
+    color: var(--text-main);
+    font-size: var(--fs-body);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.allergy-choices {
+    display: flex;
+    flex: 1 1 auto;
+    gap: 10px;
+}
+
+.allergy-choice {
+    flex: 1 1 0;
+    min-height: var(--tap);
+    font-size: var(--fs-body);
+}
+
+/* ปุ่มที่ถูกเลือกต้องต่างจากปุ่มที่ไม่ได้เลือกด้วยมากกว่าสี — เพิ่มเส้นขอบหนาและตัวหนา
+ * เผื่อจอ contrast ต่ำและเผื่อคนที่แยกสีไม่ได้ */
+.allergy-choice[aria-pressed='true'] {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+    font-weight: 600;
 }
 
 /* ── กล่องข้อความสถานะ ─────────────────────────────────────────────────── */

@@ -36,22 +36,38 @@ export class LocalController {
     }
 
     async status() {
-        if (!this.origin) return { connected: false, ready: false, mode: 'pi-local', configured: false };
+        // Reported on every status read, including the unconfigured and unreachable branches:
+        // a cabinet that has gone offline while a command was in flight is exactly the case
+        // where the caller must not be told it is free to send another one.
+        const unresolved = this.unresolved();
+        if (!this.origin) return { connected: false, ready: false, mode: 'pi-local', configured: false, unresolved };
         try {
             const { status, data } = await this.request('/status');
             const validBudget = Number.isInteger(data.ackTimeoutMs) && data.ackTimeoutMs >= 3000 && data.ackTimeoutMs <= 120000;
             const connected = status === 200 && data.protocol === 2 && data.microbit === 'connected' && validBudget;
             return { connected, ready: connected && data.ready === true, mode: 'pi-local', configured: true,
                 commandTimeoutMs: validBudget ? data.ackTimeoutMs + 3000 : null,
-                reason: data.reason === 'awaiting_new_ready_epoch' ? data.reason : '' };
+                reason: data.reason === 'awaiting_new_ready_epoch' ? data.reason : '', unresolved };
         } catch {
-            return { connected: false, ready: false, mode: 'pi-local', configured: true };
+            return { connected: false, ready: false, mode: 'pi-local', configured: true, unresolved };
         }
     }
 
     history() {
         return this.db.prepare(`SELECT id, drawer, state, created_at, confirmed_at FROM commands
             ORDER BY rowid DESC LIMIT 100`).all();
+    }
+
+    // The hold that outlives a student session, a page reload and a process restart.
+    // A command that was sent but never confirmed is a physical operation nobody has
+    // reconciled: the drawer may already be open, the stepper may be mid-travel. Issuing a
+    // fresh command with a new ID is not a replay — the journal cannot catch it — so the
+    // block has to come from here, from durable state, not from UI memory.
+    // Cleared only by an operator through edge/resolve.mjs over SSH. Deliberately not
+    // reachable over HTTP: the only HTTP client is the touchscreen the students use.
+    unresolved() {
+        return this.db.prepare(`SELECT id, drawer, created_at FROM commands
+            WHERE state = 'uncertain' ORDER BY rowid DESC LIMIT 1`).get() ?? null;
     }
 
     failure(status, id, error) {
@@ -74,6 +90,16 @@ export class LocalController {
         }
         if (!this.origin) return this.failure(503, command.id, 'ยังไม่ได้ตั้งค่าการเชื่อมต่อ ESP32 บน Pi');
         if (command.action === 'open' && this.activeOpens.size) return this.failure(409, command.id, 'ตู้กำลังทำงาน กรุณารอ');
+        // Enforced here, not only in the UI: a reload, a new student or a second browser tab
+        // all produce a fresh command ID, which the per-ID replay guard above cannot catch.
+        // The buzzer is left alone — calling for help must never be blocked by a stuck drawer.
+        if (command.action === 'open') {
+            const held = this.unresolved();
+            if (held) {
+                return this.failure(409, command.id,
+                    `ตู้ยังมีคำสั่งค้างที่ไม่รู้ผล (ช่องที่ ${held.drawer}) ต้องให้ครูตรวจตู้และเคลียร์ก่อน`);
+            }
+        }
 
         this.db.prepare("INSERT INTO commands (id, drawer, state, created_at) VALUES (?, ?, 'pending', ?)")
             .run(command.id, channel, new Date().toISOString());

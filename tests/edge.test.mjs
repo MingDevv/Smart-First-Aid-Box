@@ -163,6 +163,135 @@ test('firmware ACK budget determines the outer command deadline and unknown budg
     }
 });
 
+// ───────── คำสั่งค้างที่ไม่รู้ผล = เกตถาวร ไม่ใช่สถานะบนหน้าจอ ─────────
+// ทางหนีที่นัยทำซ้ำได้: คำสั่งจบแบบ uncertain แล้วหน้าจอถูกรีเซ็ต/นับถอยหลัง/รีโหลด
+// ใบใหม่จึงมี id ใหม่เอี่ยม ตัวกันซ้ำราย id มองไม่เห็น แล้ว ESP32 ก็ได้รับ /open อีกใบ
+// ทั้งที่ลิ้นชักใบเดิมยังไม่มีใครไปดูว่าเปิดค้างอยู่หรือมอเตอร์ค้างกลางทาง
+
+test('คำสั่งที่ส่งแล้วไม่ได้ ACK จบเป็น uncertain และกลายเป็นคำสั่งค้างที่ unresolved() เห็น', async t => {
+    const buzzer = { action: 'buzzer', state: 'on', id: 'c-hold-buzzer-001' };
+    const { controller, requests } = await fixture(t, url => {
+        if (url.pathname === '/status') return ready;
+        if (url.pathname === '/buzzer' || url.searchParams.get('id') === buzzer.id) {
+            return [200, { success: true, protocol: 2, event: 'buzzer_set', id: buzzer.id, state: 'on' }];
+        }
+        return pending;   // /open ตอบรับ แต่ไม่เคยยืนยัน และ /command-status ก็ไม่ยืนยัน
+    }, { timeoutMs: 150 });
+
+    const stuck = await controller.command(command);
+    assert.equal(stuck.status, 504);
+    assert.equal(stuck.body.success, false);
+    assert.equal(controller.history()[0].state, 'uncertain');
+    const held = controller.unresolved();
+    assert.equal(held.id, command.id);
+    assert.equal(held.drawer, command.drawer);
+    const opens = requests.filter(u => u.pathname === '/open').length;
+    assert.equal(opens, 1);
+
+    // id ใหม่เอี่ยม: ไม่ชนกับใบเดิม ตัวกันซ้ำราย id ปล่อยผ่านแน่นอน สิ่งที่กันคือ journal
+    const fresh = { ...command, id: 'c-edge-fresh-0002' };
+    const refused = await controller.command(fresh);
+    assert.equal(refused.status, 409);
+    assert.equal(refused.body.success, false);
+    assert.equal(refused.body.commandId, fresh.id);
+    // ตัวเลขนี้คือหลักฐานว่าทางหนีปิดแล้ว ไม่ใช่แค่ HTTP ตอบ 409 สวยๆ
+    assert.equal(requests.filter(u => u.pathname === '/open').length, opens,
+        'ESP32 ได้รับ /open ใบใหม่ทั้งที่ยังมีคำสั่งค้าง');
+    assert.equal(controller.history().find(row => row.id === fresh.id), undefined,
+        'ใบที่ถูกปฏิเสธต้องไม่ถูกจดลงสมุดคำสั่ง');
+    assert.equal(controller.unresolved().id, command.id);
+
+    // ออดต้องไม่ถูกกั้น — การเรียกครูห้ามติดอยู่กับลิ้นชักที่ค้าง
+    assert.equal((await controller.command(buzzer)).body.success, true);
+    assert.ok(requests.some(u => u.pathname === '/buzzer'));
+    assert.equal(controller.unresolved().id, command.id, 'ออดที่สำเร็จต้องไม่ไปล้างคำสั่งค้าง');
+});
+
+test('status() รายงานคำสั่งค้างครบทั้งสามกิ่ง: ต่อติด ต่อไม่ติด และยังไม่ได้ตั้งค่า ESP32', async t => {
+    const { controller, database, esp32Url } = await fixture(t, url =>
+        url.pathname === '/status' ? ready : pending, { timeoutMs: 120 });
+    await controller.command(command);
+    assert.equal(controller.unresolved().id, command.id);
+
+    // 1. กิ่งต่อติด
+    const connected = await controller.status();
+    assert.equal(connected.connected, true);
+    assert.equal(connected.unresolved.id, command.id);
+
+    // 2. กิ่งต่อไม่ติด — ชี้ไปพอร์ตที่เพิ่งปิด (ปิด esp ของ fixture ไม่ได้ เพราะเทสอื่นยังใช้)
+    //    ตู้ที่หลุดไปตอนคำสั่งยังคาอยู่ คือกรณีที่ห้ามบอกผู้เรียกว่าว่างให้สั่งใหม่ที่สุด
+    const vanished = createServer(() => {});
+    const deadUrl = await listen(vanished);
+    await close(vanished);
+    const offline = new LocalController({ esp32Url: deadUrl, database });
+    t.after(() => offline.close());
+    const unreachable = await offline.status();
+    assert.equal(unreachable.connected, false);
+    assert.equal(unreachable.configured, true);
+    assert.equal(unreachable.unresolved.id, command.id);
+
+    // 3. กิ่งยังไม่ได้ตั้งค่า (ไม่มี esp32Url) — return ก่อนแตะเครือข่ายเลย
+    const unconfigured = new LocalController({ database });
+    t.after(() => unconfigured.close());
+    const idle = await unconfigured.status();
+    assert.equal(idle.configured, false);
+    assert.equal(idle.connected, false);
+    assert.equal(idle.unresolved.id, command.id);
+    assert.ok(esp32Url.startsWith('http://127.0.0.1:'));
+});
+
+test('คำสั่งค้างอยู่ในไฟล์ ไม่ใช่ในหน่วยความจำ: controller ตัวใหม่บนฐานข้อมูลเดิมยังกั้นอยู่', async t => {
+    // นี่คือสิ่งที่สถานะบนหน้าจอทำไม่ได้: รีโหลดหน้า จบ session หรือรีสตาร์ทโพรเซสแล้วยังกั้น
+    const { controller, database, esp32Url, requests } = await fixture(t, url =>
+        url.pathname === '/status' ? ready : pending, { timeoutMs: 120 });
+    await controller.command(command);
+    const before = requests.filter(u => u.pathname === '/open').length;
+    assert.equal(before, 1);
+
+    const restarted = new LocalController({ esp32Url, database, timeoutMs: 120 });
+    t.after(() => restarted.close());
+    assert.equal(restarted.unresolved().id, command.id);
+    const refused = await restarted.command({ ...command, id: 'c-after-restart-01' });
+    assert.equal(refused.status, 409);
+    assert.equal(requests.filter(u => u.pathname === '/open').length, before);
+});
+
+test('เคลียร์ด้วย edge/resolve.mjs ตัวจริงแล้ว เปิดช่องใหม่ได้อีกครั้ง และประวัติยังอยู่ครบ', async t => {
+    // spawn/fileURLToPath ใช้ที่เทสนี้ที่เดียว เลย import แบบ dynamic ตามแบบเทส /kiosk ข้างล่าง
+    const { execFile } = await import('node:child_process');
+    const { fileURLToPath } = await import('node:url');
+    const cliPath = fileURLToPath(new URL('../edge/resolve.mjs', import.meta.url));
+
+    let acknowledging = false;
+    const fresh = { ...command, id: 'c-after-resolve-01' };
+    const { controller, database, requests } = await fixture(t, url => {
+        if (url.pathname === '/status') return ready;
+        return acknowledging ? [200, ack(fresh)] : pending;
+    }, { timeoutMs: 150 });
+    await controller.command(command);
+    assert.equal(controller.unresolved().id, command.id);
+    assert.equal((await controller.command(fresh)).status, 409, 'ต้องถูกกั้นอยู่ก่อนเคลียร์');
+    assert.equal(requests.filter(u => u.pathname === '/open').length, 1);
+
+    const cli = args => new Promise(resolve => execFile(process.execPath, [cliPath, ...args],
+        { env: { ...process.env, SFAB_DATABASE: database } },
+        (error, stdout, stderr) => resolve({ code: error?.code ?? 0, stdout, stderr })));
+
+    const listed = await cli(['--list']);
+    assert.equal(listed.code, 0, listed.stderr);
+    assert.match(listed.stdout, new RegExp(command.id));
+    const cleared = await cli(['--check-cabinet', command.id]);
+    assert.equal(cleared.code, 0, cleared.stderr);
+
+    assert.equal(controller.unresolved(), null);
+    acknowledging = true;
+    assert.equal((await controller.command(fresh)).body.success, true);
+    assert.equal(requests.filter(u => u.pathname === '/open').length, 2);
+    // ใบเดิมถูกเปลี่ยนสถานะ ไม่ได้ถูกลบ — สมุดคำสั่งเป็นประวัติ ไม่ใช่คิวงาน
+    assert.equal(controller.history().find(row => row.id === command.id).state, 'resolved_by_operator');
+    assert.equal((await cli(['--check-cabinet', command.id])).code, 1, 'ใบที่เคลียร์แล้วต้องเคลียร์ซ้ำไม่ได้');
+});
+
 test('local HTTP adapter executes real analyze and notify handlers with no provider credentials', async t => {
     const keys = ['LINE_NOTIFY_TOKEN', 'LINE_TOKEN', 'Line Token', 'LINE_CHANNEL_ACCESS_TOKEN',
         'GEMINI_API_KEY', 'GEMINI_KEY', 'Gemini Key'];
@@ -225,7 +354,10 @@ test('Pi browser ignores stored MQTT/LAN settings and fails closed; explicit dem
     const mqttSource = await readFile(new URL('../js/mqtt-bridge.js', import.meta.url), 'utf8');
     let fail = false;
     let calls = 0;
-    const settings = { demoMode: false, esp32Url: 'http://must-not-contact.invalid', mqttWsUrl: 'wss://must-not-contact.invalid' };
+    // modeProvisionedAt = ครูเลือกโหมดไว้แล้ว ถ้าไม่มีตราประทับนี้ demoMode:false ยังแปลว่า
+    // "ยังไม่ตั้งโหมด" ไม่ใช่ "โหมดจริง" และ openCompartment จะตอบ unprovisioned ตั้งแต่ยังไม่ถึง transport
+    const settings = { demoMode: false, modeProvisionedAt: '2026-09-11T09:00:00.000Z',
+        esp32Url: 'http://must-not-contact.invalid', mqttWsUrl: 'wss://must-not-contact.invalid' };
     const window = { SFAB_RUNTIME: { transport: 'pi-local' }, StorageService: { getSettings: () => settings } };
     const context = vm.createContext({ window, console, AbortController, setTimeout, clearTimeout, Map, Set,
         fetch: async (url, opts) => {
@@ -249,6 +381,18 @@ test('Pi browser ignores stored MQTT/LAN settings and fails closed; explicit dem
     settings.demoMode = true;
     assert.equal((await window.ApiBridge.openCompartment('cut')).mode, 'simulation');
     assert.equal(calls, 2);
+
+    // โปรไฟล์ที่ยังไม่มีใครเลือกโหมด (ไม่มีตราประทับ) — demoMode:true ที่ติดมากับค่าเริ่มต้นเก่า
+    // แยกไม่ออกจากการที่ครูตั้งใจเลือก จึงต้องไม่ถูกนับเป็นโหมดสาธิต และต้องไม่สั่งจริงด้วย
+    delete settings.modeProvisionedAt;
+    for (const demoMode of [true, false]) {
+        settings.demoMode = demoMode;
+        const blocked = await window.ApiBridge.openCompartment('cut');
+        assert.equal(blocked.mode, 'unprovisioned', `demoMode=${demoMode}`);
+        assert.equal(blocked.success, false);
+        assert.equal(blocked.retrySafe, true);   // ไม่ได้ส่งอะไรออกไป ตั้งโหมดแล้วกดใหม่ได้
+        assert.equal(calls, 2, 'โหมดที่ยังไม่ได้ตั้ง ต้องหยุดก่อนแตะเครือข่าย');
+    }
 });
 
 test('browser status failure is safe to retry and command requests use a separate abort signal', async () => {

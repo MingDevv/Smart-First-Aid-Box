@@ -413,32 +413,38 @@
         }
 
         // Config form saving
-        function updateDemoStatusBadge(isOn) {
+        // สามสถานะ ไม่ใช่สอง — 'unset' คือยังไม่มีใครเลือก ตู้จะไม่ยอมสั่งอะไรเลยจนกว่าจะเลือก
+        function updateDemoStatusBadge(mode) {
+            const state = mode === true ? 'demo' : mode === false ? 'real' : mode;
             const dot = document.getElementById('demo-status-dot');
             const text = document.getElementById('demo-status-text');
             const checkbox = document.getElementById('cfg-demo-mode');
-            if (dot) dot.style.background = isOn ? 'oklch(0.79 0.18 145)' : '#94A3B8';
+            const palette = { demo: 'oklch(0.79 0.18 145)', real: '#94A3B8', unset: 'oklch(0.64 0.17 30)' };
+            const copy = {
+                demo: 'โหมดสาธิต: เปิดอยู่ — จำลองการเปิดตู้ยา ไม่ได้สั่งฮาร์ดแวร์จริง',
+                real: 'โหมดสาธิต: ปิดอยู่ — ระบบจะสั่งฮาร์ดแวร์จริง',
+                unset: 'ยังไม่ได้เลือกโหมด — ตู้จะไม่สั่งอะไรเลยจนกว่าครูจะเลือกสาธิตหรือใช้งานจริง'
+            };
+            if (dot) dot.style.background = palette[state] || palette.unset;
             if (text) {
-                text.style.color = isOn ? 'oklch(0.50 0.15 145)' : 'var(--text-muted)';
-                text.textContent = isOn
-                    ? 'โหมดสาธิต: ✅ เปิดอยู่ — จำลองการเปิดตู้ยา (ไม่ต้องใช้ฮาร์ดแวร์จริง)'
-                    : 'โหมดสาธิต: ❌ ปิดอยู่ — ระบบจะส่งสัญญาณฮาร์ดแวร์จริง';
+                text.style.color = state === 'demo' ? 'oklch(0.50 0.15 145)'
+                    : state === 'unset' ? 'oklch(0.52 0.16 30)' : 'var(--text-muted)';
+                text.textContent = copy[state] || copy.unset;
             }
-            if (checkbox) checkbox.checked = !!isOn;
+            if (checkbox) checkbox.checked = state === 'demo';
         }
 
         // Called directly by checkbox onchange - self-contained, no dependencies
         function onDemoModeChange(enabled) {
             // Force boolean
             const isOn = enabled === true || enabled === 'true';
-            // Write directly to localStorage — no helper chain
+            // ต้องผ่าน saveSettings เท่านั้น เพราะมันเป็นคนประทับ modeProvisionedAt ให้
+            // การเขียน localStorage ตรงๆ จะได้ค่า demoMode ที่ไม่มีตราประทับ ซึ่งระบบถือว่า
+            // "ยังไม่ได้ตั้งโหมด" แล้วตู้จะปฏิเสธคำสั่งทั้งหมด ทั้งที่สวิตช์บนจอดูเหมือนติดแล้ว
             try {
-                const raw = localStorage.getItem('smart_first_aid_settings');
-                const current = raw ? JSON.parse(raw) : {};
-                current.demoMode = isOn;
-                localStorage.setItem('smart_first_aid_settings', JSON.stringify(current));
+                StorageService.saveSettings({ demoMode: isOn });
             } catch(e) {
-                console.error('[Demo] localStorage write failed:', e);
+                console.error('[Demo] settings write failed:', e);
             }
             updateDemoStatusBadge(isOn);
             if (window.NotificationService) {
@@ -469,10 +475,11 @@
             if (mqttPassElem) mqttPassElem.value = settings.mqttPassword || "";
             if (mqttTopicElem) mqttTopicElem.value = settings.mqttBaseTopic || "crms6/firstaidbox/box1";
 
-            // Strict boolean check — only ON if explicitly true
-            const isDemoOn = settings.demoMode === true;
-            if (demoModeElem) demoModeElem.checked = isDemoOn;
-            updateDemoStatusBadge(isDemoOn);
+            // อ่านจาก getOperatingMode แหล่งเดียวกับที่ ApiBridge ใช้ตัดสินใจจริง
+            // ไม่อ่าน settings.demoMode ตรงๆ เพราะค่า true ที่ไม่มีตราประทับ = ยังไม่ได้ตั้ง
+            const mode = StorageService.getOperatingMode(settings);
+            if (demoModeElem) demoModeElem.checked = mode === 'demo';
+            updateDemoStatusBadge(mode);
         }
 
         function saveSystemConfig(event) {

@@ -22,7 +22,7 @@ Certainty column:
 | Key | Value | Certainty | Why |
 |---|---|---|---|
 | `URLBlocklist` | `["*"]` | CERTAIN | Deny-all navigation, then allowlist back. |
-| `URLAllowlist` | kiosk origins | CERTAIN | Allowlist entries win over blocklist entries. |
+| `URLAllowlist` | kiosk **route + assets + API**, both origins | CERTAIN (key) / see §Route narrowing | Allowlist entries win over blocklist entries. Narrowed from the bare origin — an origin entry admitted `/dashboard/*` and `/student/*` too. |
 | `RestoreOnStartup` | `4` | CERTAIN | 4 = "open a list of URLs". Kills session-restore prompts. |
 | `RestoreOnStartupURLs` | `/kiosk` | CERTAIN | Same URL the command line opens. |
 | `DeveloperToolsAvailability` | `2` | CERTAIN | 2 = disallowed everywhere. Blocks F12 / Ctrl+Shift+I. |
@@ -86,10 +86,85 @@ failure here.
 - **`AutoplayAllowed`** — has moved between deprecated and supported across releases.
   The `--autoplay-policy` switch in the flags file is the stable route.
 
+## Route narrowing — what changed and how the list was derived
+
+The allowlist used to be the two bare origins, `http://localhost:8787` and
+`http://127.0.0.1:8787`. That admits **every** route the edge service serves, which is
+not the restriction this was supposed to be. `edge/server.mjs` serves, by its static
+allowlist regex:
+
+```
+/index.html
+/(student|dashboard|kiosk)/<name>.html
+/(css|js|images|fonts)/<path>
+```
+
+So an origin-level entry also allowed navigation to the teacher dashboard and to the old
+phone/student pages — and `student/wound-scan.html:113` holds
+`<input type="file" id="file-input" accept="image/*">`. Reaching that page on the cabinet
+puts an OS file-picker one tap away, on a device whose whole point is that a student
+cannot leave the page. (Checked this session: that is the **only** `type="file"` in the
+repo outside the kiosk page's own comment saying it has none.)
+
+The entries now in the JSON were read off `kiosk/index.html` and `edge/server.mjs`, not
+guessed:
+
+| Entry | Why it is there | Source |
+|---|---|---|
+| `/kiosk` | The route the browser opens. `vercel.json` rewrites it to `/kiosk/index.html`, and the server reads that rewrite table at startup | `vercel.json`, `sfab-kiosk-run.sh` |
+| `/css/kiosk.css` | The only stylesheet the page links. `css/global.css` is deliberately not loaded | `kiosk/index.html` `<link rel="stylesheet">` |
+| `/js/` | Six scripts: `wound-data.js`, `storage.js`, `notification.js`, `api-bridge.js`, `kiosk-session.js`, `kiosk-app.js` | the six `<script src>` tags |
+| `/fonts/` | Six `@font-face` woff2 files (IBM Plex Sans Thai 400/500/600, Thai + Latin). Self-hosted so the page renders with the internet unplugged | `css/kiosk.css` `src: url(...)` |
+| `/images/` | Logo, five wound images, five medicine images, four step images | `kiosk/index.html` + the tables in `js/` |
+| `/api/local/status` | Hardware status polling | `js/api-bridge.js` |
+| `/api/command` | Drawer open and buzzer | `js/api-bridge.js` |
+| `/api/analyze` | Wound photo analysis (Gemini, via the Pi) | `js/kiosk-app.js` |
+| `/api/notify` | LINE teacher call | `js/notification.js` |
+
+Deliberately **not** listed:
+
+- **`/api/local/history`** — the kiosk page never fetches it. It is a maintenance read,
+  done with `curl` over SSH (see `README.md`), which no browser policy touches.
+- **`/index.html`, `/student/*`, `/dashboard/*`** — see the warning immediately below,
+  which is the one thing to read before deploying this file.
+
+> ⚠️ **This narrowing blocks the teacher dashboard, and the dashboard is where the
+> operating mode and the medicine stock are set.** Both live in `localStorage` in *this
+> Chromium profile*, so neither can be done from another device — it has to be this
+> browser, on this Pi. With the policy as written, navigating to `/dashboard` is blocked.
+>
+> Use the same temporary-unlock pattern as the `chrome://policy` check below: add
+> `"http://localhost:8787/dashboard"` to `URLAllowlist`, restart Chromium, provision the
+> mode and the stock, then remove the entry and restart again. Note that this does *not*
+> re-open the file-picker hole — the `type="file"` is in `student/wound-scan.html`, and
+> `/dashboard/*` has none (checked).
+>
+> **Decide deliberately, and record which you chose:** keep the dashboard behind a
+> temporary unlock (maximum lockdown, a two-step ritual every time stock changes), or add
+> the `/dashboard` entry permanently (a teacher can manage stock unaided; a student who
+> gets a keyboard can also reach it). This directory ships the locked version because the
+> review asked for the kiosk route; it is not a judgement that the other choice is wrong.
+
 ## Limits of `URLAllowlist` — read before believing the cabinet is sealed
 
 `URLBlocklist` / `URLAllowlist` govern **navigation**. They do **not** filter
 `fetch()` / `XMLHttpRequest` / WebSocket traffic from a page that is already loaded.
+
+**What that means for the asset and API entries added above.** In Chromium this filter is
+applied as a navigation throttle, so on the documented behaviour the `/css/`, `/js/`,
+`/fonts/`, `/images/` and `/api/` entries are **documentary, not load-bearing**: the page
+would fetch those subresources whether or not they appear in the list. They are listed
+anyway because they cost nothing, they put the cabinet's complete intended surface in one
+readable place, and they keep the page working if the installed build turns out to filter
+more than navigations.
+
+That last possibility is **not verified on the device** — nothing here has run on a
+Chromium. It is cheap to settle, and row 14b in `README.md` is the check: load `/kiosk`
+with this policy active and look at the page. Fully styled, Thai text in IBM Plex, images
+present, hardware status updating ⇒ subresources are unfiltered and these entries are
+documentation. Unstyled page or missing images ⇒ the build filters subresources, the
+entries are load-bearing, and anything omitted from them is now a real breakage to hunt.
+
 Concretely, on this app:
 
 - `/api/analyze` (Gemini) and `/api/notify` (LINE) still work, because the **Pi's Node

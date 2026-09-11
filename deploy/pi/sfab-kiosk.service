@@ -71,6 +71,16 @@ ExecStart=/usr/local/lib/sfab/sfab-kiosk-run.sh
 # every escape this setup cannot block: Ctrl+W, Ctrl+Shift+Q, Alt+F4, a crash, or a
 # student finding the window close path. The compositor config cannot intercept the
 # browser's own keybindings. Recovery is the only available answer, so make it automatic.
+#
+# SCOPE, because this line is easy to over-read: it recovers a browser that EXITS. It is
+# NOT hang recovery. A renderer that wedges — frozen page, last frame still on screen,
+# process alive — never exits, so systemd sees a healthy unit and does nothing, and the
+# cabinet shows a normal-looking screen that ignores every touch. Nothing in this
+# directory detects that: the edge watchdog (sfab-edge-watchdog.timer) probes the Node
+# service and never looks at the browser. Closing it needs a liveness signal from inside
+# the page, which lives in js/ and is out of scope here. Stated plainly in
+# deploy/pi/README.md under "Hang recovery"; row 48 of the checklist confirms the gap on
+# the device. Do not let this line stand in for that work.
 Restart=always
 RestartSec=3s
 

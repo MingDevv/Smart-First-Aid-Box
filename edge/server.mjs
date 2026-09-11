@@ -111,10 +111,26 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     const port = Number(process.env.SFAB_PORT || 8787);
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid SFAB_PORT');
     server.listen(port, '127.0.0.1', () => console.log(`Pi kiosk: http://localhost:${port}/kiosk`));
-    // Chromium holds keep-alive sockets open, so close() alone never resolves while the kiosk
-    // is running: systemctl waits out TimeoutStopSec and then SIGKILLs, which can cut a command
-    // mid-flight and leave a row the next start has to mark uncertain. Drop idle sockets, keep
-    // in-flight requests (closeAllConnections would abort those too).
+    // An idle keep-alive socket does NOT hold close() open. Measured on this server, node
+    // v26.8.2: one parked keep-alive connection held open, close() WITHOUT
+    // closeIdleConnections() resolved in 0.2ms. (Control: the same probe against a socket
+    // mid-request did not resolve at all inside 10s, so it can detect a stalled close.)
+    // The earlier claim here — that Chromium's sockets make close() wait out TimeoutStopSec —
+    // was wrong, and deploy/pi/ repeated it; both are corrected.
+    //
+    // What does hold close() open is an IN-FLIGHT request. A POST /api/command may legitimately
+    // run to the firmware ACK budget + 3s, up to 123s (controller.mjs caps ackTimeoutMs at
+    // 120000). Measured with a 3s stubbed command: 2808ms under `Connection: close` — the
+    // remaining command time — and 6811ms over a keep-alive agent, because the socket goes idle
+    // only AFTER the response and then waits out keepAliveTimeout (5s); closeIdleConnections()
+    // fires once, here, so it cannot catch a socket that becomes idle later. TimeoutStopSec on
+    // the unit is sized against that sum; too small a value SIGKILLs mid-command and leaves a
+    // row the next start marks uncertain, which now blocks the cabinet until an operator clears
+    // it (edge/resolve.mjs).
+    //
+    // Keep closeIdleConnections(): harmless (0.0ms) and it drops sockets already idle at stop
+    // time instead of letting each wait out keepAliveTimeout. closeAllConnections() is
+    // deliberately NOT used — it would abort in-flight commands.
     const stop = () => {
         server.close(async () => { await controller.close(); process.exit(0); });
         server.closeIdleConnections();

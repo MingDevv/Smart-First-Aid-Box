@@ -52,6 +52,25 @@
     let idleTicker = null;
     let sosBusy = false;
 
+    // คำตอบเรื่องแพ้ยาของรอบนี้: null | 'yes' | 'unsure' | 'no'
+    // null คือยังไม่ตอบ ไม่ใช่ "ไม่แพ้" — ต้องแยกให้ขาด
+    let allergyAnswer = null;
+
+    // ตัวนับรุ่นของงานที่ทำค้างไว้ กล้อง การย่อภาพ และการวิเคราะห์เป็น async ทั้งหมด
+    // ถ้าไม่มีตัวนี้ callback ของรอบก่อนที่เพิ่งกลับมา จะเขียนทับหน้าจอของรอบใหม่ได้
+    // (นัย reproduce ได้จริงทั้งสองแบบ: getUserMedia ที่คืนมาหลังออกจากหน้าสแกน
+    // และ callback ย่อภาพที่คืนมาหลังรีเซ็ต แล้วลากหน้าจอจาก start ไป confirm พร้อมรูปรอบเก่า)
+    let generation = 0;
+
+    const currentGeneration = () => generation;
+    const isStale = token => token !== generation;
+    function invalidateAsyncWork() {
+        generation += 1;
+        cancelAnalyze();
+        stopCamera();
+        clearPhoto();
+    }
+
     // ── ยูทิลิตี้ ───────────────────────────────────────────────────────
 
     function currentWound() {
@@ -69,7 +88,14 @@
     }
 
     function isDemo() {
-        return !!(window.ApiBridge && ApiBridge.isDemoMode());
+        return mode() === 'demo';
+    }
+
+    // 'demo' | 'real' | 'unset' — ถามจาก ApiBridge เสมอ เพราะมันคือตัวที่ตัดสินจริงว่าจะส่งอะไรออกไป
+    // ถ้าหน้าจออ่านจากที่อื่น ป้ายบนจอกับพฤติกรรมจริงจะหลอกกันได้
+    function mode() {
+        if (window.ApiBridge?.operatingMode) return ApiBridge.operatingMode();
+        return 'unset';
     }
 
     function toast(message, tone) {
@@ -101,6 +127,17 @@
 
     function renderHardware() {
         const badge = el('hw-status');
+        // คำสั่งค้างมาก่อนทุกอย่าง เพราะมันแปลว่าตู้อยู่ในสภาพที่ไม่มีใครรู้ว่าเป็นยังไง
+        if (hardware.unresolved) {
+            badge.dataset.state = 'offline';
+            badge.textContent = 'ตู้มีคำสั่งค้าง รอครูตรวจ';
+            return;
+        }
+        if (mode() === 'unset') {
+            badge.dataset.state = 'offline';
+            badge.textContent = 'ยังไม่ได้ตั้งโหมด รอครูตั้งค่า';
+            return;
+        }
         if (isDemo()) {
             badge.dataset.state = 'demo';
             badge.textContent = 'โหมดสาธิต ไม่ได้สั่งตู้จริง';
@@ -158,17 +195,27 @@
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             return cameraUnavailable('เครื่องนี้ไม่มีกล้องที่ใช้ได้');
         }
+        const token = currentGeneration();
         try {
             // ขอ {video:true} ตรงๆ ไม่ใช้ facingMode — กล้อง USB/CSI บน Pi มักไม่รายงาน
             // ด้านหน้า-หลัง แล้วจะถูกปฏิเสธด้วย OverconstrainedError เสียเที่ยวหนึ่ง
-            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            const granted = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            // ผู้ใช้อาจกดกลับไปแล้วระหว่างรอสิทธิ์กล้อง สตรีมที่เพิ่งได้มาต้องถูกปิดทันที
+            // ไม่ใช่ปล่อยให้ไปเกาะ video ที่ซ่อนอยู่แล้วไฟกล้องติดค้างทั้งที่ไม่มีใครใช้
+            if (isStale(token)) {
+                granted.getTracks().forEach(track => track.stop());
+                return;
+            }
+            stream = granted;
             const video = el('scan-video');
             video.srcObject = stream;
             // autoplay ที่เงียบๆ ไม่ทำงาน หน้าตาเหมือนกล้องเสีย จึงสั่ง play เองและจับ error
             await video.play();
+            if (isStale(token)) return stopCamera();
             el('scan-capture').disabled = false;
             el('scan-hint').textContent = 'ให้แสงส่องถึงแผล อย่าให้เงามือบัง';
         } catch (error) {
+            if (isStale(token)) return;
             console.warn('[Kiosk] camera failed:', error && error.name);
             cameraUnavailable('เปิดกล้องไม่ได้');
         }
@@ -191,6 +238,18 @@
         if (video) video.srcObject = null;
     }
 
+    // ล้างรูปทั้งใน state และใน DOM — snapshot ที่ว่างไม่ได้พิสูจน์ว่าจอไม่ได้ค้างรูปไว้
+    function clearPhoto() {
+        photoReady = false;
+        const preview = el('scan-preview');
+        if (preview) {
+            preview.removeAttribute('src');
+            preview.hidden = true;
+        }
+        const video = el('scan-video');
+        if (video) video.hidden = false;
+    }
+
     function capturePhoto() {
         const video = el('scan-video');
         if (!stream || !video.videoWidth) return;
@@ -203,13 +262,17 @@
         video.hidden = true;
 
         // ย่อก่อนค่อยเปิดให้กดวิเคราะห์ — ของเดิมเปิดปุ่มทันทีแล้วส่งภาพเต็มความละเอียดได้
+        const token = currentGeneration();
         shrinkPhoto(raw, shrunk => {
+            // การถอดรหัสภาพใช้เวลา ผู้ใช้อาจกดกลับหรือรอบอาจถูกรีเซ็ตไปแล้ว
+            // ถ้าไม่ตรวจตรงนี้ รูปของรอบก่อนจะถูกยัดเข้ารอบใหม่แล้วลากไปหน้ายืนยันเอง
+            if (isStale(token)) return;
             session.setPhoto(shrunk);
             photoReady = true;
             const preview = el('scan-preview');
             preview.src = shrunk;
             preview.hidden = false;
-            analyzePhoto();
+            analyzePhoto(token);
         });
     }
 
@@ -228,35 +291,44 @@
         image.src = dataUrl;
     }
 
-    async function analyzePhoto() {
+    async function analyzePhoto(generationToken) {
         if (!photoReady) return;
+        const token = generationToken === undefined ? currentGeneration() : generationToken;
         el('scan-lead').textContent = 'กำลังให้ AI ดูภาพ รอสักครู่';
         el('scan-hint').textContent = 'ถ้ารอนานเกินไป กดเลือกแผลเองได้เลย';
 
-        analyzeAbort = new AbortController();
-        const deadline = setTimeout(() => analyzeAbort.abort(), ANALYZE_TIMEOUT_MS);
+        // AbortController เป็นของการเรียกครั้งนี้ ไม่ใช่ของโมดูล ไม่งั้น cancelAnalyze()
+        // ของรอบใหม่จะไปยกเลิกคำขอของรอบเก่าหรือกลับกัน แล้วแต่ว่าใครเขียนทับใครก่อน
+        const abort = new AbortController();
+        analyzeAbort = abort;
+        const deadline = setTimeout(() => abort.abort(), ANALYZE_TIMEOUT_MS);
+        const settle = () => {
+            clearTimeout(deadline);
+            if (analyzeAbort === abort) analyzeAbort = null;
+        };
         let result;
         try {
             const response = await fetch('/api/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ image: session.state.photo }),
-                signal: analyzeAbort.signal
+                signal: abort.signal
             });
             result = await response.json();
             if (!response.ok || !result || result.success !== true) {
                 throw new Error((result && result.error) || 'วิเคราะห์ภาพไม่สำเร็จ');
             }
         } catch (error) {
-            clearTimeout(deadline);
-            analyzeAbort = null;
+            settle();
+            if (isStale(token)) return;
             console.warn('[Kiosk] analyze failed:', error && error.message);
             el('scan-lead').textContent = 'ตอนนี้ AI ดูภาพให้ไม่ได้ เลือกประเภทแผลเองได้เลย';
             el('scan-hint').textContent = 'กดปุ่ม "เลือกแผลเอง" ทางขวา';
             return;
         }
-        clearTimeout(deadline);
-        analyzeAbort = null;
+        settle();
+        // คำตอบมาถึงหลังผู้ใช้ไปแล้ว = ทิ้ง ห้ามลากหน้าจอกลับมา
+        if (isStale(token)) return;
 
         session.setAiResult(result);
         // ไม่มั่นใจพอ หรือระบุไม่ได้ ⇒ ไม่เดาให้ ให้คนเลือกเอง
@@ -313,8 +385,8 @@
     }
 
     function goSelect(lead) {
-        cancelAnalyze();
-        stopCamera();
+        // ออกจากหน้าสแกน = งานกล้อง/ย่อภาพ/วิเคราะห์ที่ค้างอยู่หมดอายุทันที
+        invalidateAsyncWork();
         session.setMethod('manual');
         el('select-lead').textContent = lead || 'แตะรูปที่ใกล้เคียงที่สุด อาการอื่นให้กดเรียกครู';
         showView('select');
@@ -372,37 +444,59 @@
 
     // แยกออกมาเพราะสถานะตู้เปลี่ยนได้ระหว่างที่หน้ายืนยันเปิดค้างอยู่
     // ถูกเรียกทั้งตอนเปิดหน้า และทุกครั้งที่โพลสถานะกลับมา
+    function renderAllergyGate() {
+        const gate = el('allergy-gate');
+        gate.dataset.answered = allergyAnswer || 'none';
+        [...gate.querySelectorAll('[data-answer]')].forEach(button => {
+            button.setAttribute('aria-pressed', String(button.dataset.answer === allergyAnswer));
+        });
+    }
+
+    // เหตุผลเดียวที่ห้ามจ่าย คืนเป็นข้อความ หรือ null ถ้าจ่ายได้
+    // แยกจากการวาดหน้าจอ เพื่อให้ dispense() เรียกซ้ำได้ตอนกดจริง ไม่ใช่เชื่อสถานะปุ่ม
+    function dispenseBlockReason() {
+        const wound = currentWound();
+        if (!wound) return 'ยังไม่ได้เลือกประเภทแผล';
+        const known = matchedAllergies(wound);
+        if (known.length) return `ประวัติบอกว่าแพ้ ${known.join(', ')} — ต้องให้ครูดูก่อน`;
+        if (allergyAnswer === null) return 'ตอบคำถามเรื่องแพ้ยาก่อน ตู้จะได้รู้ว่าจ่ายให้ได้ไหม';
+        if (allergyAnswer === 'yes') return 'เคยแพ้ของพวกนี้ — ตู้จะไม่จ่ายให้ กดเรียกครูเลย';
+        if (allergyAnswer === 'unsure') return 'ไม่แน่ใจว่าแพ้หรือเปล่า — ให้ครูดูก่อนปลอดภัยกว่า กดเรียกครู';
+        if (!session.canDispatch()) return 'รอบนี้สั่งตู้ไปแล้ว ถ้าของยังไม่ออกมาให้กดเรียกครู อย่าสั่งซ้ำ';
+        // ค้างจากคำสั่งก่อนหน้าที่ยังไม่มีใครเคลียร์ — อ่านจากสมุดคำสั่งของ Pi ไม่ใช่จากหน้าจอ
+        if (hardware.unresolved) {
+            return `ตู้มีคำสั่งค้างที่ยังไม่รู้ผล (ช่องที่ ${hardware.unresolved.drawer}) ต้องให้ครูตรวจตู้และเคลียร์ก่อน`;
+        }
+        if (isDemo()) return null;
+        if (mode() === 'unset') return 'ตู้ยังไม่ได้ตั้งโหมดการทำงาน ให้ครูตั้งค่าที่หน้าครูก่อน';
+        if (hardware.connected !== true || hardware.ready === false) {
+            return 'ตอนนี้ตู้ยังไม่พร้อมจ่ายของ กดดูวิธีทำแผลได้ ถ้าต้องใช้ของให้กดเรียกครู';
+        }
+        return null;
+    }
+
     function refreshConfirmGate() {
         const wound = currentWound();
         if (!wound) return;
-        const blocked = matchedAllergies(wound);
+        renderAllergyGate();
+        const reason = dispenseBlockReason();
         const dispenseButton = el('confirm-dispense');
-        if (blocked.length) {
-            setNotice(el('confirm-notice'), el('confirm-notice-text'), 'danger',
-                `ประวัติบอกว่าแพ้ ${blocked.join(', ')} — ตู้จะไม่เปิดให้ ต้องให้ครูดูก่อน`);
-            dispenseButton.hidden = true;
-        } else if (!canDispenseNow()) {
-            // บอกเหตุผลตรงนั้น ดีกว่าปุ่มจางๆ ที่กดไม่ได้โดยไม่บอกว่าทำไม
-            setNotice(el('confirm-notice'), el('confirm-notice-text'), 'danger',
-                session.canDispatch()
-                    ? 'ตอนนี้ตู้ยังไม่พร้อมจ่ายของ ยังดูวิธีทำแผลได้ ถ้าต้องใช้ของให้กดเรียกครู'
-                    : 'รอบนี้สั่งตู้ไปแล้ว ถ้าของยังไม่ออกมาให้กดเรียกครู อย่าสั่งซ้ำ');
-            dispenseButton.hidden = false;
-            dispenseButton.disabled = true;
+        dispenseButton.hidden = false;
+        dispenseButton.disabled = reason !== null;
+        if (reason && allergyAnswer === null) {
+            // คำถามอยู่เหนือปุ่มอยู่แล้ว การขึ้นกล่องบอกซ้ำว่า "ตอบคำถามก่อน" คือข้อความซ้ำ
+            // ที่กินที่บนจอ 480px และทำให้รายการของถูกบีบ ปล่อยให้คำถามพูดแทน
+            setNotice(el('confirm-notice'), el('confirm-notice-text'), 'warning', '');
+        } else if (reason) {
+            setNotice(el('confirm-notice'), el('confirm-notice-text'), 'danger', reason);
         } else {
-            // หน้าตู้ไม่รู้ว่าใครยืนอยู่ จึงถามเรื่องแพ้ยาตรงนี้แทนการดูจากประวัติ
-            setNotice(el('confirm-notice'), el('confirm-notice-text'), 'warning',
-                'ถ้าเคยแพ้ของพวกนี้ หรือไม่แน่ใจ ให้กดเรียกครูแทน อย่ากดรับอุปกรณ์');
-            dispenseButton.hidden = false;
-            dispenseButton.disabled = false;
+            setNotice(el('confirm-notice'), el('confirm-notice-text'), 'success',
+                'ตอบว่าไม่เคยแพ้แล้ว กดรับอุปกรณ์ได้');
         }
     }
 
     function canDispenseNow() {
-        if (!session.canDispatch()) return false;
-        if (isDemo()) return true;
-        // ตู้บอกเองว่ายังไม่พร้อม ⇒ อย่าให้กดแล้วไปเจอ error ตอนปลายทาง
-        return hardware.connected === true && hardware.ready !== false;
+        return dispenseBlockReason() === null;
     }
 
     // ── สั่งตู้ ─────────────────────────────────────────────────────────
@@ -410,6 +504,14 @@
     async function dispense() {
         const wound = currentWound();
         if (!wound) return;
+        // ตรวจซ้ำตรงจุดที่ยิงจริง ไม่เชื่อว่าปุ่มถูกปิดไว้แล้ว — ปุ่มถูกเปิดใหม่ได้จากโพลสถานะ
+        // และ dispense() ยังถูกเรียกจากปุ่ม "ลองสั่งใหม่" บนหน้าปัญหาซึ่งไม่ผ่านหน้ายืนยัน
+        const blocked = dispenseBlockReason();
+        if (blocked) {
+            refreshConfirmGate();
+            toast(blocked, 'danger');
+            return;
+        }
         if (!session.beginDispatch(null, wound.drawer)) return;
 
         el('dispensing-title').textContent = `กำลังสั่งตู้เปิดช่องที่ ${wound.drawer}`;
@@ -449,9 +551,10 @@
 
     function goCollect(result) {
         const wound = currentWound();
+        // ACK ไม่ใช่หลักฐานว่าลิ้นชักเปิดหรือของออกมา ยังไม่มีเซนเซอร์ที่บอกได้
         el('collect-title').textContent = result && result.mode === 'simulation'
-            ? `โหมดสาธิต: สมมติว่าเปิดช่องที่ ${wound.drawer}`
-            : `เปิดช่องที่ ${wound.drawer} แล้ว`;
+            ? `โหมดสาธิต: สมมติว่าสั่งเปิดช่องที่ ${wound.drawer}`
+            : `ตู้รับคำสั่งเปิดช่องที่ ${wound.drawer} แล้ว`;
         renderSupplies(el('collect-supplies'), wound);
         showView('collect');
     }
@@ -521,12 +624,15 @@
             recordTreatment(wound).catch(error => console.warn('[Kiosk] record failed:', error && error.message));
         }
         // พาดหัวต้องพูดความจริงของรอบนั้น ไม่ใช่ข้อความชัยชนะแบบตายตัว
-        // รอบที่ตู้ไม่ยืนยันการจ่าย นักเรียนอาจยังไม่ได้ของอะไรเลย
+        // สามกรณีต่างกันจริงๆ: ตู้รับคำสั่งแล้ว · สั่งไปแล้วไม่รู้ผล · ไม่เคยสั่งเลย
+        const neverSent = session.state.dispatch.state === 'idle';
         el('done-title').textContent = dispensed ? 'เรียบร้อยแล้ว หายไวๆ นะ' : 'จบรอบนี้แล้ว';
         el('done-icon').style.color = dispensed ? 'var(--success)' : 'var(--warning)';
         el('done-lead').textContent = dispensed
             ? 'ถ้าแผลยังปวดหรือเลือดไม่หยุด ให้ไปหาครูพยาบาล'
-            : 'ตู้ยังไม่ยืนยันว่าจ่ายของออกมา ถ้ายังต้องใช้ของ ให้ไปหาครูพยาบาล';
+            : neverSent
+                ? 'รอบนี้ดูวิธีทำแผลอย่างเดียว ยังไม่ได้สั่งตู้จ่ายของ ถ้าต้องใช้ของให้ไปหาครูพยาบาล'
+                : 'ตู้ยังไม่ยืนยันว่าจ่ายของออกมา ถ้ายังต้องใช้ของ ให้ไปหาครูพยาบาล';
         showView('done');
         startDoneCountdown();
     }
@@ -588,8 +694,9 @@
         // กับปิดกล้องไปก่อน หน้าจอจะเสียหายทั้งที่การรีเซ็ตถูกปฏิเสธ
         if (!session.reset(reason)) return;
         stopTickers();
-        cancelAnalyze();
-        stopCamera();
+        // บวกเลขรุ่น ปิดกล้อง ยกเลิกการวิเคราะห์ และล้างรูปทั้งใน state และใน DOM
+        invalidateAsyncWork();
+        allergyAnswer = null;
         el('overlay-idle').hidden = true;
         el('overlay-sos').hidden = true;
         const store = storage();
@@ -678,10 +785,18 @@
         'pick-wound': target => {
             session.setWound(target.dataset.wound);
             if (session.state.method !== 'ai-scan') session.setMethod('manual');
+            // เปลี่ยนแผล = เปลี่ยนรายการของที่จะได้ คำตอบเดิมเรื่องแพ้ยาใช้ไม่ได้แล้ว
+            allergyAnswer = null;
             goConfirm();
+        },
+        'allergy-answer': target => {
+            allergyAnswer = target.dataset.answer;
+            refreshConfirmGate();
         },
         'confirm-back': () => goSelect(),
         'dispense': dispense,
+        // ดูวิธีทำแผลโดยไม่สั่งอะไรเลย ต้องใช้ได้แม้ตู้ออฟไลน์ตั้งแต่ต้น
+        'guide-only': goSteps,
         'go-steps': goSteps,
         'step-prev': () => moveStep(-1),
         'step-next': () => moveStep(1),

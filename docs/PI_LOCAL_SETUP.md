@@ -50,9 +50,27 @@ back to cloud MQTT or simulated success after a real command fails.
    including the camera permission and the reason the browser sandbox stays on, is in
    [deploy/pi/chromium-kiosk-flags.conf](../deploy/pi/chromium-kiosk-flags.conf).
 
-8. Existing browser settings start in Demo mode. Turn Demo off in the dashboard
-   when ready to test actual hardware. Demo never calls the actuator or records
-   real treatment history. A disconnected cabinet in Real mode reports failure.
+8. **Pick an operating mode before the cabinet can actuate anything.** The mode is
+   tri-state — Demo, Real, or **unset** — and a freshly imaged Pi is unset. While it is
+   unset the cabinet refuses to open a drawer or sound the buzzer: `ApiBridge` returns
+   `mode:'unprovisioned'` with `retrySafe:true` **before** anything reaches the network,
+   so nothing was sent and it is safe to choose a mode and try again. On a first-aid
+   cabinet this is deliberate fail-closed behaviour, not a fault to work around.
+
+   Choose Demo or Real in the dashboard. Only that choice provisions the mode — it
+   writes a `modeProvisionedAt` stamp next to the boolean. A profile carried over from an
+   earlier build holds `demoMode: true` inherited from the old default, which cannot be
+   distinguished from a deliberate choice, so it is treated as unset until a human
+   re-picks. The mode lives in that browser profile's `localStorage`, so it has to be set
+   in the cabinet's own Chromium; there is no way to do it from another device.
+
+   Demo never calls the actuator or records real treatment history. A disconnected
+   cabinet in Real mode reports failure. **Calling a teacher is not gated this way**: a
+   LINE notification is still attempted when the mode is unset, because the fail-closed
+   rule covers actuation — motor and buzzer — not asking a human for help. An
+   unprovisioned cabinet therefore reports the two channels separately, LINE sent and
+   cabinet buzzer not confirmed, because they are independent evidence and must never be
+   collapsed into one "success".
 
 The service binds only to `127.0.0.1`; it also rejects foreign Host/Origin values.
 Do not expose it with a public proxy. Camera access works on the localhost secure
@@ -63,12 +81,15 @@ Optional process settings: `SFAB_PORT` (default 8787), `SFAB_DATABASE` (default
 the checkout, retain it across application updates, and back it up along with
 the cabinet. Run one service per cabinet/database.
 
-Nothing in this repository installs or starts a service at boot. Draft systemd units,
-a Chromium kiosk command line, a Chromium managed policy and a labwc session lockdown
-now exist under [deploy/pi/](../deploy/pi/README.md), but they are **unapplied and
-unverified on hardware**: no unit has been started or enabled, no policy has been seen
-on a `chrome://policy` page, no labwc config has been parsed by labwc, and no escape
-route has been tried with a keyboard. That directory carries its own list of what must
+Nothing in this repository installs or starts a service at boot. Draft systemd units, a
+liveness watchdog timer, a Chromium kiosk command line, a Chromium managed policy and a
+labwc session lockdown now exist under [deploy/pi/](../deploy/pi/README.md), but they are
+**unapplied and unverified on hardware**: no unit has been started or enabled, no policy
+has been seen on a `chrome://policy` page, no labwc config has been parsed by labwc, and
+no escape route has been tried with a keyboard. Two limits of that directory are worth
+knowing before relying on it: `Restart=` recovers processes that **exit**, and the
+watchdog added there covers the edge service being **alive but not answering** — while a
+**wedged Chromium renderer is recovered by nothing at all** and is openly unfinished work. That directory carries its own list of what must
 still be checked on the device — including whether the measured touchscreen calibration
 survives the session change, which is the item most likely to be silently destroyed by
 applying any of it.
@@ -106,9 +127,32 @@ applying any of it.
   Set `SFAB_COMMAND_ACK_TIMEOUT_MS` in the ignored device header to the measured
   worst OPEN-to-DONE latency at the flashed `STEP_DELAY_MS`, plus at least 50%
   and 2 seconds headroom; reflash the ESP32. Pi/browser pick up the new budget
-  automatically. Supported firmware budgets are 3–120 seconds. A pending record surviving restart becomes `uncertain` and is never
-  automatically replayed. Inspect the cabinet before initiating a new command
-  after an uncertain result.
+  automatically. Supported firmware budgets are 3–120 seconds, so one command can be in
+  flight for up to 123 seconds on the Pi side; the systemd stop budget in
+  `deploy/pi/sfab-edge.service` is sized against that maximum, not against the
+  provisional 30 seconds. A pending record surviving restart becomes `uncertain` and is
+  never automatically replayed.
+- **An `uncertain` command is a durable hold, and it takes the cabinet out of service
+  until a person clears it.** While one exists the service refuses every new drawer-open
+  with HTTP 409 — not just a repeat of the same ID. That is the point: a page reload, the
+  done-screen countdown, a new student or a reboot all produce a *fresh* command ID for
+  the *same* unreconciled physical operation, and the per-ID replay guard cannot see
+  that. The **buzzer is deliberately not blocked**: calling for help must never be gated
+  on a stuck drawer.
+
+  Clearing it is an SSH-only operation, on purpose — the only HTTP client of this service
+  is the touchscreen a student is standing at, and a hold a student can dismiss is not a
+  hold:
+
+  ```sh
+  node edge/resolve.mjs --list
+  node edge/resolve.mjs --check-cabinet <command-id>
+  ```
+
+  **Physically inspect the cabinet before clearing.** Drawer shut, nothing jammed, stepper
+  position known, supplies accounted for. Clearing asserts that a human has looked; no
+  software check can stand in for that. The row is set to `resolved_by_operator` and kept,
+  not deleted. Full procedure in `deploy/pi/README.md`.
 - A matching `REJECT:<id>` is positive refusal, returned with `actuated:false`;
   only the current ID can release the latch, and a new READY is still required.
   Lost/corrupt UART with no refusal stays latched: `/status` reports
@@ -163,8 +207,16 @@ Before switching the cabinet, with an operator present:
    then one confirmed journal entry.
 3. Repeat the **same command ID**; verify no second movement or journal entry.
 4. Unplug UART before a fresh command; require failure with no false success.
-5. Restart the Pi service after an uncertain command; require no replay.
-6. Finish micro:bit care steps, verify it becomes ready, and test the other drawer
+5. Restart the Pi service after an uncertain command; require no replay. Then require
+   that a **new** treatment is also refused while the hold stands — a fresh command ID
+   for the same unreconciled operation is the case the per-ID guard cannot catch — and
+   that **เรียกครู / the buzzer still works** throughout. Clear it with
+   `node edge/resolve.mjs --check-cabinet <id>` only after inspecting the cabinet, and
+   confirm normal opens resume.
+6. On a fresh browser profile, before choosing a mode: require that a treatment
+   completes no actuation and reports the cabinet as having no operating mode set, with
+   nothing sent to the ESP32.
+7. Finish micro:bit care steps, verify it becomes ready, and test the other drawer
    and V2 speaker on/off. Confirm physical output separately from firmware ACK.
 
 No Pi deployment, board flashing, motor movement or physical output validation

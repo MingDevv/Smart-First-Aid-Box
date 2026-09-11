@@ -86,15 +86,53 @@ ReadWritePaths=/var/lib/sfab
 Restart=on-failure
 RestartSec=5s
 
-# controller.close() awaits every in-flight dispatch. A single /open can legitimately
-# run for the firmware ACK budget + 3s (docs/PI_LOCAL_SETUP.md: provisionally 30s -> 33s
-# on the Pi side). A SIGKILL in the middle leaves a 'pending' row, which the next start
-# rewrites to 'uncertain' — safe, but it needlessly locks that command ID out. 45s gives
-# the longest documented command room to land in the journal first.
-# ALSO: server.close() waits for open keep-alive sockets and edge/server.mjs does not
-# call closeIdleConnections(), so while Chromium is running and holding a socket, stop
-# WILL take the full timeout. Stop sfab-kiosk first — see deploy/pi/README.md.
-TimeoutStopSec=45
+# TimeoutStopSec — sized against the SUPPORTED maximum in-flight command, not against the
+# provisional bench setting. RAISED 45s -> 150s; the reasoning is worth reading before
+# anyone trims it back.
+#
+# WHY 45s WAS WRONG. It covered only the provisional 30s firmware ACK budget quoted in
+# docs/PI_LOCAL_SETUP.md. But that 30s is a configurable starting point, not a limit:
+# controller.mjs ACCEPTS whatever the firmware advertises, up to 120s, and then adds 3s.
+# Read from edge/controller.mjs in this checkout, not from memory:
+#     status():  Number.isInteger(data.ackTimeoutMs) && >= 3000 && <= 120000  -> valid
+#                commandTimeoutMs = data.ackTimeoutMs + 3000                  -> up to 123s
+#     dispatch(): deadline = Date.now() + (this.timeoutMs ?? hardware.commandTimeoutMs)
+# So a cabinet flashed at the top of the supported range holds one /open in flight for
+# 123s — plus roughly 1.5s for the /status fetch dispatch() makes before the deadline
+# starts. 45s would SIGKILL that at a third of the way through.
+#
+# WHAT ACTUALLY HOLDS THE STOP OPEN (measured on node v26.8.2 against this server, not
+# assumed; the old note here asserted the opposite and was wrong):
+#   · An idle keep-alive socket does NOT hold it. close() WITHOUT closeIdleConnections(),
+#     with one parked keep-alive connection open, resolved in 0.2ms.
+#   · An IN-FLIGHT request does. A 3s stubbed command measured 2808ms with
+#     `Connection: close` — i.e. exactly the command time still to run.
+#   · The socket that goes idle AFTER that response adds up to keepAliveTimeout (5s on
+#     this server). The same 3s command measured 6811ms over a keep-alive agent, because
+#     closeIdleConnections() fires once at stop time and cannot catch a socket that
+#     becomes idle later.
+#
+#   worst case ~= 1.5s (status) + 123s (command budget) + 5s (keep-alive tail) ~= 129.5s
+#
+# 150s leaves about 20s of margin on that. The failure this buys off is not untidiness:
+# a SIGKILL before dispatch() finishes leaves a 'pending' row, the next start rewrites it
+# to 'uncertain', and since the durable-hold change an uncertain row REFUSES every
+# subsequent drawer-open until an operator clears it over SSH with
+# `node edge/resolve.mjs --check-cabinet <id>`. That is a cabinet out of service. The stop
+# budget must not be the thing that puts it there.
+#
+# WHAT 150s COSTS: bounded, and much less than it looks. Because idle keep-alive sockets
+# do not hold close() open, a stop with no command in flight still returns in
+# milliseconds. 150s is a ceiling only a genuinely mid-dispense stop can reach — it is not
+# a routine wait, and it is no longer necessary to stop sfab-kiosk first to avoid it.
+# It does mean a shutdown/reboot issued mid-dispense can wait up to 150s.
+#
+# THE OTHER OPTION, AND WHY NOT: capping the admitted runtime budget instead. There is no
+# environment variable for it today — LocalController reads timeoutMs from its constructor
+# and edge/server.mjs never passes one, so the firmware's advertised budget always wins.
+# Capping would mean editing edge/server.mjs, which is outside this directory's scope.
+# If that cap is ever added, this value can come back down to match it.
+TimeoutStopSec=150
 
 # ── Hardening ────────────────────────────────────────────────────────────────
 # Chosen to leave node:sqlite writes working. Anything that breaks the journal breaks

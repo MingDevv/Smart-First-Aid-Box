@@ -191,17 +191,41 @@ const ApiBridge = {
         return this.sendLanCommand(baseUrl, { action: 'open', drawer, id: commandId });
     },
 
-    isDemoMode(settings) {
+    // 'demo' | 'real' | 'unset'. Single source of truth, shared with NotificationService.
+    // Falls back to the module's own reading when StorageService is absent (tests, vm harnesses)
+    // so the two can never drift into disagreeing about what mode the cabinet is in.
+    operatingMode(settings) {
         const s = settings || this.getSettings();
-        // Return true when demoMode is boolean true or string 'true'
-        // Any other value (undefined, null, 'false', false) → real hardware mode
-        return s.demoMode === true || s.demoMode === 'true';
+        if (window.StorageService?.getOperatingMode) return window.StorageService.getOperatingMode(s);
+        if (!s.modeProvisionedAt) return 'unset';
+        if (s.demoMode === true || s.demoMode === 'true') return 'demo';
+        if (s.demoMode === false || s.demoMode === 'false') return 'real';
+        return 'unset';
+    },
+
+    isDemoMode(settings) {
+        return this.operatingMode(settings) === 'demo';
+    },
+
+    // Nobody has chosen a mode, so nothing may be actuated and nothing may be claimed.
+    // retrySafe is true because no command left the browser — the operator can set the mode
+    // and the student can try again without risking a second physical operation.
+    unprovisioned(commandId) {
+        return { success: false, mode: 'unprovisioned', commandId, retrySafe: true,
+            error: 'ตู้ยังไม่ได้ตั้งโหมดการทำงาน ให้ครูตั้งค่าที่หน้าครูก่อนใช้งาน' };
     },
 
     // Check if the hardware (ESP32 controller connected to micro:bit) is online
     async getHardwareStatus() {
         const settings = this.getSettings();
         const isDemo = this.isDemoMode(settings);
+
+        // ยังไม่ได้ตั้งโหมด = ตู้ใช้งานไม่ได้ ต้องรายงานแบบนั้น ไม่ใช่ไปถามสถานะจริงมาโชว์ว่า
+        // "พร้อม" ข้างปุ่มที่จะปฏิเสธทุกครั้ง — ป้ายกับพฤติกรรมต้องพูดตรงกัน
+        if (this.operatingMode(settings) === 'unset') {
+            return { connected: false, ready: false, mode: 'unprovisioned',
+                error: 'ตู้ยังไม่ได้ตั้งโหมดการทำงาน' };
+        }
 
         if (isDemo) {
             return { connected: true, mode: 'simulation' };
@@ -212,7 +236,10 @@ const ApiBridge = {
                 const response = await this.fetchWithTimeout('/api/local/status', {}, 2500);
                 const data = await response.json();
                 return { connected: response.ok && data.connected === true,
-                    ready: data.ready === true, reason: data.reason, mode: 'pi-local' };
+                    ready: data.ready === true, reason: data.reason, mode: 'pi-local',
+                    // Survives reload and restart: the Pi reads it from the command journal,
+                    // not from anything this page remembers. See edge/controller.mjs unresolved().
+                    unresolved: data.unresolved || null };
             } catch { return { connected: false, mode: 'pi-local' }; }
         }
 
@@ -245,6 +272,10 @@ const ApiBridge = {
         };
         const compartmentNum = woundCompartmentMap[woundId] || 1;
         const commandId = this.createCommandId();
+
+        // 0. ยังไม่มีใครเลือกโหมด: ห้ามสั่งจริง และห้ามแกล้งทำเป็นว่าจำลองสำเร็จ
+        //    เกตนี้ต้องมาก่อนทุกอย่างที่แตะเครือข่าย (Bank เคาะ 2026-09-11)
+        if (this.operatingMode(settings) === 'unset') return this.unprovisioned(commandId);
 
         // 1. ถ้าเปิดโหมดสาธิต (Demo ON): จำลองการสั่งจ่ายยาสำเร็จทันที ไม่ต้องส่งสัญญาณฮาร์ดแวร์จริง
         if (isDemo) {
@@ -295,6 +326,11 @@ const ApiBridge = {
         const settings = this.getSettings();
         const isDemo = this.isDemoMode(settings);
         const commandId = this.createCommandId();
+
+        // ออดคือฮาร์ดแวร์เหมือนกัน โหมดที่ยังไม่ได้ตั้งจึงสั่งไม่ได้
+        // แต่ NotificationService.sendSos รายงานผล LINE แยกจากผลออด การขอความช่วยเหลือ
+        // จึงยังถึงครูได้ และหน้าจอจะบอกตรงๆ ว่าเสียงที่ตู้ยังยืนยันไม่ได้
+        if (this.operatingMode(settings) === 'unset') return this.unprovisioned(commandId);
 
         if (isDemo) {
             console.log(`[ApiBridge Demo ON] ESP32 Siren: ${state.toUpperCase()}`);
