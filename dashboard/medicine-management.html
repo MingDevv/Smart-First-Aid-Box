@@ -143,16 +143,23 @@
                 </div>
 
                 <div class="form-group" style="grid-column: 1 / -1; background: var(--surface); padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div>
-                            <label for="cfg-demo-mode" style="font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                                <span class="material-symbols-rounded" style="color: var(--primary);">play_circle</span>
-                                เปิดใช้งานโหมดสาธิต (Demo / Simulation Mode)
+                    <!-- สองตัวเลือกที่ต้องเลือกเอง ไม่ใช่ checkbox — checkbox มีแค่สองสถานะ
+                         แต่โหมดมีสาม และ "ไม่ติ๊ก" ของ checkbox อ่านได้ว่า false เสมอ
+                         ทำให้การกดบันทึกฟอร์มนี้เพื่อแก้ค่าอื่นไปตั้งโหมดเป็น "ใช้งานจริง" ให้เงียบๆ -->
+                    <fieldset style="border: 0; padding: 0; margin: 0;">
+                        <legend style="font-weight: 600; font-size: 14px; padding: 0; margin-bottom: 4px;">โหมดการทำงานของตู้</legend>
+                        <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 10px;">ต้องเลือกหนึ่งอย่างก่อนใช้งาน ถ้ายังไม่เลือก ตู้จะไม่สั่งอะไรเลย</p>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 8px;">
+                                <input type="radio" name="cfg-mode" id="cfg-mode-demo" value="demo" onchange="onModeChoice('demo')" style="accent-color: var(--primary);">
+                                โหมดสาธิต — จำลองการเปิดตู้ ไม่สั่งฮาร์ดแวร์จริง
                             </label>
-                            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px; margin-bottom: 0;">จำลองการเปิดตู้ยาและทดสอบระบบได้โดยไม่ต้องต่ออุปกรณ์จริง (เหมาะสำหรับการนำเสนอ/สาธิต)</p>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 8px;">
+                                <input type="radio" name="cfg-mode" id="cfg-mode-real" value="real" onchange="onModeChoice('real')" style="accent-color: var(--primary);">
+                                ใช้งานจริง — สั่งตู้จริง
+                            </label>
                         </div>
-                        <input type="checkbox" id="cfg-demo-mode" onchange="onDemoModeChange(this.checked)" style="width: 22px; height: 22px; cursor: pointer; accent-color: var(--primary); flex-shrink: 0; margin-left: 12px;">
-                    </div>
+                    </fieldset>
                     <div id="demo-status-row" style="margin-top: 10px; font-size: 12px; display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px; background: rgba(0,0,0,0.03);">
                         <span id="demo-status-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#94A3B8; flex-shrink:0;"></span>
                         <span id="demo-status-text" style="color: var(--text-muted);">โหมดสาธิต: ปิดอยู่ — ระบบจะส่งสัญญาณฮาร์ดแวร์จริง</span>
@@ -418,7 +425,6 @@
             const state = mode === true ? 'demo' : mode === false ? 'real' : mode;
             const dot = document.getElementById('demo-status-dot');
             const text = document.getElementById('demo-status-text');
-            const checkbox = document.getElementById('cfg-demo-mode');
             const palette = { demo: 'oklch(0.79 0.18 145)', real: '#94A3B8', unset: 'oklch(0.64 0.17 30)' };
             const copy = {
                 demo: 'โหมดสาธิต: เปิดอยู่ — จำลองการเปิดตู้ยา ไม่ได้สั่งฮาร์ดแวร์จริง',
@@ -431,31 +437,39 @@
                     : state === 'unset' ? 'oklch(0.52 0.16 30)' : 'var(--text-muted)';
                 text.textContent = copy[state] || copy.unset;
             }
-            if (checkbox) checkbox.checked = state === 'demo';
+            // ยังไม่เลือก = ไม่ติ๊กทั้งคู่ ต้องมองออกว่ายังไม่ได้เลือก ไม่ใช่ดูเหมือนเลือก "ใช้งานจริง"
+            const demoRadio = document.getElementById('cfg-mode-demo');
+            const realRadio = document.getElementById('cfg-mode-real');
+            if (demoRadio) demoRadio.checked = state === 'demo';
+            if (realRadio) realRadio.checked = state === 'real';
         }
 
-        // Called directly by checkbox onchange - self-contained, no dependencies
-        function onDemoModeChange(enabled) {
-            // Force boolean
-            const isOn = enabled === true || enabled === 'true';
-            // ต้องผ่าน saveSettings เท่านั้น เพราะมันเป็นคนประทับ modeProvisionedAt ให้
-            // การเขียน localStorage ตรงๆ จะได้ค่า demoMode ที่ไม่มีตราประทับ ซึ่งระบบถือว่า
-            // "ยังไม่ได้ตั้งโหมด" แล้วตู้จะปฏิเสธคำสั่งทั้งหมด ทั้งที่สวิตช์บนจอดูเหมือนติดแล้ว
+        // เรียกจากการเลือกโหมดโดยตรงเท่านั้น — นี่คือจุดเดียวที่ตั้งโหมดถาวรได้
+        // ต้องผ่าน saveSettings เพราะมันเป็นคนประทับ modeProvisionedAt ให้
+        function onModeChoice(choice) {
+            const isDemo = choice === 'demo';
             try {
-                StorageService.saveSettings({ demoMode: isOn });
-            } catch(e) {
-                console.error('[Demo] settings write failed:', e);
+                StorageService.saveSettings({ demoMode: isDemo });
+            } catch (e) {
+                console.error('[Mode] settings write failed:', e);
+                if (window.NotificationService) {
+                    NotificationService.showToast('บันทึกโหมดไม่สำเร็จ กรุณาลองใหม่', 'danger');
+                }
             }
-            updateDemoStatusBadge(isOn);
+            // อ่านค่าที่บันทึกลงไปจริงมาแสดง ไม่ใช่แสดงค่าที่ตั้งใจจะบันทึก
+            // ถ้าเขียนไม่สำเร็จ หน้าจอจะยังบอกความจริงว่ายังไม่ได้ตั้ง
+            const saved = StorageService.getOperatingMode();
+            updateDemoStatusBadge(saved);
             if (window.NotificationService) {
-                if (isOn) {
-                    NotificationService.showToast('✅ เปิดโหมดสาธิต: จำลองการเปิดตู้ยาได้ทันที', 'success');
+                if (saved === 'demo') {
+                    NotificationService.showToast('ตั้งเป็นโหมดสาธิตแล้ว — จำลองการเปิดตู้ ไม่สั่งฮาร์ดแวร์จริง', 'success');
+                } else if (saved === 'real') {
+                    NotificationService.showToast('ตั้งเป็นใช้งานจริงแล้ว — ระบบจะสั่งฮาร์ดแวร์จริง', 'warning');
                 } else {
-                    NotificationService.showToast('❌ ปิดโหมดสาธิต: ระบบจะใช้ฮาร์ดแวร์จริง (MQTT/LAN)', 'warning');
+                    NotificationService.showToast('ยังไม่ได้ตั้งโหมด ตู้จะยังไม่สั่งอะไร', 'danger');
                 }
             }
         }
-
 
         function loadSystemConfig() {
             const settings = StorageService.getSettings();
@@ -468,7 +482,6 @@
             const mqttUserElem = document.getElementById("cfg-mqtt-user");
             const mqttPassElem = document.getElementById("cfg-mqtt-pass");
             const mqttTopicElem = document.getElementById("cfg-mqtt-topic");
-            const demoModeElem = document.getElementById("cfg-demo-mode");
 
             if (mqttUrlElem) mqttUrlElem.value = settings.mqttWsUrl || "";
             if (mqttUserElem) mqttUserElem.value = settings.mqttUsername || "";
@@ -477,9 +490,7 @@
 
             // อ่านจาก getOperatingMode แหล่งเดียวกับที่ ApiBridge ใช้ตัดสินใจจริง
             // ไม่อ่าน settings.demoMode ตรงๆ เพราะค่า true ที่ไม่มีตราประทับ = ยังไม่ได้ตั้ง
-            const mode = StorageService.getOperatingMode(settings);
-            if (demoModeElem) demoModeElem.checked = mode === 'demo';
-            updateDemoStatusBadge(mode);
+            updateDemoStatusBadge(StorageService.getOperatingMode(settings));
         }
 
         function saveSystemConfig(event) {
@@ -497,7 +508,6 @@
             const mqttUsername = (document.getElementById("cfg-mqtt-user")?.value || "").trim();
             const mqttPassword = (document.getElementById("cfg-mqtt-pass")?.value || "").trim();
             const mqttBaseTopic = (document.getElementById("cfg-mqtt-topic")?.value || "crms6/firstaidbox/box1").trim();
-            const demoMode = document.getElementById("cfg-demo-mode")?.checked ?? false;
 
             // ws:// จากหน้า https จะถูกเบราว์เซอร์บล็อกเงียบ ๆ แบบเดียวกับ http:// ดักไว้ตั้งแต่ตอนกรอก
             // จะได้ไม่ต้องไปนั่งหาสาเหตุว่าทำไมต่อไม่ติดทั้งที่ค่าดูถูกทุกอย่าง
@@ -513,17 +523,16 @@
                 mqttWsUrl,
                 mqttUsername,
                 mqttPassword,
-                mqttBaseTopic,
-                demoMode
+                mqttBaseTopic
             });
 
-            updateDemoStatusBadge(demoMode);
+            // ฟอร์มนี้ไม่แตะโหมดเลย โหมดตั้งได้จากตัวเลือกด้านบนเท่านั้น
+            // เดิมมันส่ง demoMode ของ checkbox ที่ไม่ได้ติ๊กมาด้วยทุกครั้ง ⇒ แค่กดบันทึก
+            // ค่า MQTT ก็ตั้งตู้เป็น "ใช้งานจริง" ให้เงียบๆ ทั้งที่ไม่มีใครเลือก
+            updateDemoStatusBadge(StorageService.getOperatingMode());
             NotificationService.showToast("บันทึกการตั้งค่าระบบเรียบร้อยแล้ว", "success");
         }
 
-        function toggleDemoModeSetting(enabled) {
-            onDemoModeChange(enabled);
-        }
 
         // Toggle inputs password/text
         function toggleInputVisibility(id) {

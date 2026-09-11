@@ -249,9 +249,9 @@
             <span>ปลดล็อกช่อง <span id="drawer-button-number">1</span> &amp; เริ่มทำแผล</span>
         </button>
 
-        <button class="btn btn-outline" id="demo-guide-btn" type="button" onclick="enableDemoAndProceed()" style="width:100%; border-radius:20px; margin:-10px 0 20px; font-size:14px; min-height:48px; border-color:var(--primary); color:var(--primary); background:#fff;">
-            <span class="material-symbols-rounded" aria-hidden="true" style="font-size:20px;">science</span>
-            <span>เปิดโหมดสาธิต (เข้าดูขั้นตอนทำแผลทันที)</span>
+        <button class="btn btn-outline" id="demo-guide-btn" type="button" onclick="showInstructionsOnly()" style="width:100%; border-radius:20px; margin:-10px 0 20px; font-size:14px; min-height:48px; border-color:var(--primary); color:var(--primary); background:#fff;">
+            <span class="material-symbols-rounded" aria-hidden="true" style="font-size:20px;">menu_book</span>
+            <span>ดูขั้นตอนทำแผลก่อน (ยังไม่เปิดช่องยา)</span>
         </button>
     </main>
 
@@ -449,7 +449,7 @@
                 hideDispensingView();
                 icon.textContent = 'error';
                 label.textContent = 'การจ่ายยาขัดข้อง';
-                log.innerHTML = `${escapeHtml(error.message)}<br><button type="button" onclick="enableDemoAndProceed()" style="margin-top:10px; width:100%; padding:10px; border-radius:12px; border:1px solid var(--primary); background:#fff; color:var(--primary); font-weight:700; font-family:var(--font-sarabun); cursor:pointer;">🧪 เปิดโหมดสาธิตแล้วเข้าดูวิธีทำแผล</button>`;
+                log.innerHTML = `${escapeHtml(error.message)}<br><button type="button" onclick="showInstructionsOnly()" style="margin-top:10px; width:100%; padding:10px; border-radius:12px; border:1px solid var(--primary); background:#fff; color:var(--primary); font-weight:700; font-family:var(--font-sarabun); cursor:pointer;">ดูวิธีทำแผลก่อน (ตู้ยังไม่เปิดช่องยา)</button>`;
                 panel.style.background = 'var(--danger-light)';
                 panel.style.color = 'var(--danger)';
                 button.disabled = !retrySafe;
@@ -457,20 +457,20 @@
             } finally { stopTimer(); }
         }
 
-        let isDemoSession = false;
+        // ดูวิธีทำแผลโดยไม่เปิดตู้ — เฉพาะรอบนี้ ไม่แตะการตั้งค่าของเครื่อง
+        //
+        // เดิมปุ่มนี้เขียน demoMode=true ลง localStorage ถาวร ตอนที่ window.StorageService
+        // ยังไม่มีจริง มันจึงไม่มีผลอะไร พอแก้ namespace แล้วมันกลับมามีผลทันที:
+        // นักเรียนคนเดียวกดตรงนี้ ตู้ทั้งเครื่องกลายเป็นโหมดจำลองสำหรับทุกคนที่มาทีหลัง
+        // และตราประทับ modeProvisionedAt ของครูก็ยังติดอยู่ ทำให้ดูเหมือนครูเป็นคนเลือกเอง
+        // โหมดถาวรตั้งได้จากหน้าครูที่เดียวเท่านั้น
+        let instructionsOnly = false;
 
-        function enableDemoAndProceed() {
-            isDemoSession = true;
-            try {
-                const raw = localStorage.getItem('smart_first_aid_settings');
-                const current = raw ? JSON.parse(raw) : {};
-                current.demoMode = true;
-                localStorage.setItem('smart_first_aid_settings', JSON.stringify(current));
-            } catch(e) {}
-            drawerOpened = true;
+        function showInstructionsOnly() {
+            instructionsOnly = true;
             hideDispensingView();
             showStepsView();
-            NotificationService.showToast('เปิดโหมดสาธิตแล้ว — เข้าสู่หน้าขั้นตอนการทำแผล', 'success');
+            NotificationService.showToast('แสดงวิธีทำแผลให้ดูก่อน — ตู้ยังไม่ได้เปิดช่องยา ถ้าต้องใช้ของให้เรียกครู', 'warning');
         }
 
         function showDispensingView() {
@@ -575,6 +575,12 @@
         }
 
         async function finishTreatment() {
+            // รอบที่แค่มาดูวิธีทำแผล ไม่มีการจ่ายของ จึงไม่บันทึกประวัติและไม่แจ้งครูว่าเบิกของ
+            if (instructionsOnly) {
+                NotificationService.showToast('อ่านครบแล้ว — รอบนี้ยังไม่ได้เบิกของจากตู้ ถ้าต้องใช้ให้เรียกครู', 'warning');
+                setTimeout(() => { location.href = '/student/wound-select'; }, 900);
+                return;
+            }
             if (!drawerOpened) {
                 NotificationService.showToast('ยังไม่ได้ยืนยันการเปิดช่องยา', 'danger');
                 return;
@@ -584,7 +590,7 @@
             button.innerHTML = '<span class="material-symbols-rounded">sync</span><span>กำลังบันทึก...</span>';
             if (synth.speaking) synth.cancel();
 
-            const isDemo = isDemoSession || ApiBridge.isDemoMode();
+            const isDemo = ApiBridge.isDemoMode();
 
             const student = StorageService.getCurrentStudent() || { studentId: '99999', name: 'นักเรียนทั่วไป', class: '-' };
             const method = urlParams.get('source') === 'ai-scan' ? 'AI วิเคราะห์จากภาพถ่าย' : 'เลือกประเภทแผลเอง';

@@ -98,6 +98,12 @@
         return 'unset';
     }
 
+    // จริงเฉพาะตอนถูกเสิร์ฟจากบริการบน Pi ซึ่งเป็นที่เดียวที่มีสมุดคำสั่งถาวร
+    // edge/server.mjs ฉีดค่านี้เข้าหน้าตอนเสิร์ฟ หน้าเดียวกันบน Vercel จะไม่มี
+    function isPiLocal() {
+        return !!(window.ApiBridge && ApiBridge.isPiLocal());
+    }
+
     function toast(message, tone) {
         if (window.NotificationService) NotificationService.showToast(message, tone || 'info');
     }
@@ -136,6 +142,11 @@
         if (mode() === 'unset') {
             badge.dataset.state = 'offline';
             badge.textContent = 'ยังไม่ได้ตั้งโหมด รอครูตั้งค่า';
+            return;
+        }
+        if (!isPiLocal() && !isDemo()) {
+            badge.dataset.state = 'offline';
+            badge.textContent = 'ดูได้อย่างเดียว ไม่ได้อยู่ที่ตู้';
             return;
         }
         if (isDemo()) {
@@ -469,6 +480,12 @@
         }
         if (isDemo()) return null;
         if (mode() === 'unset') return 'ตู้ยังไม่ได้ตั้งโหมดการทำงาน ให้ครูตั้งค่าที่หน้าครูก่อน';
+        // หน้านี้เปิดจากที่ไหนก็ได้ แต่ hold ของคำสั่งที่ผลไม่ชัดอยู่ในสมุดคำสั่งของ Pi เท่านั้น
+        // นอก Pi การรีเซ็ตเบราว์เซอร์แล้วสั่งใหม่ด้วย id ใหม่จึงยังเล็ดลอดได้อยู่
+        // Bank เคาะ 2026-09-11: นอก Pi ให้ /kiosk ดูวิธีทำแผลกับโหมดสาธิตได้ แต่ไม่สั่งของจริง
+        // จนกว่าฝั่งเซิร์ฟเวอร์จะมีกลไกกู้คืนแบบเดียวกัน · ปุ่มเรียกครูไม่ถูกกั้น เพราะการขอ
+        // ความช่วยเหลือไม่ใช่การจ่ายของ และการสั่งออดซ้ำไม่ได้ทิ้งสภาพที่ต้องมาไล่กู้ทีหลัง
+        if (!isPiLocal()) return 'หน้านี้บนเว็บใช้ดูวิธีทำแผลได้อย่างเดียว การรับของต้องทำที่หน้าจอของตู้';
         if (hardware.connected !== true || hardware.ready === false) {
             return 'ตอนนี้ตู้ยังไม่พร้อมจ่ายของ กดดูวิธีทำแผลได้ ถ้าต้องใช้ของให้กดเรียกครู';
         }
@@ -709,7 +726,13 @@
 
     function openSos() {
         el('sos-overlay-title').textContent = 'เรียกครูพยาบาลใช่ไหม';
-        el('sos-overlay-text').textContent = 'ตู้จะส่งเสียงและแจ้งครูทาง LINE';
+        // บอกก่อนกดว่าจะเกิดอะไรขึ้นจริงในสภาพตอนนี้ ไม่ใช่สัญญาสิ่งที่ตู้ทำไม่ได้
+        // ตู้ที่ยังไม่ตั้งโหมดส่งเสียงไม่ได้ และ LINE ที่ส่งถึงก็ยังไม่ได้แปลว่าครูเห็นแล้ว
+        el('sos-overlay-text').textContent = mode() === 'unset'
+            ? 'จะแจ้งครูทาง LINE ให้ · ตู้ยังไม่ได้ตั้งโหมดจึงยังส่งเสียงไม่ได้ ถ้าเจ็บมากให้ไปตามครูที่อยู่ใกล้ที่สุดด้วย'
+            : isDemo()
+                ? 'ตอนนี้เป็นโหมดสาธิต จะไม่มีการแจ้งครูจริงและไม่มีเสียงจริง'
+                : 'ตู้จะส่งเสียงและแจ้งครูทาง LINE · การส่งถึงยังไม่ได้แปลว่าครูเห็นแล้ว';
         el('sos-overlay-actions').hidden = false;
         el('sos-overlay-close').hidden = true;
         el('overlay-sos').hidden = false;
