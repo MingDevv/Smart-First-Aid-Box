@@ -306,4 +306,223 @@ assert.match(
     'Project explanation must name the notification service currently used by the app'
 );
 
+// ─── Cabinet page (/kiosk) — structural guards only ────────────────────────────
+// The kiosk page documents its own prohibitions inside HTML comments (`<input type="file">`,
+// `<script src="https://...">`, `css/global.css`). Every negative guard below therefore runs
+// against markup with comments stripped: otherwise the comment that says "never do this" would
+// turn the gate red by itself, and the gate would be measuring prose instead of markup.
+const kioskPageHtml = await readFile(path.join(rootDir, 'kiosk', 'index.html'), 'utf8');
+const kioskCssSource = await readFile(path.join(rootDir, 'css', 'kiosk.css'), 'utf8');
+const kioskAppSource = await readFile(path.join(rootDir, 'js', 'kiosk-app.js'), 'utf8');
+const kioskSessionSource = await readFile(path.join(rootDir, 'js', 'kiosk-session.js'), 'utf8');
+const kioskMarkup = kioskPageHtml.replace(/<!--[\s\S]*?-->/g, '');
+const kioskCssRules = kioskCssSource.replace(/\/\*[\s\S]*?\*\//g, '');
+// Only whole-line `//` comments are dropped: a string literal is never a whole line, so this
+// cannot eat real code, and Thai prose comments cannot trip the identifier guards below.
+const kioskAppCode = kioskAppSource
+    .split('\n')
+    .filter(line => !line.trim().startsWith('//'))
+    .join('\n');
+
+assert.match(
+    kioskPageHtml,
+    /<head>/,
+    'Kiosk page must keep a bare <head>: edge/server.mjs injects window.SFAB_RUNTIME by replacing the literal string "<head>"'
+);
+assert.doesNotMatch(
+    kioskPageHtml,
+    /<head\s[^>]*>/i,
+    'Kiosk <head> must carry no attributes — the Pi runtime injection matches the bare tag and fails open, so the cabinet would silently lose its pi-local transport with no error anywhere'
+);
+
+assert.doesNotMatch(
+    kioskMarkup,
+    /<input\b[^>]*type\s*=\s*["']?file/i,
+    'Kiosk markup must never contain a file input: a hurt child cannot escape an OS file chooser on a 5-inch resistive panel with no keyboard'
+);
+assert.doesNotMatch(
+    kioskAppCode,
+    /type\s*[=:]\s*["']file["']/i,
+    'Kiosk controller must not build a file input at runtime either — same OS file chooser, only created in script'
+);
+assert.doesNotMatch(
+    kioskAppCode,
+    /\.click\s*\(\s*\)/,
+    'Kiosk controller must never fire a programmatic .click(): that is the one way to open a file chooser without markup'
+);
+assert.doesNotMatch(
+    kioskAppCode,
+    /FileReader/,
+    'Kiosk controller must not read local files — the only image source at the cabinet is the live camera'
+);
+
+assert.doesNotMatch(
+    kioskMarkup,
+    /\/dashboard/i,
+    'Kiosk page must not point at the nurse dashboard: the cabinet screen is unattended and must never reach teacher tools'
+);
+assert.doesNotMatch(
+    kioskAppCode,
+    /\/dashboard/i,
+    'Kiosk controller must not navigate to the nurse dashboard for the same reason'
+);
+assert.doesNotMatch(
+    kioskMarkup,
+    /<a\b[^>]*href=/i,
+    'Kiosk page must contain no anchor at all — every link is a way off the single page, and the cabinet has no browser chrome to come back with'
+);
+assert.doesNotMatch(
+    kioskAppCode,
+    /location\s*(?:\.href\s*)?=\s*["'`]|location\.(?:assign|replace)\s*\(|window\.open\s*\(/,
+    'Kiosk controller must never change the URL: the flow is one page precisely so the round (photo, AI result, wound choice) is cleared in exactly one place'
+);
+
+const forbiddenKioskHosts = /cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|unpkg\.com|code\.jquery\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/i;
+assert.doesNotMatch(
+    kioskMarkup,
+    forbiddenKioskHosts,
+    'Kiosk page must load nothing from a CDN or Google Fonts — the cabinet has to come up when the school internet is down'
+);
+assert.doesNotMatch(
+    kioskCssRules,
+    forbiddenKioskHosts,
+    'css/kiosk.css must reference no remote host for the same offline reason'
+);
+assert.doesNotMatch(
+    kioskMarkup,
+    /<(?:script|link)\b[^>]*(?:src|href)\s*=\s*["']https?:\/\//i,
+    'No kiosk script or stylesheet may be fetched over the network at all'
+);
+assert.doesNotMatch(
+    kioskCssRules,
+    /url\(\s*["']?https?:\/\//i,
+    'css/kiosk.css must not fetch any remote url() — a blocked font or image request stalls first paint on the cabinet'
+);
+assert.doesNotMatch(
+    kioskMarkup,
+    /cdn\.jsdelivr\.net\/npm\/mqtt/i,
+    'Kiosk page must not load the mqtt CDN bundle: edge/server.mjs strips that tag on the Pi, so keeping it would mean the page only works because a regex rescued it'
+);
+assert.doesNotMatch(
+    kioskCssRules,
+    /@import/i,
+    'css/kiosk.css must stand alone — css/global.css opens with @import url(https://fonts.googleapis.com/...), so importing it would put a render-blocking network fetch in front of the cabinet screen'
+);
+
+assert.match(
+    kioskMarkup,
+    /<link\b[^>]*href=["']\.\.\/css\/kiosk\.css["']/i,
+    'Kiosk page must load its own standalone stylesheet'
+);
+assert.doesNotMatch(
+    kioskMarkup,
+    /css\/(?:global|home|student-responsive)\.css/i,
+    'Kiosk deliberately replaces the phone stylesheets: they assume a scrolling portrait column, which pushes the dispense and call-teacher buttons off an 800x480 landscape panel'
+);
+
+const kioskFontRefs = [...kioskCssRules.matchAll(/url\(\s*['"]?(\.\.\/fonts\/[^'")]+\.woff2)['"]?\s*\)/g)].map(match => match[1]);
+assert.ok(
+    kioskFontRefs.length > 0,
+    'css/kiosk.css must self-host its Thai webfont from ../fonts/ instead of pulling it from Google Fonts'
+);
+const missingKioskFonts = [];
+for (const fontRef of kioskFontRefs) {
+    try {
+        await access(path.resolve(rootDir, 'css', fontRef));
+    } catch {
+        missingKioskFonts.push(fontRef);
+    }
+}
+assert.deepEqual(
+    missingKioskFonts,
+    [],
+    `css/kiosk.css points at font files that are not in the repo (resolveLocalResource above only walks img/script/link tags, never CSS url(), and font-display: swap hides the miss behind a system fallback):\n${missingKioskFonts.join('\n')}`
+);
+
+const kioskEmojiPattern = /\p{Extended_Pictographic}/u;
+assert.doesNotMatch(
+    kioskPageHtml,
+    kioskEmojiPattern,
+    'Kiosk page must not use emoji: the cabinet loads no emoji font, and the project rule is text or inline SVG everywhere in the UI'
+);
+assert.doesNotMatch(
+    kioskAppSource,
+    kioskEmojiPattern,
+    'Kiosk controller must not inject emoji into the cabinet screen for the same reason'
+);
+assert.doesNotMatch(
+    kioskAppCode,
+    /\.icon\b/,
+    'Kiosk controller must never read the icon field of js/wound-data.js — those fields hold emoji, so rendering one would put an emoji on the cabinet screen without any emoji appearing in kiosk source'
+);
+
+assert.doesNotMatch(
+    kioskAppCode,
+    /demoMode\s*=/,
+    'The demo escape hatch from student/first-aid-guide.html (enableDemoAndProceed writes demoMode: true into smart_first_aid_settings) must never reach the cabinet: on a shared box it would turn real dispensing into simulation for every later student, silently'
+);
+assert.doesNotMatch(
+    kioskAppCode,
+    /localStorage\.setItem/,
+    'Kiosk controller must not write persistent browser state of its own — anything it stored would outlive the round it belongs to and follow the next student'
+);
+
+assert.match(
+    kioskCssRules,
+    /\[hidden\]\s*\{[^}]*display:\s*none\s*!important/,
+    'css/kiosk.css must force [hidden] to display:none — .btn, .notice and .overlay-actions declare their own display at the same specificity as the browser [hidden] rule and win on order, so without this the retry button would be visible while the dispatch outcome is still uncertain'
+);
+assert.match(
+    kioskMarkup,
+    /<button\b[^>]*id=["']problem-retry["'][^>]*\shidden\b/i,
+    'The retry button must ship hidden and be revealed only for a rejected dispatch: a hardware command whose outcome is uncertain must never be offered for retry'
+);
+
+assert.doesNotMatch(
+    kioskSessionSource,
+    /\bdocument\b/,
+    'js/kiosk-session.js must stay DOM-free so the dispatch and idle rules can be tested by calling them in Node, instead of regex-matching source the way this file has to'
+);
+const { default: vm } = await import('node:vm');
+const kioskSessionModule = { exports: {} };
+vm.runInNewContext(kioskSessionSource, {
+    module: kioskSessionModule,
+    setTimeout,
+    clearTimeout,
+    console
+});
+assert.equal(
+    typeof kioskSessionModule.exports.create,
+    'function',
+    'js/kiosk-session.js must export create() through its UMD wrapper when no window exists; if that Node branch breaks, every behavioural kiosk test degrades to testing an empty object'
+);
+for (const exportName of ['IDLE_MS', 'WARNING_MS', 'DISPATCH_STATES']) {
+    assert.ok(
+        exportName in kioskSessionModule.exports,
+        `js/kiosk-session.js must export ${exportName} so tests read the shipped value instead of restating a number the source can drift away from`
+    );
+}
+
+const kioskScripts = [...kioskMarkup.matchAll(/<script\b[^>]*src=["']([^"']+)["']/gi)].map(match => match[1]);
+assert.ok(
+    kioskScripts.includes('../js/kiosk-app.js'),
+    'Kiosk page must load js/kiosk-app.js — nothing else drives the views'
+);
+for (const dependency of [
+    '../js/wound-data.js',
+    '../js/storage.js',
+    '../js/notification.js',
+    '../js/api-bridge.js',
+    '../js/kiosk-session.js'
+]) {
+    assert.ok(
+        kioskScripts.includes(dependency),
+        `Kiosk page must load ${dependency}: js/kiosk-app.js dereferences WOUND_DATA, StorageService, NotificationService, ApiBridge and KioskSession with no fallback on at least one path`
+    );
+    assert.ok(
+        kioskScripts.indexOf(dependency) < kioskScripts.indexOf('../js/kiosk-app.js'),
+        `${dependency} must load before js/kiosk-app.js, which calls into it during init()`
+    );
+}
+
 console.log(`UI smoke checks passed for ${htmlFiles.length} HTML pages.`);

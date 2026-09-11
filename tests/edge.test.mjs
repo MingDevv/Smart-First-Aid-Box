@@ -279,3 +279,93 @@ test('browser status failure is safe to retry and command requests use a separat
         }
     }
 });
+
+test('หน้าตู้ /kiosk ขึ้นครบทั้งหน้าแบบออฟไลน์ และ allowlist ที่กว้างขึ้นไม่ได้เปิดทางออกนอก web root', async t => {
+    // readdir อยู่ในเทสนี้ที่เดียว เลย import แบบ dynamic แทนที่จะไปแก้บรรทัด import ด้านบนของไฟล์
+    const { readdir } = await import('node:fs/promises');
+    const { controller } = await fixture(t, url => url.pathname === '/status' ? ready : [200, ack(command)]);
+    const server = await createLocalServer({ controller });
+    await listen(server);
+    t.after(() => close(server));
+
+    // ต้องยิงด้วย node:http ตรงๆ ไม่ใช่ fetch(): fetch ย่อ `..` ทิ้งตั้งแต่ตอนแปลง URL ก่อนส่ง
+    // (`/kiosk/../.env` ออกจาก fetch เป็น `/.env`) เซิร์ฟเวอร์จึงไม่เคยเห็น path ดิบที่เราตั้งใจทดสอบ
+    const raw = path => new Promise((resolve, reject) => {
+        const req = httpRequest({ hostname: '127.0.0.1', port: server.address().port, path, method: 'GET' }, res => {
+            const chunks = [];
+            res.on('data', chunk => chunks.push(chunk));
+            res.on('end', () => resolve({ status: res.statusCode, type: res.headers['content-type'],
+                body: Buffer.concat(chunks).toString() }));
+        });
+        req.on('error', reject);
+        req.end();
+    });
+
+    // 1. ทั้งสองรูปของเส้นทางเดียวกัน: /kiosk มาจาก rewrite ใน vercel.json ส่วน /kiosk/ มาจากกฎ
+    //    route.endsWith('/') ใน server.mjs — ตัวหลังไม่มีใน vercel.json ลูปของเทสเดิมจึงมองไม่เห็น
+    for (const route of ['/kiosk', '/kiosk/']) {
+        const page = await raw(route);
+        assert.equal(page.status, 200, route);
+        assert.equal(page.type, 'text/html; charset=utf-8', route);
+        // marker ติดกับ <head> พอดี = ยืนยันว่า kiosk/index.html ยังเป็น <head> เปล่าไม่มี attribute
+        // server.mjs แทนที่ /<head>/i เท่านั้น ถ้าใครเขียน <head lang="th"> มันจะไม่ฉีดอะไรเลยแบบเงียบๆ
+        // แล้วหน้าตู้จะหล่นไปใช้ transport ของคลาวด์โดยไม่มีใครรู้
+        assert.ok(page.body.includes('<head><script>window.SFAB_RUNTIME = { transport: "pi-local" };</script>'),
+            `${route} ไม่มี SFAB_RUNTIME ต่อท้าย <head> — สงสัยว่า <head> มี attribute`);
+    }
+    const html = (await raw('/kiosk')).body;
+
+    // 2. ห้ามพึ่ง CDN/Google Fonts — ตู้ต้องขึ้นได้ตอนเน็ตโรงเรียนล่ม
+    //    เช็คเฉพาะชื่อโฮสต์ ไม่เช็ค https:// ลอยๆ เพราะ inline SVG มี xmlns=http://www.w3.org/2000/svg ได้
+    const HOSTS = ['cdn.jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+    const externals = text => HOSTS.filter(host => text.includes(host));
+    // control: ตัวตรวจต้องจับของปลอมได้จริง ผลว่างจะได้ไม่ใช่เพราะตัวตรวจพัง
+    assert.deepEqual(externals('<script src="https://cdn.jsdelivr.net/npm/mqtt@5.15.2/dist/mqtt.min.js"></script>'),
+        ['cdn.jsdelivr.net']);
+    assert.deepEqual(externals(html), [], 'HTML ของหน้าตู้อ้างโฮสต์ภายนอก');
+
+    // 3. ไฟล์ประกอบทุกตัวที่หน้าตู้เรียกจริง ต้องเสิร์ฟได้จาก Pi — อ่านรายการจาก HTML ที่เสิร์ฟออกมา ไม่ใช่เดา
+    const assets = [...new Set([...html.matchAll(/(?:src|href)="(\.\.\/[^"]+)"/g)]
+        .map(match => new URL(match[1], 'http://pi/kiosk/').pathname))];
+    for (const required of ['/css/kiosk.css', '/js/kiosk-session.js', '/js/kiosk-app.js']) {
+        assert.ok(assets.includes(required), `/kiosk ไม่ได้เรียก ${required}`);
+    }
+    const served = new Map();
+    for (const path of assets) {
+        const asset = await raw(path);
+        assert.equal(asset.status, 200, `Pi เสิร์ฟ ${path} ไม่ได้`);
+        served.set(path, asset.body);
+    }
+    assert.deepEqual(externals([...served.values()].join('\n')), [], 'ไฟล์ประกอบอ้างโฮสต์ภายนอก');
+
+    // 4. ฟอนต์ self-hosted: ชื่อไฟล์จริงมาจากไดเรกทอรี fonts/ เทียบกับที่ @font-face เรียก แล้วต้องเสิร์ฟได้
+    const onDisk = (await readdir(new URL('../fonts/', import.meta.url))).filter(name => name.endsWith('.woff2'));
+    assert.ok(onDisk.length > 0, 'fonts/ ไม่มีไฟล์ .woff2 เลย');
+    const wanted = [...new Set([...served.get('/css/kiosk.css').matchAll(/url\(['"]?([^'")]+\.woff2)['"]?\)/g)]
+        .map(match => new URL(match[1], 'http://pi/css/').pathname))];
+    assert.ok(wanted.length > 0, 'css/kiosk.css ไม่มี @font-face ที่ชี้ไฟล์ในเครื่อง');
+    for (const path of wanted) {
+        assert.ok(onDisk.includes(path.slice('/fonts/'.length)), `${path} ที่ CSS เรียก ไม่มีอยู่จริงใน fonts/`);
+        const font = await raw(path);
+        assert.equal(font.status, 200, path);
+        assert.equal(font.type, 'font/woff2', path);
+    }
+
+    // 5. เติม kiosk ลง allowlist แล้วต้องไม่มีทางออกนอก web root
+    //    control ก่อน: ตัวยิง raw ต้องได้ 200 กับ path ที่ดี ไม่งั้น 404 ทุกอันข้างล่างไม่ได้พิสูจน์อะไร
+    assert.equal((await raw('/kiosk')).status, 200, 'control พัง — raw() ยิงไม่ถึงเซิร์ฟเวอร์');
+    for (const path of ['/kiosk/../.env', '/kiosk/../../etc/passwd', '/kiosk/../edge/server.mjs',
+        '/kiosk/../package.json', '/kiosk/..%2f.env', '/kiosk/..%2f..%2fetc/passwd',
+        '/kiosk/..%2fdashboard/index.html', '/kiosk/sub/page.html', '/kiosk/index.js']) {
+        assert.equal((await raw(path)).status, 404, path);
+    }
+    // ⚠️ /kiosk/../dashboard/index.html ไม่ใช่ 404 และไม่ควรคาดหวังให้เป็น: ทั้ง fetch() และ
+    //    new URL() ใน server.mjs ย่อ `..` ทิ้งก่อนถึง allowlist มันจึงเหลือ /dashboard/index.html
+    //    ซึ่งเป็นหน้าสาธารณะอยู่แล้ว สิ่งที่ต้องยืนยันคือ "ไม่ได้ของใหม่" ไม่ใช่สถานะ 404
+    //    (รูปที่ย่อไม่ได้ คือ ..%2f ข้างบน ถูกปิดตายไปแล้ว)
+    const collapsed = await raw('/kiosk/../dashboard/index.html');
+    const dashboard = await raw('/dashboard');
+    assert.equal(collapsed.status, 200);
+    assert.equal(dashboard.status, 200);
+    assert.equal(collapsed.body, dashboard.body, 'path ที่ถูกย่อ อ่านไฟล์คนละตัวกับหน้า dashboard ปกติ');
+});
