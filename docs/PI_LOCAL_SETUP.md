@@ -36,11 +36,19 @@ back to cloud MQTT or simulated success after a real command fails.
    ```
 
    Use the **actual** ESP32 address. This example is not discovered hardware.
-7. Open `http://localhost:8787/student/kiosk` in Chromium **on the Pi**. Optional:
+7. Open `http://localhost:8787/kiosk` in Chromium **on the Pi**. Optional:
 
    ```sh
-   chromium --kiosk http://localhost:8787/student/kiosk
+   chromium --kiosk http://localhost:8787/kiosk
    ```
+
+   `/kiosk` is the cabinet's own single-page app (`kiosk/index.html`), built for the
+   800x480 touchscreen: no links leaving the page, no file input, no CDN script or
+   stylesheet, and fonts served from `fonts/`, so it starts with the internet unplugged.
+   The older `/student/kiosk` page remains in the repo and is still served; it is simply
+   no longer what the cabinet opens. A ready-made Chromium command line for this,
+   including the camera permission and the reason the browser sandbox stays on, is in
+   [deploy/pi/chromium-kiosk-flags.conf](../deploy/pi/chromium-kiosk-flags.conf).
 
 8. Existing browser settings start in Demo mode. Turn Demo off in the dashboard
    when ready to test actual hardware. Demo never calls the actuator or records
@@ -53,8 +61,17 @@ context without mixing an HTTPS Vercel page with HTTP device requests.
 Optional process settings: `SFAB_PORT` (default 8787), `SFAB_DATABASE` (default
 `~/.local/share/smart-first-aid-box/commands.sqlite`). Store the database outside
 the checkout, retain it across application updates, and back it up along with
-the cabinet. Run one service per cabinet/database. No service is installed or
-started at boot by this PR.
+the cabinet. Run one service per cabinet/database.
+
+Nothing in this repository installs or starts a service at boot. Draft systemd units,
+a Chromium kiosk command line, a Chromium managed policy and a labwc session lockdown
+now exist under [deploy/pi/](../deploy/pi/README.md), but they are **unapplied and
+unverified on hardware**: no unit has been started or enabled, no policy has been seen
+on a `chrome://policy` page, no labwc config has been parsed by labwc, and no escape
+route has been tried with a keyboard. That directory carries its own list of what must
+still be checked on the device — including whether the measured touchscreen calibration
+survives the session change, which is the item most likely to be silently destroyed by
+applying any of it.
 
 ## Command and acknowledgement contract
 

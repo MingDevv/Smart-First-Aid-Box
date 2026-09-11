@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  labwc session config for the Smart First Aid Box cabinet kiosk.
+
+  STATUS: NEVER APPLIED. This has not been parsed by labwc on hardware. Element names
+  were written from the labwc config documentation, not read off the device. Confirm
+  every element marked VERIFY against `man 5 labwc-config` for the labwc version the Pi
+  actually runs (ask labwc for its version), and watch the user journal for XML parse
+  errors after the first reconfigure — labwc reports them there rather than refusing to
+  start.
+
+  ============================================================================
+  !! STOP. DO NOT COPY THIS FILE OVER AN EXISTING rc.xml. !!
+
+  /home/technology/.config/labwc/rc.xml on this Pi already holds work that this file
+  does not reproduce and must not destroy:
+
+    · a measured five-point touch calibrationMatrix for the ADS7846 panel
+    · a <touch> mapping whose mapToOutput was repaired to HDMI-A-1 (it had been
+      pointing at NOOP-1, which is why touch appeared dead)
+    · mouseEmulation=yes on that touch device
+
+  Those numbers are NOT written into this template, deliberately: inventing calibration
+  coefficients would be worse than having none, because wrong ones look like they work.
+  The measured set lives outside this repo at
+  ~/Desktop/Codex/pi5-tailscale-setup/touch-calibration-measured.json (confirmed present
+  while writing this) and, on the device, inside the current rc.xml and its backups.
+
+  Procedure:
+    1. Back up the live file first (see ../README.md, step 0).
+    2. Open the backup, copy the <touch .../> element and the <libinput> device entry
+       carrying calibrationMatrix, VERBATIM.
+    3. Paste them into the marked slot below.
+    4. Only then install this file.
+  ============================================================================
+-->
+<labwc_config>
+
+  <core>
+    <!-- No gap between windows and no edge snapping to fight the fullscreen browser. -->
+    <gap>0</gap>
+  </core>
+
+  <theme>
+    <!-- Nothing should be visible around the browser. Chromium in kiosk mode is
+         fullscreen and undecorated already; this is the compositor-side belt. -->
+    <cornerRadius>0</cornerRadius>
+  </theme>
+
+  <!--
+    KEYBINDINGS — the removal mechanism.
+
+    labwc installs its stock keybindings (window switching, close window, terminal,
+    workspace switching, the window menu) when <keyboard> contains <default />.
+    This block contains NO <default /> and NO <keybind> entries, so the session starts
+    with an empty keymap. That is the removal: there is nothing to "unbind" one by one.
+
+    Removed by consequence, all of them defaults in a normal labwc session:
+      · A-F4          close window
+      · W-Return / A-F2 style terminal or run-command launchers
+      · A-Tab         window switcher
+      · W-Left/Right, A-C-Left/Right, W-1..4   workspace switching
+      · W-Down / iconify bindings   minimise
+      · A-space       client (window) menu
+
+    VERIFY: that an EMPTY <keyboard> means "no keybinds" rather than "fall back to
+    defaults" on the installed labwc version. This is the single most important thing
+    to test in the escape-key sweep in ../README.md, because if the fallback behaviour
+    is the opposite of what is assumed here, every one of the bindings above is still
+    live and the kiosk is not locked at all. Test it with a keyboard plugged in, not by
+    reading this comment.
+  -->
+  <keyboard>
+  </keyboard>
+
+  <!--
+    MOUSE / TOUCH CONTEXT BINDINGS — same mechanism, no <default />.
+    Suppresses the root-window menu on click and the titlebar context actions.
+    With mouseEmulation on the touch panel, a long press or a stray two-finger contact
+    would otherwise be able to raise the root menu. menu.xml is emptied as well, so
+    this is defence in depth rather than the only barrier.
+  -->
+  <mouse>
+  </mouse>
+
+  <windowRules>
+    <!--
+      VERIFY the attribute names and the identifier matching for this labwc version;
+      windowRule syntax has changed across releases. If labwc logs a parse error here,
+      delete this whole <windowRules> block first — it is a nicety. Chromium started
+      in kiosk mode is already fullscreen and undecorated without it.
+    -->
+    <windowRule identifier="chromium*" serverDecoration="no" skipTaskbar="yes" skipWindowSwitcher="yes" />
+  </windowRules>
+
+  <!--
+    ========================================================================
+    PASTE THE TOUCHSCREEN CONFIGURATION FROM YOUR BACKED-UP rc.xml HERE.
+
+    Two things to transplant, both copied verbatim from the backup:
+      1. the <libinput> block containing the ADS7846 device entry and its
+         <calibrationMatrix> (the measured five-point fit)
+      2. the <touch ... mapToOutput="HDMI-A-1" mouseEmulation="yes" /> element
+
+    No numbers are supplied here on purpose. If this slot is still empty when you
+    install the file, touch will be uncalibrated or mapped to the wrong output, and the
+    failure mode is taps landing in the wrong place rather than an obvious error.
+
+    After installing, re-check alignment at all four corners AND the centre before
+    declaring it working — a matrix can be right at the corners and wrong in the middle.
+    ========================================================================
+  -->
+
+</labwc_config>

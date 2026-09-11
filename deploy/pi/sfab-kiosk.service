@@ -1,0 +1,103 @@
+# Smart First Aid Box — Chromium kiosk on the Raspberry Pi 5 cabinet.
+#
+# STATUS: written from source, NEVER APPLIED AND NEVER STARTED ON HARDWARE.
+#         Nothing below has been observed launching a browser. See deploy/pi/README.md.
+#
+# Install: /home/technology/.config/systemd/user/sfab-kiosk.service   (USER unit)
+#
+# WHY A USER UNIT AND NOT A SYSTEM UNIT
+# Chromium must run inside the operator's Wayland session: it needs WAYLAND_DISPLAY,
+# XDG_RUNTIME_DIR and the seat's input/DRM permissions. A system unit can be bent into
+# that shape by hardcoding XDG_RUNTIME_DIR=/run/user/1000 and WAYLAND_DISPLAY=wayland-0,
+# but both are guesses that break when the UID or the socket name differs, and it races
+# the session it depends on. A user unit started from the session itself cannot race it.
+#
+# HOW THIS IS ORDERED AFTER THE EDGE SERVICE *ANSWERING*, NOT MERELY *STARTING*
+# Two separate problems, and After= solves neither:
+#   1. After= is start-up ordering only. For Type=simple, "started" means systemd forked
+#      the process — not that it called listen(), and definitely not that it serves a
+#      200. edge/server.mjs does async work (realpath, read vercel.json) before listen(),
+#      so the window where it is "active" but refusing connections is real.
+#      Type=notify would fix this properly, but it needs sd_notify() inside server.mjs
+#      and that file is out of scope here.
+#   2. A USER unit cannot After= a SYSTEM unit at all. Different systemd instances.
+# So the ordering is done by polling, in ExecStartPre, against the actual HTTP route the
+# browser is about to open. Its limits are written down in sfab-wait-for-edge.sh — read
+# them; a green probe is weaker evidence than it looks.
+#
+# Trigger: ~/.config/labwc/autostart runs `systemctl --user start sfab-kiosk.service`
+# after importing the session environment. See deploy/pi/labwc-kiosk/autostart.
+
+[Unit]
+Description=Smart First Aid Box cabinet kiosk (Chromium)
+Documentation=file:///opt/smart-first-aid-box/deploy/pi/README.md
+
+# Kept for the case where the desktop session does reach graphical-session.target. If it
+# does not, these lines are inert and the labwc autostart hook is what actually starts
+# the unit. Harmless either way.
+After=graphical-session.target
+PartOf=graphical-session.target
+
+# NOT Requires=/BindsTo= against sfab-edge (impossible across system/user scopes anyway).
+# Deliberate: when the edge service restarts, the already-loaded kiosk page should stay
+# on screen and let the app's own polling recover. Tearing the browser down and back up
+# for a 5-second backend blip would put a black screen in front of an injured student.
+
+# Crash-loop containment, and a genuine trade-off rather than a safe default:
+#   · WITHOUT a limit, a Chromium that cannot start (bad flag, missing ozone platform)
+#     restarts every 3s forever, writing to the SD card forever, and never self-heals.
+#   · WITH this limit, ten restarts inside 300s park the unit in `failed` — which on a
+#     first-aid cabinet means a dark screen until someone notices.
+# 10 is set deliberately high: a student closing the window repeatedly should not be
+# able to take the cabinet out of service, while a true crash loop trips it in ~30s.
+# Recover with `systemctl --user reset-failed sfab-kiosk.service` after fixing the cause.
+# If the cabinet is ever left unattended for long periods, revisit this number — and
+# decide it, do not inherit it.
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+
+# Bounded wait for the edge service to actually serve /kiosk. Exits non-zero on timeout,
+# which fails the unit start; Restart=always below then retries the whole thing, so a
+# slow boot converges instead of parking Chromium on an error page that a student cannot
+# navigate away from.
+ExecStartPre=/usr/local/lib/sfab/sfab-wait-for-edge.sh
+
+ExecStart=/usr/local/lib/sfab/sfab-kiosk-run.sh
+
+# Restart=always, not on-failure, on purpose. Chromium exiting 0 is the normal outcome of
+# every escape this setup cannot block: Ctrl+W, Ctrl+Shift+Q, Alt+F4, a crash, or a
+# student finding the window close path. The compositor config cannot intercept the
+# browser's own keybindings. Recovery is the only available answer, so make it automatic.
+Restart=always
+RestartSec=3s
+
+# Chromium needs a real HOME for its profile. The profile is where localStorage lives,
+# and localStorage is where js/storage.js keeps 'smart_first_aid_medicine' (the stock)
+# and the treatment history. DO NOT point this at a tmpfs, and do not add
+# --incognito or the ForceEphemeralProfiles policy: that silently wipes the medicine
+# stock on every restart, which is exactly what safety invariant 4 forbids.
+Environment=HOME=/home/technology
+
+# Overridden by sfab-kiosk-run.sh only if unset there. Keep in one place: the flags file.
+Environment=SFAB_KIOSK_URL=http://localhost:8787/kiosk
+Environment=SFAB_KIOSK_FLAGS=/etc/sfab/chromium-kiosk-flags.conf
+
+# Chromium's password store probe blocks on a keyring that no autologin kiosk session
+# unlocks. --password-store=basic in the flags file is the real fix; this is the belt.
+Environment=GNOME_KEYRING_CONTROL=
+
+# NO hardening block here on purpose. Chromium needs /dev/dri, /dev/video*, the seat's
+# input devices and its own namespace for the renderer sandbox. ProtectSystem/
+# PrivateDevices/RestrictNamespaces here would break either rendering, the camera, or
+# the browser sandbox itself — and the browser sandbox is the one thing that must not be
+# traded away (see chromium-kiosk-flags.conf: never --no-sandbox).
+
+TimeoutStopSec=15
+KillMode=mixed
+SyslogIdentifier=sfab-kiosk
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,33 @@
+# labwc session environment for the Smart First Aid Box cabinet kiosk.
+#
+# STATUS: NEVER APPLIED. Not read by labwc on hardware.
+# Install: /home/technology/.config/labwc/environment
+# Format: KEY=value, one per line, no `export`, no shell expansion.
+#
+# Kept almost empty on purpose. Everything in this file affects the whole session, so a
+# wrong value here fails at login with no UI to report it — and on a locked-down kiosk,
+# a session that will not start is a service call, not an inconvenience. Add lines only
+# when you have a symptom that needs one.
+
+# Keyboard layout for the session. Set it explicitly rather than inheriting whatever the
+# image defaulted to: the cabinet normally has no keyboard, so a wrong layout stays
+# invisible until the day someone plugs one in to fix something and finds the keys are
+# not where the labels say.
+XKB_DEFAULT_LAYOUT=us
+
+# ── Considered and deliberately NOT set ──────────────────────────────────────
+#
+# The mouse pointer stays visible. The touch device is configured with
+# mouseEmulation=yes (that setting is part of the working touch configuration and must
+# not be dropped), so a pointer will sit wherever the last tap landed. There is no
+# supported labwc option to hide it, and the usual answers do not apply cleanly:
+#   · `unclutter` / `unclutter-xfixes` are X11 tools and do not see Wayland surfaces
+#   · a fully transparent XCURSOR_THEME works but means shipping a cursor theme and
+#     makes the pointer invisible in maintenance sessions too
+# Left unsolved and listed in ../README.md as an open cosmetic item rather than
+# pretending one of the above is a fix. Confirm on the device how distracting it
+# actually is before spending anything on it.
+#
+# GDK_SCALE / GDK_DPI_SCALE are not set here. Display scaling for the browser is handled
+# by --force-device-scale-factor=1 in chromium-kiosk-flags.conf, in one place. Setting
+# both is how you end up with text that is right in one view and wrong in another.
