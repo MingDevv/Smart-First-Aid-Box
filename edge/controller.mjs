@@ -7,7 +7,15 @@ export const isAck = (ack, command) => ack?.id === command.id && ack.protocol ==
         : ack.event === 'buzzer_set' && ack.state === command.state);
 
 export class LocalController {
-    constructor({ esp32Url = '', database, timeoutMs, pollMs = 200 }) {
+    // mode: 'real' | 'demo' | 'unset' — เกตการสั่งฮาร์ดแวร์อยู่ตรงนี้ ไม่ใช่ในเบราว์เซอร์
+    //
+    // เดิมโหมดถูกบังคับใช้ฝั่งหน้าเว็บอย่างเดียว เซิร์ฟเวอร์ไม่เคยเห็นมันเลย ⇒ POST ตรงเข้า
+    // /api/command ในโหมดสาธิตหรือโหมดที่ยังไม่ตั้ง **ยังสั่งมอเตอร์จริงได้** และคืน ACK
+    // เหมือนของจริง (นัยวัดได้: หนึ่ง POST = หนึ่ง /open ทั้งใน demo และ unset)
+    // หน้าเว็บที่โหลดค้างไว้ตอนเป็น Real ก็ยังยิงได้หลังผู้ดูแลสลับเป็น Demo แล้ว
+    // การตรวจ Host/Origin ไม่ช่วย เพราะคนยิงเป็น client ที่ถูกต้องใน origin เดียวกัน
+    constructor({ esp32Url = '', database, timeoutMs, pollMs = 200, mode = 'unset' }) {
+        this.mode = mode === 'real' || mode === 'demo' ? mode : 'unset';
         if (esp32Url) {
             const url = new URL(esp32Url);
             if (url.protocol !== 'http:' || url.username || url.password || url.search ||
@@ -40,16 +48,17 @@ export class LocalController {
         // a cabinet that has gone offline while a command was in flight is exactly the case
         // where the caller must not be told it is free to send another one.
         const unresolved = this.unresolved();
-        if (!this.origin) return { connected: false, ready: false, mode: 'pi-local', configured: false, unresolved };
+        const deviceMode = this.mode;
+        if (!this.origin) return { connected: false, ready: false, mode: 'pi-local', configured: false, unresolved, deviceMode };
         try {
             const { status, data } = await this.request('/status');
             const validBudget = Number.isInteger(data.ackTimeoutMs) && data.ackTimeoutMs >= 3000 && data.ackTimeoutMs <= 120000;
             const connected = status === 200 && data.protocol === 2 && data.microbit === 'connected' && validBudget;
             return { connected, ready: connected && data.ready === true, mode: 'pi-local', configured: true,
                 commandTimeoutMs: validBudget ? data.ackTimeoutMs + 3000 : null,
-                reason: data.reason === 'awaiting_new_ready_epoch' ? data.reason : '', unresolved };
+                reason: data.reason === 'awaiting_new_ready_epoch' ? data.reason : '', unresolved, deviceMode };
         } catch {
-            return { connected: false, ready: false, mode: 'pi-local', configured: true, unresolved };
+            return { connected: false, ready: false, mode: 'pi-local', configured: true, unresolved, deviceMode };
         }
     }
 
@@ -79,6 +88,19 @@ export class LocalController {
             !(command.action === 'open' && [1, 2].includes(command.drawer) ||
               command.action === 'buzzer' && ['on', 'off'].includes(command.state))) {
             return this.failure(400, undefined, 'คำสั่งเปิดช่องยาไม่ถูกต้อง');
+        }
+        // เกตโหมดต้องมาก่อนทุกอย่างที่ทิ้งร่องรอย — ก่อนดูประวัติ ก่อนเขียนแถว ก่อนแตะสาย
+        // คำสั่งที่ถูกปฏิเสธตรงนี้ยังไม่เคยออกไปไหน จึงไม่เขียนสมุด ไม่แตะ hold ที่ค้างอยู่
+        // และปลอดภัยที่จะลองใหม่หลังผู้ดูแลตั้งโหมดแล้ว
+        if (this.mode !== 'real') {
+            return { status: 503, body: {
+                success: false, mode: 'pi-local', commandId: command.id,
+                // ยังไม่ได้ส่งอะไรออกไป จึงลองใหม่ได้อย่างปลอดภัยเมื่อตั้งโหมดแล้ว
+                retrySafe: true, deviceMode: this.mode,
+                error: this.mode === 'demo'
+                    ? 'ตู้อยู่ในโหมดสาธิต จึงไม่สั่งฮาร์ดแวร์จริง'
+                    : 'ตู้ยังไม่ได้ตั้งโหมดการทำงาน ให้ผู้ดูแลตั้งค่าที่เครื่องก่อน'
+            } };
         }
         const channel = command.action === 'open' ? command.drawer : command.state === 'on' ? 3 : 4;
         const previous = this.db.prepare('SELECT * FROM commands WHERE id = ?').get(command.id);

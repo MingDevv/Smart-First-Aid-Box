@@ -28,7 +28,10 @@ CONF
 systemctl --user daemon-reload
 systemctl --user restart sfab-edge.service
 # หน้าจออ่านโหมดจากหน้าที่เสิร์ฟมา จึงต้องโหลดหน้าใหม่ = รีสตาร์ทตัวเบราว์เซอร์
-systemctl --user restart sfab-kiosk.service 2>/dev/null || true
+# ห้ามกลืนความล้มเหลว — ถ้าเบราว์เซอร์ตัวเก่ายังรันอยู่ มันยังถือหน้าเดิมที่มีโหมดเดิม
+# และยังยิงคำสั่งได้ การรายงานว่า "สลับโหมดเรียบร้อย" ตอนนั้นคือคำโกหก
+KIOSK_RESTART_OK=1
+systemctl --user restart sfab-kiosk.service || KIOSK_RESTART_OK=0
 
 # ยืนยันจากสิ่งที่เสิร์ฟออกมาจริง ไม่ใช่จากสิ่งที่เพิ่งเขียนลงไฟล์
 for _ in $(seq 1 20); do
@@ -37,8 +40,10 @@ for _ in $(seq 1 20); do
     [ -n "$SERVED" ] && break
 done
 
-if [ "$SERVED" = "SFAB_RUNTIME.mode = \"$MODE\"" ]; then
+if [ "$SERVED" = "SFAB_RUNTIME.mode = \"$MODE\"" ] && [ "$KIOSK_RESTART_OK" = 1 ]; then
     STATUS="ตั้งเป็น $LABEL เรียบร้อย"
+elif [ "$KIOSK_RESTART_OK" = 0 ]; then
+    STATUS="เซิร์ฟเวอร์รับโหมดใหม่แล้ว แต่รีสตาร์ทหน้าจอไม่สำเร็จ — หน้าจอเดิมอาจยังถือโหมดเก่าอยู่ ให้ตรวจก่อนใช้งาน"
 else
     STATUS="ตั้งค่าแล้วแต่ยังยืนยันจากหน้าที่เสิร์ฟไม่ได้ (ได้: ${SERVED:-ไม่มีค่า}) — ลองดูสถานะตู้"
 fi

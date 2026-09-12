@@ -37,15 +37,27 @@ async function readJson(req, limit) {
 //
 // ค่าที่ฉีดนี้ **ชนะ localStorage เสมอ** ไม่งั้นจะมีสองแหล่งความจริงเรื่องโหมด
 // ซึ่งเป็นความล้มเหลวที่ระบบสามค่านี้เกิดมาเพื่อกำจัด
-// ค่าที่ไม่รู้จักหรือไม่ได้ตั้ง = ไม่ฉีดอะไร แล้วตกกลับไปใช้ localStorage ตามเดิม (fail-closed)
-function runtimeModeSnippet(raw) {
-    const mode = (raw || '').trim().toLowerCase();
-    if (mode !== 'demo' && mode !== 'real') return '';
-    return `window.SFAB_RUNTIME.mode = ${JSON.stringify(mode)};`;
+//
+// ทำให้ค่าที่ตั้งมาเป็นหนึ่งในสามค่าเสมอ ไม่มีทางคืนค่าว่าง
+//
+// เดิมค่าที่ไม่รู้จักจะไม่ฉีดอะไรเลย แล้วเบราว์เซอร์ตกกลับไปอ่าน localStorage
+// ⇒ เครื่องที่เคยตั้ง Real ไว้ แล้วลบ drop-in ทิ้ง **ไม่ได้กลับเป็น unset** แต่ฟื้นคืน Real
+// จาก localStorage เก่า ซึ่งตรงข้ามกับที่ sfab-set-mode.sh สัญญาไว้ (นัยวัดได้จริง R3-1)
+// เทสที่ใช้โปรไฟล์ใหม่ทุกครั้งมองไม่เห็นเคสนี้
+export function normalizeMode(raw) {
+    const mode = (raw ?? '').toString().trim().toLowerCase();
+    if (mode === 'demo' || mode === 'real') return mode;
+    if (mode !== '') {
+        console.warn(`[SFAB] SFAB_MODE="${mode}" ไม่ใช่ค่าที่รู้จัก (demo|real) — ถือว่ายังไม่ได้ตั้งโหมด ตู้จะไม่สั่งอะไร`);
+    }
+    return 'unset';
 }
 
 export async function createLocalServer({ controller, root = ROOT, mode = process.env.SFAB_MODE } = {}) {
-    const provisionedMode = runtimeModeSnippet(mode);
+    // ฉีดเสมอทั้งสามค่า รวม unset — การมีค่าฉีดอยู่คือสัญญาณว่า "เครื่องนี้เป็นคนกำหนด"
+    // เบราว์เซอร์จึงต้องไม่ตกกลับไปอ่าน localStorage ไม่ว่าค่าจะเป็นอะไร
+    const deviceMode = normalizeMode(mode);
+    const provisionedMode = `window.SFAB_RUNTIME.mode = ${JSON.stringify(deviceMode)};`;
     const webRoot = await realpath(root);
     const routing = JSON.parse(await readFile(join(webRoot, 'vercel.json'), 'utf8'));
     const rewrites = new Map(routing.rewrites.map(r => [r.source, r.destination]));
@@ -123,8 +135,12 @@ export async function createLocalServer({ controller, root = ROOT, mode = proces
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
     const database = process.env.SFAB_DATABASE || join(homedir(), '.local/share/smart-first-aid-box/commands.sqlite');
     await mkdir(dirname(database), { recursive: true, mode: 0o700 });
-    const controller = new LocalController({ esp32Url: process.env.SFAB_ESP32_URL || '', database });
-    const server = await createLocalServer({ controller });
+    // โหมดเดียวกันถูกส่งให้ทั้ง controller (เกตการสั่งจริง) และหน้าเว็บ (สิ่งที่จอบอกผู้ใช้)
+    // ต้องมาจากแหล่งเดียว ไม่งั้นจอกับพฤติกรรมจริงจะหลอกกันได้
+    const deviceMode = normalizeMode(process.env.SFAB_MODE);
+    const controller = new LocalController({
+        esp32Url: process.env.SFAB_ESP32_URL || '', database, mode: deviceMode });
+    const server = await createLocalServer({ controller, mode: deviceMode });
     const port = Number(process.env.SFAB_PORT || 8787);
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid SFAB_PORT');
     server.listen(port, '127.0.0.1', () => console.log(`Pi kiosk: http://localhost:${port}/kiosk`));

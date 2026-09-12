@@ -159,6 +159,7 @@
                                 ใช้งานจริง — สั่งตู้จริง
                             </label>
                         </div>
+                        <p id="mode-source-note" style="font-size:12px; color:var(--text-muted); margin:10px 0 0;" hidden></p>
                     </fieldset>
                     <div id="demo-status-row" style="margin-top: 10px; font-size: 12px; display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px; background: rgba(0,0,0,0.03);">
                         <span id="demo-status-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#94A3B8; flex-shrink:0;"></span>
@@ -442,11 +443,30 @@
             const realRadio = document.getElementById('cfg-mode-real');
             if (demoRadio) demoRadio.checked = state === 'demo';
             if (realRadio) realRadio.checked = state === 'real';
+            // เครื่องที่ผู้ดูแลตั้งโหมดมาแล้ว ห้ามมีปุ่มที่ดูเหมือนแก้ได้แต่แก้ไม่ได้จริง
+            // เดิมกดแล้วเขียน localStorage ลงไปจริง แต่ป้ายเด้งกลับ ⇒ ผู้ใช้เข้าใจว่าไม่มีอะไรเกิด
+            // ทั้งที่มีค่าขัดแย้งถูกเก็บไว้ รอวันที่คอนฟิกหาย แล้วมันจะมีผลขึ้นมาเอง
+            const managed = StorageService.modeSource() === 'device';
+            [demoRadio, realRadio].forEach(r => { if (r) r.disabled = managed; });
+            const note = document.getElementById('mode-source-note');
+            if (note) {
+                note.hidden = !managed;
+                note.textContent = 'โหมดนี้ตั้งจากตัวเครื่องโดยผู้ดูแล แก้จากหน้านี้ไม่ได้ — '
+                    + 'เปลี่ยนได้ที่ไอคอน "ตั้งเป็นโหมดสาธิต / ตั้งเป็นใช้งานจริง" บนเดสก์ท็อปของตู้';
+            }
         }
 
         // เรียกจากการเลือกโหมดโดยตรงเท่านั้น — นี่คือจุดเดียวที่ตั้งโหมดถาวรได้
         // ต้องผ่าน saveSettings เพราะมันเป็นคนประทับ modeProvisionedAt ให้
         function onModeChoice(choice) {
+            // เครื่องที่ถูกจัดการจากตัวเครื่อง ต้องไม่เขียนค่าเงาลง localStorage เลย
+            if (StorageService.modeSource() === 'device') {
+                updateDemoStatusBadge(StorageService.getOperatingMode());
+                if (window.NotificationService) {
+                    NotificationService.showToast('เครื่องนี้ตั้งโหมดจากตัวเครื่อง เปลี่ยนจากหน้านี้ไม่ได้ — ใช้ไอคอนบนเดสก์ท็อปของตู้', 'warning');
+                }
+                return;
+            }
             const isDemo = choice === 'demo';
             try {
                 StorageService.saveSettings({ demoMode: isDemo });

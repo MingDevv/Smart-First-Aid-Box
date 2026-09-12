@@ -310,12 +310,21 @@ const StorageService = {
     // 'demo' | 'real' | 'unset' — แหล่งความจริงเดียวของทั้ง ApiBridge และ NotificationService
     // 'unset' ไม่ใช่คำพ้องของ 'demo' — demo แปลว่าจำลองแล้วบอกว่าสำเร็จ
     // ส่วน unset แปลว่าไม่ทำอะไรเลยและบอกตามตรงว่ายังไม่ได้ทำ
+    // 'device' = ผู้ดูแลตั้งที่เครื่อง (แก้จากเบราว์เซอร์ไม่ได้) · 'browser' = ตั้งในโปรไฟล์นี้
+    modeSource() {
+        const injected = (typeof window !== 'undefined' && window.SFAB_RUNTIME?.mode) || '';
+        return ['demo', 'real', 'unset'].includes(injected) ? 'device' : 'browser';
+    },
+
     getOperatingMode(settings) {
         // โหมดที่ฉีดมาจากบริการบน Pi ชนะเสมอ — มันมาจากไฟล์ตั้งค่าของเครื่องซึ่งเป็น
         // การตัดสินใจของผู้ติดตั้ง ส่วน localStorage เป็นของเบราว์เซอร์เครื่องเดียว
         // ถ้าปล่อยให้ localStorage ทับได้ จะมีสองแหล่งความจริงเรื่อง "ตู้จะสั่งจริงไหม"
+        // มีค่าฉีดมา = เครื่องนี้ถูกจัดการโดยผู้ดูแล ⇒ เป็นคำตอบสุดท้าย **รวมค่า unset ด้วย**
+        // ถ้าปล่อยให้ unset ตกกลับไปอ่าน localStorage เครื่องที่เคยตั้ง Real ไว้แล้วลบคอนฟิกทิ้ง
+        // จะฟื้นคืน Real จากค่าเก่าแทนที่จะกลับเป็นยังไม่ตั้ง (นัยวัดได้จริง R3-1)
         const injected = (typeof window !== 'undefined' && window.SFAB_RUNTIME?.mode) || '';
-        if (injected === 'demo' || injected === 'real') return injected;
+        if (injected === 'demo' || injected === 'real' || injected === 'unset') return injected;
         const s = settings || this.getSettings();
         if (!s.modeProvisionedAt) return 'unset';
         if (s.demoMode === true || s.demoMode === 'true') return 'demo';

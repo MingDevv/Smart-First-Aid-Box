@@ -30,9 +30,19 @@ async function fixture(t, reply, options = {}) {
     });
     const esp32Url = await listen(esp);
     const database = join(dir, 'commands.sqlite');
-    const controller = new LocalController({ esp32Url, database, timeoutMs: 1000, pollMs: 5, ...options });
+    // เทสชุดนี้ตรวจชั้นขนส่งกับสมุดคำสั่ง ไม่ได้ตรวจเกตโหมด จึงตั้งเป็น real ให้ผ่านเกตไป
+    // เกตโหมดมีเทสของตัวเองอยู่ข้างล่าง (ครบทั้งสามค่า พร้อมนับจำนวนครั้งที่ ESP32 ถูกเรียก)
+    const controller = new LocalController({ esp32Url, database, timeoutMs: 1000, pollMs: 5, mode: 'real', ...options });
     t.after(async () => { await controller.close(); await close(esp); await rm(dir, { recursive: true }); });
     return { controller, database, esp32Url, requests };
+}
+// รัน bootstrap ที่เสิร์ฟมาจริงแล้วคืนค่าเป็นอ็อบเจ็กต์ธรรมดา
+// ต้อง JSON round-trip เพราะอ็อบเจ็กต์ที่เกิดใน vm context อยู่คนละ realm
+// deepStrictEqual จะฟ้องว่า prototype ไม่ตรงทั้งที่ค่าเหมือนกันทุกฟิลด์
+function runBootstrap(source) {
+    const ctx = vm.createContext({ window: {} });
+    vm.runInContext(source, ctx);
+    return JSON.parse(JSON.stringify(ctx.window.SFAB_RUNTIME));
 }
 const ready = [200, { protocol: 2, microbit: 'connected', ready: true, ackTimeoutMs: 30000 }];
 const pending = [202, { success: false, accepted: true }];
@@ -91,7 +101,7 @@ test('restart retains completed and uncertain IDs without replaying commands', a
     await controller.command(command);
     controller.db.prepare("INSERT INTO commands(id, drawer, state, created_at) VALUES (?, 2, 'pending', 'test')")
         .run('c-crash-after-send');
-    const recovered = new LocalController({ esp32Url, database });
+    const recovered = new LocalController({ esp32Url, database, mode: 'real' });
     t.after(() => recovered.close());
     const before = requests.length;
     assert.equal((await recovered.command(command)).body.success, true);
@@ -223,7 +233,7 @@ test('status() รายงานคำสั่งค้างครบทั�
     const vanished = createServer(() => {});
     const deadUrl = await listen(vanished);
     await close(vanished);
-    const offline = new LocalController({ esp32Url: deadUrl, database });
+    const offline = new LocalController({ esp32Url: deadUrl, database, mode: 'real' });
     t.after(() => offline.close());
     const unreachable = await offline.status();
     assert.equal(unreachable.connected, false);
@@ -231,7 +241,7 @@ test('status() รายงานคำสั่งค้างครบทั�
     assert.equal(unreachable.unresolved.id, command.id);
 
     // 3. กิ่งยังไม่ได้ตั้งค่า (ไม่มี esp32Url) — return ก่อนแตะเครือข่ายเลย
-    const unconfigured = new LocalController({ database });
+    const unconfigured = new LocalController({ database, mode: 'real' });
     t.after(() => unconfigured.close());
     const idle = await unconfigured.status();
     assert.equal(idle.configured, false);
@@ -248,7 +258,7 @@ test('คำสั่งค้างอยู่ในไฟล์ ไม่ใ�
     const before = requests.filter(u => u.pathname === '/open').length;
     assert.equal(before, 1);
 
-    const restarted = new LocalController({ esp32Url, database, timeoutMs: 120 });
+    const restarted = new LocalController({ esp32Url, database, timeoutMs: 120, mode: 'real' });
     t.after(() => restarted.close());
     assert.equal(restarted.unresolved().id, command.id);
     const refused = await restarted.command({ ...command, id: 'c-after-restart-01' });
@@ -299,7 +309,7 @@ test('local HTTP adapter executes real analyze and notify handlers with no provi
     keys.forEach(k => delete process.env[k]);
     t.after(() => saved.forEach((value, key) => { if (value !== undefined) process.env[key] = value; }));
     const { controller } = await fixture(t, () => ready);
-    const server = await createLocalServer({ controller });
+    const server = await createLocalServer({ controller, mode: 'real' });
     const origin = await listen(server);
     t.after(() => close(server));
     for (const [path, body, expected] of [['notify', { message: 'synthetic test' }, 'LINE_CHANNEL_ACCESS_TOKEN'],
@@ -316,7 +326,7 @@ test('local HTTP adapter executes real analyze and notify handlers with no provi
 
 test('local server serves all kiosk routes, suppresses MQTT, and protects source and command origins', async t => {
     const { controller } = await fixture(t, url => url.pathname === '/status' ? ready : [200, ack(command)]);
-    const server = await createLocalServer({ controller });
+    const server = await createLocalServer({ controller, mode: 'real' });
     const origin = await listen(server);
     t.after(() => close(server));
     const routing = JSON.parse(await readFile(new URL('../vercel.json', import.meta.url)));
@@ -428,7 +438,7 @@ test('หน้าตู้ /kiosk ขึ้นครบทั้งหน้า
     // readdir อยู่ในเทสนี้ที่เดียว เลย import แบบ dynamic แทนที่จะไปแก้บรรทัด import ด้านบนของไฟล์
     const { readdir } = await import('node:fs/promises');
     const { controller } = await fixture(t, url => url.pathname === '/status' ? ready : [200, ack(command)]);
-    const server = await createLocalServer({ controller });
+    const server = await createLocalServer({ controller, mode: 'real' });
     await listen(server);
     t.after(() => close(server));
 
@@ -451,11 +461,17 @@ test('หน้าตู้ /kiosk ขึ้นครบทั้งหน้า
         const page = await raw(route);
         assert.equal(page.status, 200, route);
         assert.equal(page.type, 'text/html; charset=utf-8', route);
-        // marker ติดกับ <head> พอดี = ยืนยันว่า kiosk/index.html ยังเป็น <head> เปล่าไม่มี attribute
-        // server.mjs แทนที่ /<head>/i เท่านั้น ถ้าใครเขียน <head lang="th"> มันจะไม่ฉีดอะไรเลยแบบเงียบๆ
-        // แล้วหน้าตู้จะหล่นไปใช้ transport ของคลาวด์โดยไม่มีใครรู้
-        assert.ok(page.body.includes('<head><script>window.SFAB_RUNTIME = { transport: "pi-local" };</script>'),
-            `${route} ไม่มี SFAB_RUNTIME ต่อท้าย <head> — สงสัยว่า <head> มี attribute`);
+        // ตรวจ "ความหมายตอนรัน" ไม่ใช่รูปร่างของสตริง — รัน bootstrap จริงแล้วดูอ็อบเจ็กต์ที่ได้
+        // เทสเดิมเทียบสตริงดิบ ⇒ การเพิ่มฟิลด์ใหม่ที่ถูกต้องก็ทำให้แดง และการเรียงคำที่ต่างออกไป
+        // ก็ทำให้แดงทั้งที่พฤติกรรมเหมือนเดิม (นัยติงไว้ใน R3)
+        // สิ่งที่ยังต้องยืนยัน: bootstrap อยู่ติดกับ <head> พอดี = kiosk/index.html ยังเป็น <head>
+        // เปล่าไม่มี attribute · server.mjs แทนที่ /<head>/i เท่านั้น ถ้าใครเขียน <head lang="th">
+        // มันจะไม่ฉีดอะไรเลยแบบเงียบๆ แล้วหน้าตู้จะหล่นไปใช้ transport ของคลาวด์โดยไม่มีใครรู้
+        const boot = page.body.match(/<head><script>([\s\S]*?)<\/script>/);
+        assert.ok(boot, `${route} ไม่มี bootstrap ต่อท้าย <head> พอดี — สงสัยว่า <head> มี attribute`);
+        const runtime = runBootstrap(boot[1]);
+        assert.equal(runtime.transport, 'pi-local', route);
+        assert.equal(runtime.mode, 'real', `${route} ต้องประกาศโหมดของเครื่อง`);
     }
     const html = (await raw('/kiosk')).body;
 
@@ -512,4 +528,102 @@ test('หน้าตู้ /kiosk ขึ้นครบทั้งหน้า
     assert.equal(collapsed.status, 200);
     assert.equal(dashboard.status, 200);
     assert.equal(collapsed.body, dashboard.body, 'path ที่ถูกย่อ อ่านไฟล์คนละตัวกับหน้า dashboard ปกติ');
+});
+
+// ── เกตโหมดที่ขอบการสั่งจริง ─────────────────────────────────────────────
+// R3-2: เดิมโหมดถูกบังคับใช้ฝั่งเบราว์เซอร์อย่างเดียว เซิร์ฟเวอร์ไม่เคยเห็นมัน
+// ⇒ POST ตรงในโหมด demo/unset ยังสั่งมอเตอร์จริงได้และคืน ACK เหมือนของจริง
+// เทสนี้จึงนับ "จำนวนครั้งที่ ESP32 ถูกเรียก" เป็นหลัก ไม่ใช่ดูแค่ค่าที่คืนกลับมา
+test('เกตโหมดอยู่ที่เซิร์ฟเวอร์: เฉพาะ real เท่านั้นที่ถึงฮาร์ดแวร์ได้ demo/unset ต้องไม่มี /open สักครั้ง', async t => {
+    for (const [mode, expectedOpens] of [['real', 1], ['demo', 0], ['unset', 0], ['typo', 0], ['', 0]]) {
+        const id = `c-mode-${mode || 'empty'}-0001`;
+        const { controller, requests } = await fixture(t, url => url.pathname === '/status' ? ready
+            : [200, { success: true, protocol: 2, event: 'drawer_opened',
+                id: url.searchParams.get('id'), drawer: Number(url.searchParams.get('drawer')) }], { mode });
+        const result = await controller.command({ ...command, id });
+        const opens = requests.filter(u => u.pathname === '/open').length;
+
+        assert.equal(opens, expectedOpens, `mode=${mode} ยิง /open ${opens} ครั้ง ควรเป็น ${expectedOpens}`);
+        if (expectedOpens === 0) {
+            assert.equal(result.status, 503, `mode=${mode} ต้องปฏิเสธด้วย 503`);
+            assert.equal(result.body.success, false);
+            // ยังไม่ได้ส่งอะไรออกไป ⇒ ลองใหม่ได้หลังตั้งโหมด
+            assert.equal(result.body.retrySafe, true, `mode=${mode} ต้อง retrySafe`);
+            assert.ok(!result.body.ack, `mode=${mode} ต้องไม่คืน ACK ของฮาร์ดแวร์`);
+            // ถูกปฏิเสธก่อนแตะสมุด ⇒ ไม่ทิ้งแถวไว้ให้กลายเป็นคำสั่งค้าง
+            assert.equal(controller.history().length, 0, `mode=${mode} ต้องไม่เขียนสมุดคำสั่ง`);
+            assert.equal(controller.unresolved(), null, `mode=${mode} ต้องไม่สร้าง hold`);
+        } else {
+            assert.equal(result.body.success, true, 'mode=real ต้องผ่านและได้ ACK');
+        }
+    }
+});
+
+test('ออดก็เป็นฮาร์ดแวร์: demo/unset ต้องไม่ยิง /buzzer (SOS ทาง LINE เป็นข้อยกเว้นคนละชั้น)', async t => {
+    for (const mode of ['demo', 'unset']) {
+        const { controller, requests } = await fixture(t,
+            url => url.pathname === '/status' ? ready : [200, { success: true, protocol: 2,
+                event: 'buzzer_set', id: `c-buzz-${mode}-01`, state: 'on' }], { mode });
+        const result = await controller.command({ action: 'buzzer', state: 'on', id: `c-buzz-${mode}-01` });
+        assert.equal(requests.filter(u => u.pathname === '/buzzer').length, 0, `mode=${mode}`);
+        assert.equal(result.status, 503);
+        assert.equal(result.body.deviceMode, mode === 'demo' ? 'demo' : 'unset');
+    }
+});
+
+test('หน้าเว็บที่โหลดค้างไว้ตอน real ยิงไม่ผ่านหลังผู้ดูแลสลับเป็น demo', async t => {
+    // จำลอง client เก่า: id ใหม่ทุกครั้ง ยิงเข้าเซิร์ฟเวอร์ตัวที่โหมดถูกสลับแล้ว
+    // เซิร์ฟเวอร์ไม่ได้ดูว่าใครยิงมา ดูแต่โหมดของเครื่องตัวเอง ซึ่งเป็นประเด็นทั้งหมด
+    const dir = await mkdtemp(join(tmpdir(), 'sfab-stale-'));
+    const requests = [];
+    const esp = createServer((req, res) => {
+        const url = new URL(req.url, 'http://device');
+        requests.push(url);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        if (url.pathname === '/status') return res.end(JSON.stringify(ready[1]));
+        // สะท้อน id ที่ขอมาจริง ไม่งั้น ACK ไม่ตรงแล้วเทสจะไปค้างรอ timeout
+        res.end(JSON.stringify({ success: true, protocol: 2, event: 'drawer_opened',
+            id: url.searchParams.get('id'), drawer: Number(url.searchParams.get('drawer')) }));
+    });
+    const esp32Url = await listen(esp);
+    const database = join(dir, 'c.sqlite');
+    let realCtl, demoCtl;
+    // ทำความสะอาดต้องลงทะเบียนก่อน assert ตัวแรก ไม่งั้น assert ที่ล้มจะทิ้ง handle ค้างไว้
+    // แล้ว node --test จะแขวนแทนที่จะรายงานว่าเทสตก (เจอมาแล้วตอนเขียนเทสนี้)
+    t.after(async () => {
+        await realCtl?.close(); await demoCtl?.close();
+        await close(esp); await rm(dir, { recursive: true });
+    });
+
+    realCtl = new LocalController({ esp32Url, database, timeoutMs: 1000, pollMs: 5, mode: 'real' });
+    const first = await realCtl.command({ ...command, id: 'c-stale-real-0001' });
+    assert.equal(first.body.success, true, 'ตอนเป็น real ต้องผ่าน');
+    const opensAfterReal = requests.filter(u => u.pathname === '/open').length;
+    assert.equal(opensAfterReal, 1);
+    await realCtl.close(); realCtl = null;
+
+    // ผู้ดูแลสลับเป็น demo แล้วบริการรีสตาร์ท — ฐานข้อมูลเดิม โหมดใหม่
+    demoCtl = new LocalController({ esp32Url, database, timeoutMs: 1000, pollMs: 5, mode: 'demo' });
+    const second = await demoCtl.command({ ...command, id: 'c-stale-demo-0002' });
+    assert.equal(second.status, 503, 'หลังสลับเป็น demo ต้องปฏิเสธ');
+    assert.equal(requests.filter(u => u.pathname === '/open').length, opensAfterReal,
+        'ต้องไม่มี /open เพิ่มหลังสลับโหมด');
+    assert.equal(demoCtl.history().length, 1, 'ประวัติคำสั่งเดิมต้องยังอยู่');
+});
+
+test('หน้าที่เสิร์ฟประกาศโหมดของเครื่องเสมอ ทั้งสามค่า และค่าที่ไม่รู้จักกลายเป็น unset', async t => {
+    for (const [configured, expected] of [['real', 'real'], ['demo', 'demo'], ['', 'unset'],
+                                          ['typo', 'unset'], ['</script><script>x', 'unset']]) {
+        const { controller } = await fixture(t, url => url.pathname === '/status' ? ready : [200, ack(command)]);
+        const server = await createLocalServer({ controller, mode: configured });
+        t.after(() => close(server));
+        const origin = await listen(server);
+        const html = await (await fetch(origin + '/kiosk')).text();
+        // ตรวจความหมายตอนรัน ไม่ใช่เทียบสตริงดิบ — รัน bootstrap จริงแล้วดูอ็อบเจ็กต์ที่ได้
+        const bootstrap = html.match(/<script>([\s\S]*?)<\/script>/)[1];
+        assert.deepEqual(runBootstrap(bootstrap), { transport: 'pi-local', mode: expected },
+            `SFAB_MODE=${JSON.stringify(configured)}`);
+        // ค่าที่เป็นอันตรายต้องไม่หลุดออกมาในหน้าเลย
+        assert.ok(!html.includes('<script>x'), 'ค่าที่ไม่รู้จักต้องไม่ถูกเขียนลงหน้า');
+    }
 });
