@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=โหมดดูแล (ตั้งค่าครู)
+Comment=หยุดหน้าตู้ชั่วคราวแล้วเปิดหน้าครูเพื่อตั้งโหมดและแก้คลังยา — ตู้จะจ่ายของไม่ได้จนกว่าจะกดเปิดหน้าตู้อีกครั้ง
+Icon=/home/technology/sfab/images/logo_first_aid.png
+Exec=/home/technology/.local/bin/sfab-maintenance.sh
+Terminal=false
+Categories=Utility;

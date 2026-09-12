@@ -195,6 +195,10 @@ const ApiBridge = {
     // Falls back to the module's own reading when StorageService is absent (tests, vm harnesses)
     // so the two can never drift into disagreeing about what mode the cabinet is in.
     operatingMode(settings) {
+        // ค่าที่บริการบน Pi ฉีดมาชนะเสมอ ต้องตรวจก่อน StorageService เพราะฟังก์ชันนี้ถูก
+        // เรียกได้ในบริบทที่ไม่มี StorageService (vm harness) และคำตอบต้องตรงกันทุกที่
+        const injected = window.SFAB_RUNTIME?.mode;
+        if (injected === 'demo' || injected === 'real') return injected;
         const s = settings || this.getSettings();
         if (window.StorageService?.getOperatingMode) return window.StorageService.getOperatingMode(s);
         if (!s.modeProvisionedAt) return 'unset';

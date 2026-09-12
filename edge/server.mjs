@@ -28,7 +28,24 @@ async function readJson(req, limit) {
     catch { throw Object.assign(new Error('Invalid JSON'), { status: 400 }); }
 }
 
-export async function createLocalServer({ controller, root = ROOT } = {}) {
+// โหมดการทำงานของตู้มาจากการติดตั้ง ไม่ใช่จากเบราว์เซอร์
+//
+// เดิมโหมดเก็บใน localStorage ของโปรไฟล์ Chromium บนตู้ ซึ่งตั้งได้จากหน้าครูที่เดียว
+// แต่หน้าตู้ไม่มีลิงก์ออกและ Ctrl+L/Ctrl+N ถูก managed policy บล็อก ⇒ ไปหน้าครูไม่ได้เลย
+// โหมดจึงค้างที่ "ยังไม่ได้ตั้ง" ตลอดกาล และตู้ปฏิเสธทุกคำสั่ง — สามอย่างที่แต่ละอย่างถูก
+// พอมารวมกันแล้วทำให้ตู้ใช้งานไม่ได้ (เจอ 2026-09-12)
+//
+// ค่าที่ฉีดนี้ **ชนะ localStorage เสมอ** ไม่งั้นจะมีสองแหล่งความจริงเรื่องโหมด
+// ซึ่งเป็นความล้มเหลวที่ระบบสามค่านี้เกิดมาเพื่อกำจัด
+// ค่าที่ไม่รู้จักหรือไม่ได้ตั้ง = ไม่ฉีดอะไร แล้วตกกลับไปใช้ localStorage ตามเดิม (fail-closed)
+function runtimeModeSnippet(raw) {
+    const mode = (raw || '').trim().toLowerCase();
+    if (mode !== 'demo' && mode !== 'real') return '';
+    return `window.SFAB_RUNTIME.mode = ${JSON.stringify(mode)};`;
+}
+
+export async function createLocalServer({ controller, root = ROOT, mode = process.env.SFAB_MODE } = {}) {
+    const provisionedMode = runtimeModeSnippet(mode);
     const webRoot = await realpath(root);
     const routing = JSON.parse(await readFile(join(webRoot, 'vercel.json'), 'utf8'));
     const rewrites = new Map(routing.rewrites.map(r => [r.source, r.destination]));
@@ -87,7 +104,7 @@ export async function createLocalServer({ controller, root = ROOT } = {}) {
             let body = await readFile(path);
             if (extname(path) === '.html') {
                 body = body.toString().replace(/<head>/i,
-                    '<head><script>window.SFAB_RUNTIME = { transport: "pi-local" };</script>')
+                    `<head><script>window.SFAB_RUNTIME = { transport: "pi-local" };${provisionedMode}</script>`)
                     .replace(/<script\s+src="https:\/\/cdn\.jsdelivr\.net\/npm\/mqtt@[^\"]+"><\/script>/g, '');
             }
             res.writeHead(200, { 'Content-Type': TYPES[extname(path)] });

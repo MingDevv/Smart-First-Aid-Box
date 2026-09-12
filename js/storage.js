@@ -311,6 +311,11 @@ const StorageService = {
     // 'unset' ไม่ใช่คำพ้องของ 'demo' — demo แปลว่าจำลองแล้วบอกว่าสำเร็จ
     // ส่วน unset แปลว่าไม่ทำอะไรเลยและบอกตามตรงว่ายังไม่ได้ทำ
     getOperatingMode(settings) {
+        // โหมดที่ฉีดมาจากบริการบน Pi ชนะเสมอ — มันมาจากไฟล์ตั้งค่าของเครื่องซึ่งเป็น
+        // การตัดสินใจของผู้ติดตั้ง ส่วน localStorage เป็นของเบราว์เซอร์เครื่องเดียว
+        // ถ้าปล่อยให้ localStorage ทับได้ จะมีสองแหล่งความจริงเรื่อง "ตู้จะสั่งจริงไหม"
+        const injected = (typeof window !== 'undefined' && window.SFAB_RUNTIME?.mode) || '';
+        if (injected === 'demo' || injected === 'real') return injected;
         const s = settings || this.getSettings();
         if (!s.modeProvisionedAt) return 'unset';
         if (s.demoMode === true || s.demoMode === 'true') return 'demo';

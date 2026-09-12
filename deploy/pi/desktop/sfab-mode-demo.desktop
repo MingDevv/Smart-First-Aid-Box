@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=ตั้งเป็นโหมดสาธิต
+Comment=จำลองการเปิดลิ้นชัก ไม่สั่งมอเตอร์จริง — ใช้ตอนนำเสนอหรือทดสอบ
+Icon=/home/technology/sfab/images/logo_first_aid.png
+Exec=/home/technology/.local/bin/sfab-set-mode.sh demo
+Terminal=false
+Categories=Utility;
