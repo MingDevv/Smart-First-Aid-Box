@@ -14,9 +14,16 @@ export class LocalController {
     // เหมือนของจริง (นัยวัดได้: หนึ่ง POST = หนึ่ง /open ทั้งใน demo และ unset)
     // หน้าเว็บที่โหลดค้างไว้ตอนเป็น Real ก็ยังยิงได้หลังผู้ดูแลสลับเป็น Demo แล้ว
     // การตรวจ Host/Origin ไม่ช่วย เพราะคนยิงเป็น client ที่ถูกต้องใน origin เดียวกัน
-    constructor({ esp32Url = '', database, timeoutMs, pollMs = 200, mode = 'unset' }) {
+    constructor({ esp32Url = '', serial = null, database, timeoutMs, pollMs = 200, mode = 'unset' }) {
         this.mode = mode === 'real' || mode === 'demo' ? mode : 'unset';
-        if (esp32Url) {
+        // 2026-09-12: the cabinet's ESP32 is gone; the Pi talks to the micro:bit over USB
+        // through edge/microbit-serial.mjs, which answers the very same four requests.
+        // Precedence: serial wins, so an old SFAB_ESP32_URL left in a unit cannot re-route
+        // commands to a box that no longer exists.
+        if (serial) {
+            this.serial = serial;
+            this.origin = 'serial:' + serial.device;
+        } else if (esp32Url) {
             const url = new URL(esp32Url);
             if (url.protocol !== 'http:' || url.username || url.password || url.search ||
                 url.hash || url.pathname !== '/') throw new Error('Use an HTTP ESP32 origin');
@@ -37,6 +44,7 @@ export class LocalController {
     }
 
     async request(path, timeoutMs = 1500) {
+        if (this.serial) return this.serial.request(path);
         const response = await fetch(this.origin + path, {
             signal: AbortSignal.timeout(timeoutMs), redirect: 'error'
         });
@@ -110,7 +118,7 @@ export class LocalController {
             if (previous.response) return JSON.parse(previous.response);
             return this.failure(409, command.id, 'ผลคำสั่งเดิมยังไม่แน่นอน กรุณาตรวจตู้ก่อน ห้ามสั่งซ้ำ');
         }
-        if (!this.origin) return this.failure(503, command.id, 'ยังไม่ได้ตั้งค่าการเชื่อมต่อ ESP32 บน Pi');
+        if (!this.origin) return this.failure(503, command.id, 'ยังไม่ได้ตั้งค่าการเชื่อมต่อ micro:bit บน Pi');
         if (command.action === 'open' && this.activeOpens.size) return this.failure(409, command.id, 'ตู้กำลังทำงาน กรุณารอ');
         // Enforced here, not only in the UI: a reload, a new student or a second browser tab
         // all produce a fresh command ID, which the per-ID replay guard above cannot catch.
@@ -186,6 +194,7 @@ export class LocalController {
 
     async close() {
         await Promise.allSettled(this.active.values());
+        await this.serial?.close();
         this.db.close();
     }
 }

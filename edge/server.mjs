@@ -4,6 +4,7 @@ import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { homedir } from 'node:os';
 import { LocalController } from './controller.mjs';
+import { MicrobitSerial } from './microbit-serial.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -138,8 +139,14 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     // โหมดเดียวกันถูกส่งให้ทั้ง controller (เกตการสั่งจริง) และหน้าเว็บ (สิ่งที่จอบอกผู้ใช้)
     // ต้องมาจากแหล่งเดียว ไม่งั้นจอกับพฤติกรรมจริงจะหลอกกันได้
     const deviceMode = normalizeMode(process.env.SFAB_MODE);
+    // SFAB_SERIAL = the micro:bit's CDC device, by-id path preferred (survives re-enumeration).
+    // Opened before listen(): a cabinet whose board is unplugged must fail to start loudly,
+    // not serve a kiosk that reports "ตู้ยังต่อไม่ได้" forever.
+    const serialDevice = (process.env.SFAB_SERIAL || '').trim();
+    const serial = serialDevice ? new MicrobitSerial({ device: serialDevice }) : null;
+    if (serial) await serial.open();
     const controller = new LocalController({
-        esp32Url: process.env.SFAB_ESP32_URL || '', database, mode: deviceMode });
+        esp32Url: process.env.SFAB_ESP32_URL || '', serial, database, mode: deviceMode });
     const server = await createLocalServer({ controller, mode: deviceMode });
     const port = Number(process.env.SFAB_PORT || 8787);
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid SFAB_PORT');
