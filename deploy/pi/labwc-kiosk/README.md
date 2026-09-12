@@ -1,5 +1,9 @@
 # labwc kiosk session — what it closes, and what it does not
 
+STATUS (2026-09-12): `rc.xml` here **is the deployed file** (touch calibration + 20 None binds +
+Ctrl+Alt+K/R operator exit/return), verified on the cabinet with wtype. The rest of this README
+still describes the original never-applied plan. Original status line kept below for history:
+
 STATUS: **NEVER APPLIED, NEVER TESTED ON HARDWARE.** Nothing in this directory has been
 parsed by labwc, and no escape listed below has been attempted on the device. Treat every
 "closed" claim here as a claim to be tested, not a result.
