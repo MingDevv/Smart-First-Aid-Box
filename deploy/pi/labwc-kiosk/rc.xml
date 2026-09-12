@@ -1,114 +1,59 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0"?>
 <!--
-  labwc session config for the Smart First Aid Box cabinet kiosk.
+  labwc config AS DEPLOYED on the cabinet: /home/technology/.config/labwc/rc.xml
+  (labwc 0.9.8). Replaces the never-applied template that lived here until 2026-09-12; the
+  installed file had diverged from it since 09-11 and the repo copy was the wrong one.
 
-  STATUS: NEVER APPLIED. This has not been parsed by labwc on hardware. Element names
-  were written from the labwc config documentation, not read off the device. Confirm
-  every element marked VERIFY against `man 5 labwc-config` for the labwc version the Pi
-  actually runs (ask labwc for its version), and watch the user journal for XML parse
-  errors after the first reconfigure — labwc reports them there rather than refusing to
-  start.
+  Keep this byte-identical to the device. Change here, scp there, then `labwc -r`.
 
-  ============================================================================
-  !! STOP. DO NOT COPY THIS FILE OVER AN EXISTING rc.xml. !!
+  <libinput>/<touch>: the measured five-point ADS7846 calibration and the HDMI-A-1 mapping
+  (it had pointed at NOOP-1, which is why touch looked dead). Measured, not invented — safe
+  to keep in git; there is no secret in it.
 
-  /home/technology/.config/labwc/rc.xml on this Pi already holds work that this file
-  does not reproduce and must not destroy:
+  <keyboard>: `labwc -m` MERGES the system rc.xml, so an empty block removes nothing (found
+  09-11 when Ctrl+Alt+T opened a terminal over the kiosk after a reboot). Every stock bind
+  that could leave the kiosk is therefore overridden one by one with action None.
 
-    · a measured five-point touch calibrationMatrix for the ADS7846 panel
-    · a <touch> mapping whose mapToOutput was repaired to HDMI-A-1 (it had been
-      pointing at NOOP-1, which is why touch appeared dead)
-    · mouseEmulation=yes on that touch device
-
-  Those numbers are NOT written into this template, deliberately: inventing calibration
-  coefficients would be worse than having none, because wrong ones look like they work.
-  The measured set lives outside this repo at
-  ~/Desktop/Codex/pi5-tailscale-setup/touch-calibration-measured.json (confirmed present
-  while writing this) and, on the device, inside the current rc.xml and its backups.
-
-  Procedure:
-    1. Back up the live file first (see ../README.md, step 0).
-    2. Open the backup, copy the <touch .../> element and the <libinput> device entry
-       carrying calibrationMatrix, VERBATIM.
-    3. Paste them into the marked slot below.
-    4. Only then install this file.
-  ============================================================================
+  The two live binds are the operator's way out and back, decided by Bank 2026-09-12 as the
+  alternative to giving students SSH: a keyboard has to be plugged in, and the combo has to
+  be known. Students at the touchscreen have neither. Both act on the systemd user unit,
+  so the watchdog leaves a deliberately stopped kiosk alone and the desktop icons
+  (โหมดดูแล / โหมดจริง / โหมดสาธิต / สถานะ / เปิดหน้าตู้) become reachable.
+    Ctrl+Alt+K  = stop the kiosk (exit to the desktop)
+    Ctrl+Alt+R  = start the kiosk again
+  Verified 2026-09-12 with wtype from SSH: combo before this file = no effect (control);
+  after `labwc -r`: K -> unit inactive, R -> unit active.
 -->
-<labwc_config>
-
-  <core>
-    <!-- No gap between windows and no edge snapping to fight the fullscreen browser. -->
-    <gap>0</gap>
-  </core>
-
-  <theme>
-    <!-- Nothing should be visible around the browser. Chromium in kiosk mode is
-         fullscreen and undecorated already; this is the compositor-side belt. -->
-    <cornerRadius>0</cornerRadius>
-  </theme>
-
-  <!--
-    KEYBINDINGS — the removal mechanism.
-
-    labwc installs its stock keybindings (window switching, close window, terminal,
-    workspace switching, the window menu) when <keyboard> contains <default />.
-    This block contains NO <default /> and NO <keybind> entries, so the session starts
-    with an empty keymap. That is the removal: there is nothing to "unbind" one by one.
-
-    Removed by consequence, all of them defaults in a normal labwc session:
-      · A-F4          close window
-      · W-Return / A-F2 style terminal or run-command launchers
-      · A-Tab         window switcher
-      · W-Left/Right, A-C-Left/Right, W-1..4   workspace switching
-      · W-Down / iconify bindings   minimise
-      · A-space       client (window) menu
-
-    VERIFY: that an EMPTY <keyboard> means "no keybinds" rather than "fall back to
-    defaults" on the installed labwc version. This is the single most important thing
-    to test in the escape-key sweep in ../README.md, because if the fallback behaviour
-    is the opposite of what is assumed here, every one of the bindings above is still
-    live and the kiosk is not locked at all. Test it with a keyboard plugged in, not by
-    reading this comment.
-  -->
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <libinput>
+    <device category="ADS7846 Touchscreen">
+      <calibrationMatrix>0.0072091456468 -0.973154231364 0.973769470816 1.01817655533 0.0165697405347 -0.00758388772081</calibrationMatrix>
+    </device>
+  </libinput>
+  <touch deviceName="ADS7846 Touchscreen" mapToOutput="HDMI-A-1" mouseEmulation="yes"/>
   <keyboard>
+    <keybind key="C-A-t"><action name="None"/></keybind>
+    <keybind key="C-A-w"><action name="None"/></keybind>
+    <keybind key="C-A-b"><action name="None"/></keybind>
+    <keybind key="C-A-m"><action name="None"/></keybind>
+    <keybind key="C-A-space"><action name="None"/></keybind>
+    <keybind key="C-A-Delete"><action name="None"/></keybind>
+    <keybind key="Super_L"><action name="None"/></keybind>
+    <keybind key="W-d"><action name="None"/></keybind>
+    <keybind key="A-Tab"><action name="None"/></keybind>
+    <keybind key="A-F4"><action name="None"/></keybind>
+    <keybind key="Print"><action name="None"/></keybind>
+    <keybind key="XF86PowerOff"><action name="None"/></keybind>
+    <keybind key="A-Left"><action name="None"/></keybind>
+    <keybind key="A-Right"><action name="None"/></keybind>
+    <keybind key="A-Up"><action name="None"/></keybind>
+    <keybind key="A-Down"><action name="None"/></keybind>
+    <keybind key="C-A-Left"><action name="None"/></keybind>
+    <keybind key="C-A-Right"><action name="None"/></keybind>
+    <keybind key="C-A-Up"><action name="None"/></keybind>
+    <keybind key="C-A-Down"><action name="None"/></keybind>
+    <!-- operator exit / return — see header -->
+    <keybind key="C-A-k"><action name="Execute"><command>systemctl --user stop sfab-kiosk.service</command></action></keybind>
+    <keybind key="C-A-r"><action name="Execute"><command>systemctl --user start sfab-kiosk.service</command></action></keybind>
   </keyboard>
-
-  <!--
-    MOUSE / TOUCH CONTEXT BINDINGS — same mechanism, no <default />.
-    Suppresses the root-window menu on click and the titlebar context actions.
-    With mouseEmulation on the touch panel, a long press or a stray two-finger contact
-    would otherwise be able to raise the root menu. menu.xml is emptied as well, so
-    this is defence in depth rather than the only barrier.
-  -->
-  <mouse>
-  </mouse>
-
-  <windowRules>
-    <!--
-      VERIFY the attribute names and the identifier matching for this labwc version;
-      windowRule syntax has changed across releases. If labwc logs a parse error here,
-      delete this whole <windowRules> block first — it is a nicety. Chromium started
-      in kiosk mode is already fullscreen and undecorated without it.
-    -->
-    <windowRule identifier="chromium*" serverDecoration="no" skipTaskbar="yes" skipWindowSwitcher="yes" />
-  </windowRules>
-
-  <!--
-    ========================================================================
-    PASTE THE TOUCHSCREEN CONFIGURATION FROM YOUR BACKED-UP rc.xml HERE.
-
-    Two things to transplant, both copied verbatim from the backup:
-      1. the <libinput> block containing the ADS7846 device entry and its
-         <calibrationMatrix> (the measured five-point fit)
-      2. the <touch ... mapToOutput="HDMI-A-1" mouseEmulation="yes" /> element
-
-    No numbers are supplied here on purpose. If this slot is still empty when you
-    install the file, touch will be uncalibrated or mapped to the wrong output, and the
-    failure mode is taps landing in the wrong place rather than an obvious error.
-
-    After installing, re-check alignment at all four corners AND the centre before
-    declaring it working — a matrix can be right at the corners and wrong in the middle.
-    ========================================================================
-  -->
-
-</labwc_config>
+</openbox_config>
