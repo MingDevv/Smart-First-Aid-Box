@@ -1,4 +1,4 @@
-#include "../firmware/command_history.h"
+#include "../firmware/esp32_smart_box/readiness_latch.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -35,6 +35,40 @@ struct FirmwareHarness {
 };
 
 int main() {
+  CommandHistory rejectedHistory;
+  ReadinessLatch rejectedLatch;
+  rejectedLatch.ready(7, 100);
+  rejectedHistory.remember("c-reject-wire-01", 1, false, 100);
+  rejectedLatch.consume("c-reject-wire-01");
+  // Actual helper called by the firmware REJECT branch: exact id -> rejected state -> READY recovery.
+  assert(!rejectCommand(rejectedHistory, rejectedLatch, "c-unrelated-01"));
+  assert(rejectCommand(rejectedHistory, rejectedLatch, "c-reject-wire-01"));
+  assert(rejectedHistory.find("c-reject-wire-01")->rejected);
+  assert(rejectedHistory.expireNext(30000, 15000) == nullptr);
+  rejectedLatch.ready(7, 300);
+  assert(rejectedLatch.canOpen(300));
+
+  ReadinessLatch latch;
+  latch.ready(5, 100);
+  assert(latch.canOpen(100));
+  latch.consume("c-refused-0001");
+  latch.ready(5, 200);
+  assert(!latch.canOpen(200));
+  assert(latch.waitingForEpoch());
+  assert(!latch.reject("c-unrelated-01"));
+  assert(!latch.canOpen(200));
+  assert(latch.reject("c-refused-0001"));
+  assert(!latch.canOpen(200)); // a fresh READY must still follow the exact rejection
+  latch.ready(5, 300);
+  assert(latch.canOpen(300));
+  latch.consume("c-wire-lost-01");
+  latch.ready(5, 30000);
+  assert(!latch.canOpen(30000)); // time alone must never release a possibly queued OPEN
+  latch.ready(6, 30100);
+  assert(latch.canOpen(30100)); // micro:bit invalidated the old epoch itself
+  latch.consume("c-next-open-01");
+  assert(!latch.reject("c-refused-0001")); // a late old rejection cannot release a new command
+
   // Literal regression: one command gets no UART OK, expires, and the next one is dispatched.
   FirmwareHarness singleTimeout;
   assert(singleTimeout.open("c-single-no-ack", 1, 0));

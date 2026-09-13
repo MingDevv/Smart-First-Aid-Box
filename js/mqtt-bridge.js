@@ -26,6 +26,7 @@ const MqttBridge = {
     },
 
     isConfigured() {
+        if (window.SFAB_RUNTIME?.transport === 'pi-local') return false;
         return this.getConfig().wsUrl !== '';
     },
 

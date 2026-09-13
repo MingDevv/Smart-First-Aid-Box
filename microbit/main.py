@@ -14,7 +14,7 @@ OLED:
 I2C (P19/P20 auto - ห้ามใช้พินนี้กับอุปกรณ์อื่น)
 
 UART Serial (เชื่อมต่อ ESP32):
-P2 = TX, P3 = RX (หรือ P2=TX, P10=RX) (Baud rate 115200)
+P2 = TX, P3 = RX (Baud rate 115200)
 
 มอเตอร์สเต็ปเปอร์ 4 สาย (28BYJ-48 style):
 มอเตอร์ 1 (Insect Bite / แดง) : P4, P5, P6, P7    + 5V, GND
@@ -22,9 +22,9 @@ P2 = TX, P3 = RX (หรือ P2=TX, P10=RX) (Baud rate 115200)
 
 Flow ของระบบ:
 1. ปุ่มเป็น Edge-Triggered (กันไฟกระพริบ / กดครั้งเดียว = ทำงานครั้งเดียว)
-2. สั่งงานได้ทั้งจากปุ่มกดหน้าตู้ และคำสั่งจากหน้าเว็บผ่าน ESP32 UART (OPEN1/OPEN2)
+2. สั่งงานได้ทั้งจากปุ่มกดหน้าตู้ และคำสั่งจากหน้าเว็บผ่าน ESP32 UART (OPEN1/OPEN2 + command ID + ready epoch)
 3. เลือกอาการ -> โชว์อาการ + LED ค้าง ~2.5 วิ -> เคลียร์จอ -> "System is running..."
-   -> หมุนมอเตอร์ครบ 1 รอบ (DISPENSE_STEPS = 2048) และส่ง OK1/OK2 แจ้งเว็บ
+   -> หมุนมอเตอร์ครบ 1 รอบ (DISPENSE_STEPS = 2048) และส่ง DONE พร้อม command ID แจ้งเว็บ
 4. หมุนเสร็จ -> โชว์วิธีล้างแผล/ดูแลแผล วิธีที่ 1 ค้างไว้ (ไม่มีจับเวลา)
    -> กดปุ่มเดิม (P8 = Abrasion / P12 = Insect Bite) เพียงครั้งเดียว -> ไปวิธีที่ 2 ทันที
    -> กดปุ่มเดิมอีกครั้งเดียว -> โชว์ข้อความ "Complete!" ค้างไว้สักครู่ -> ดับ LED -> ดับมอเตอร์
@@ -68,6 +68,11 @@ STEP_SEQUENCE = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
 state = STATE_WELCOME   # สถานะปัจจุบันของระบบ
 lastState = -1           # สถานะก่อนหน้า ใช้เช็คว่าต้อง Refresh OLED หรือไม่
 lastAction = 0            # เวลาล่าสุดที่มีการกดปุ่ม ใช้จับเวลา Sleep (ดู SLEEP_TIMEOUT)
+remoteCommandId = ""
+readyEpoch = 1
+lastHeartbeat = 0
+serialBuffer = ""
+serialOverflow = False
 
 # เก็บสถานะปุ่มของรอบก่อนหน้า ใช้เช็คขอบขาขึ้น (0 -> 1 = เพิ่งถูกกด)
 startPrev = False
@@ -256,6 +261,9 @@ def motor_run(motor_pins2: any, steps: number, delay_ms: number):
     # หมุนสเต็ปเปอร์ตามจำนวน step ที่กำหนด แล้วดับคอยล์ทั้งหมดเมื่อจบ
     seq_len = len(STEP_SEQUENCE)
     for i in range(steps):
+        if i % 32 == 0:
+            check_serial_commands()
+            report_hardware_state()
         pattern = STEP_SEQUENCE[i % seq_len]
         for j in range(4):
             pins.digital_write_pin(motor_pins2[j], pattern[j])
@@ -271,9 +279,13 @@ def motor_stop(motor_pins: List[number]):
 # ---------- ฟังก์ชันรอกดปุ่มเดิมซ้ำ เพื่อไปวิธีล้างแผลถัดไป ----------
 def wait_for_button_again(pin: DigitalPin):
     while pins.digital_read_pin(pin) == 1:
+        check_serial_commands()
+        report_hardware_state()
         basic.pause(10)
     confirmed = False
     while not (confirmed):
+        check_serial_commands()
+        report_hardware_state()
         if pins.digital_read_pin(pin) == 1:
             basic.pause(BOUNCE_DELAY)
             confirmed = pins.digital_read_pin(pin) == 1
@@ -283,40 +295,40 @@ def wait_for_button_again(pin: DigitalPin):
 
 # ---------- ฟังก์ชันจ่ายยา/สเปรย์ ----------
 def dispense_abrasion():
-    for i in range(3):
-        serial.write_line("OK1")  # ส่ง ACK 3 ครั้งกันสัญญาณหล่น เพื่อให้เว็บขึ้นเปิดสำเร็จ 100%
-        basic.pause(50)
-    basic.pause(SYMPTOM_DISPLAY_MS)
+    pause_with_service(SYMPTOM_DISPLAY_MS)
     show_running()
     motor_run(MOTOR2_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
+    acknowledge_motor(1)
     show_abrasion_care1()
     wait_for_button_again(PIN_ABRASION)
     show_abrasion_care2()
     wait_for_button_again(PIN_ABRASION)
     show_care_done()
-    basic.pause(CARE_DONE_MS)
+    pause_with_service(CARE_DONE_MS)
     reset_to_welcome()
 
 
 def dispense_insect():
-    for i in range(3):
-        serial.write_line("OK2")  # ส่ง ACK 3 ครั้งกันสัญญาณหล่น เพื่อให้เว็บขึ้นเปิดสำเร็จ 100%
-        basic.pause(50)
-    basic.pause(SYMPTOM_DISPLAY_MS)
+    pause_with_service(SYMPTOM_DISPLAY_MS)
     show_running()
     motor_run(MOTOR1_PINS, DISPENSE_STEPS, STEP_DELAY_MS)
+    acknowledge_motor(2)
     show_insect_care1()
     wait_for_button_again(PIN_INSECT)
     show_insect_care2()
     wait_for_button_again(PIN_INSECT)
     show_care_done()
-    basic.pause(CARE_DONE_MS)
+    pause_with_service(CARE_DONE_MS)
     reset_to_welcome()
 
 
 # ---------- ฟังก์ชันเปลี่ยน STATE ----------
 def go_to_state(new_state: number):
-    global state, lastAction
+    global state, lastAction, readyEpoch
+    if new_state == STATE_ABRASION or new_state == STATE_INSECT:
+        # Invalidate queued frames from the previous idle period, including physical-button starts.
+        readyEpoch += 1
+        serial.write_line("BUSY")
     state = new_state
     lastAction = input.running_time()
     update_leds()
@@ -333,7 +345,7 @@ def reset_to_welcome():
     pins.digital_write_pin(PIN_LED_RED, 0)
     motor_stop(MOTOR1_PINS)
     motor_stop(MOTOR2_PINS)
-    basic.pause(RESET_DELAY_MS)
+    pause_with_service(RESET_DELAY_MS)
     lastState = -1
     state = STATE_WELCOME
     lastAction = input.running_time()
@@ -341,20 +353,86 @@ def reset_to_welcome():
 
 
 # ---------- UART SERIAL CONFIG & HANDLER (เชื่อมต่อ ESP32 ผ่านพิน P2) ----------
-serial.redirect(SerialPin.P2, SerialPin.P2, BaudRate.BAUD_RATE115200)
+serial.redirect(SerialPin.P2, SerialPin.P3, BaudRate.BAUD_RATE115200)
+# A full command can exceed the MakeCode serial default; configure after redirect.
+serial.set_rx_buffer_size(128)
+
+
+def pause_with_service(duration_ms: number):
+    started = input.running_time()
+    while input.running_time() - started < duration_ms:
+        check_serial_commands()
+        report_hardware_state()
+        basic.pause(20)
+
+
+def acknowledge_motor(drawer: number):
+    global remoteCommandId
+    if remoteCommandId != "":
+        serial.write_line("DONE" + str(drawer) + ":" + remoteCommandId)
+        remoteCommandId = ""
+    else:
+        serial.write_line("LOCAL_DONE" + str(drawer))
+
+
+def report_hardware_state():
+    global lastHeartbeat
+    if input.running_time() - lastHeartbeat < 500:
+        return
+    lastHeartbeat = input.running_time()
+    if state == STATE_ABRASION or state == STATE_INSECT:
+        serial.write_line("BUSY")
+    else:
+        serial.write_line("READY:" + str(readyEpoch))
+
+
+def handle_serial_frame(frame: str):
+    global remoteCommandId, lastAction
+    parts = frame.split(":")
+    if len(parts) < 2 or len(parts) > 3:
+        return
+    command_id = parts[1]
+    if len(command_id) < 8 or len(command_id) > 64:
+        return
+    for character in command_id:
+        if "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-".find(character) < 0:
+            return
+    if len(parts) == 2 and (parts[0] == "BUZZ1" or parts[0] == "BUZZ0"):
+        if parts[0] == "BUZZ1":
+            music.ring_tone(880)
+        else:
+            music.stop_all_sounds()
+        serial.write_line("BUZZ_DONE" + ("1" if parts[0] == "BUZZ1" else "0") + ":" + command_id)
+        return
+    if len(parts) != 3 or (parts[0] != "OPEN1" and parts[0] != "OPEN2"):
+        return
+    if state == STATE_ABRASION or state == STATE_INSECT or parts[2] != str(readyEpoch):
+        serial.write_line("REJECT:" + command_id)
+        return
+    remoteCommandId = command_id
+    lastAction = input.running_time()
+    go_to_state(STATE_ABRASION if parts[0] == "OPEN1" else STATE_INSECT)
 
 
 def check_serial_commands():
-    cmd = serial.read_string()
-    if len(cmd) > 0:
-        global lastAction
-        lastAction = input.running_time()
-        if "OPEN1" in cmd or "ABRASION" in cmd:
-            serial.write_string("OK1\n")  # ตอบกลับ OK1 ทันที เพื่อให้เว็บขึ้น "เปิดตู้สำเร็จ" ภายใน 0.5 วิ
-            go_to_state(STATE_ABRASION)
-        elif "OPEN2" in cmd or "INSECT" in cmd:
-            serial.write_string("OK2\n")  # ตอบกลับ OK2 ทันที เพื่อให้เว็บขึ้น "เปิดตู้สำเร็จ" ภายใน 0.5 วิ
-            go_to_state(STATE_INSECT)
+    global serialBuffer, serialOverflow
+    incoming = serial.read_string()
+    for character in incoming:
+        if character == "\r":
+            continue
+        if character == "\n":
+            frame = serialBuffer
+            overflow = serialOverflow
+            serialBuffer = ""
+            serialOverflow = False
+            if not overflow:
+                handle_serial_frame(frame)
+        elif not serialOverflow:
+            if len(serialBuffer) >= 128:
+                serialOverflow = True
+                serialBuffer = ""
+            else:
+                serialBuffer += character
 
 
 # ---------- SETUP ----------
@@ -376,6 +454,7 @@ def on_forever():
 
     # 1. ตรวจสอบคำสั่งส่งมาจากหน้าเว็บ/ESP32 ผ่าน UART
     check_serial_commands()
+    report_hardware_state()
 
     # 2. อ่านปุ่มกดปุ่มหน้าตู้ทุกตัว
     startEdge = start_pressed()

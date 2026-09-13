@@ -2,3 +2,7 @@ node_modules/
 .env
 .vercel/
 .DS_Store
+.env.*
+!.env.example
+*.sqlite*
+firmware/**/device_config.h
