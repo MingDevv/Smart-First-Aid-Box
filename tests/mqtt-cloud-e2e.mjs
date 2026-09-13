@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import mqtt from 'mqtt';
 import { CloudBridge } from '../edge/mqtt-cloud.mjs';
 
 // End to end over a real broker: the UNCHANGED Vercel handler (api/command.js) on one side,
@@ -41,7 +42,7 @@ async function fixture(t, { deviceMode = 'real', outcome } = {}) {
                 ack: { protocol: 2, event: command.action === 'open' ? 'drawer_opened' : 'buzzer_set', id: command.id } } };
         }
     };
-    const bridge = new CloudBridge({ controller, url: brokerUrl, baseTopic: base, statusIntervalMs: 250,
+    const bridge = new CloudBridge({ controller, url: brokerUrl, baseTopic: base, statusIntervalMs: 250, connect: mqtt.connect,
         log: { log() {}, error: (...a) => console.error(...a) } }).start();
     t.after(async () => {
         await api.closeMqttClientForTests();

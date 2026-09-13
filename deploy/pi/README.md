@@ -244,11 +244,28 @@ MQTT_PASSWORD=<device password>
 MQTT_BASE_TOPIC=crms6/firstaidbox/box1
 ```
 
-`edge/mqtt-cloud.mjs` needs the `mqtt` package, so the checkout on the Pi must have run
-`npm ci --omit=dev` (the edge service itself uses only Node built-ins). After editing the
-env: `systemctl --user restart sfab-edge`, then confirm the broker shows a retained
-`<base>/status` with `"transport":"pi"` and `GET /api/command` on the website reports
-`connected:true`.
+Optional fifth line: `SFAB_CLOUD_ACTIONS=buzzer` lets the website ring the buzzer but never
+open a drawer (the website's `/api/command` has no login of its own); the default
+`open,buzzer` is parity with the ESP32 era. A wrong or missing `MQTT_URL` only disables the
+cloud path — the journal shows `[SFAB cloud] disabled: …` and the touchscreen keeps working.
+
+`edge/mqtt-cloud.mjs` loads the `mqtt` package lazily, so the checkout on the Pi needs a
+`node_modules` (the edge service itself uses only Node built-ins). The cabinet runs from
+`~/sfab` under the **user** unit, not `/opt`; ship code and the lockfile, never
+`node_modules`, then install on the Pi with its own npm (not on the unit's PATH by default):
+
+```sh
+# on the Mac
+rsync -a --delete --exclude node_modules --exclude .git --exclude '*.sqlite*' <checkout>/ pi5:~/sfab/
+# on the Pi
+cd ~/sfab && ~/.local/node/bin/npm ci --omit=dev
+timedatectl show -p NTPSynchronized      # must be yes: commands carry a timestamp the Pi judges
+systemctl --user restart sfab-edge
+journalctl _SYSTEMD_USER_UNIT=sfab-edge.service -n 20    # expect "[SFAB cloud] on broker as <base>"
+```
+
+Then confirm the broker shows a retained `<base>/status` with `"transport":"pi"` and
+`GET /api/command` on the website reports `connected:true`.
 
 Check it before going near the browser:
 

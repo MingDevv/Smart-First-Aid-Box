@@ -155,7 +155,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     // Optional: with MQTT_URL in the unit's environment the Pi also serves the cloud path
     // (Vercel → broker → here), taking the seat the ESP32 used to hold. Same controller,
     // same gates; without MQTT_URL the cabinet is touchscreen-only exactly as before.
-    const cloud = startCloudBridge(process.env, controller);
+    const cloud = await startCloudBridge(process.env, controller);
     // An idle keep-alive socket does NOT hold close() open. Measured on this server, node
     // v26.8.2: one parked keep-alive connection held open, close() WITHOUT
     // closeIdleConnections() resolved in 0.2ms. (Control: the same probe against a socket
@@ -177,7 +177,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     // time instead of letting each wait out keepAliveTimeout. closeAllConnections() is
     // deliberately NOT used — it would abort in-flight commands.
     const stop = () => {
-        server.close(async () => { await cloud?.close(); await controller.close(); process.exit(0); });
+        // Drain first: a cloud command still running must get its ACK out before the
+        // broker link is closed, or the website reports 504 for a drawer that did open.
+        server.close(async () => { await controller.drain(); await cloud?.close(); await controller.close(); process.exit(0); });
         server.closeIdleConnections();
     };
     process.once('SIGTERM', stop);
