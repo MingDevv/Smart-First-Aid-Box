@@ -7,27 +7,12 @@
     <title>แดชบอร์ดครูพยาบาล — Smart First Aid Box</title>
     <link rel="stylesheet" href="../css/global.css">
     <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="../css/auth.css">
+    <script src="../js/auth.js" defer></script>
+    <script src="../js/auth-ui.js" defer></script>
 </head>
-<body class="dashboard-body">
-    <div class="lock-screen" id="lock-overlay">
-        <div class="lock-card animate-slide-up">
-            <span class="lock-mark" aria-hidden="true"><span class="material-symbols-rounded" style="font-size:30px;">admin_panel_settings</span></span>
-            <div class="eyebrow mono-label" style="color:var(--primary); font-size:9px;">NURSE DASHBOARD</div>
-            <h1 style="font-size:21px; margin:5px 0;">เข้าสู่ระบบครูพยาบาล</h1>
-            <p style="color:var(--text-muted); font-size:12px;">กรอกรหัส PIN 4 หลักเพื่อดูข้อมูลตู้ยา</p>
-            <div class="pin-dot-container" aria-live="polite">
-                <span class="pin-dot" id="dot-0"></span><span class="pin-dot" id="dot-1"></span><span class="pin-dot" id="dot-2"></span><span class="pin-dot" id="dot-3"></span>
-            </div>
-            <div class="pin-pad" aria-label="แป้นกรอกรหัส PIN">
-                <button class="pin-btn" type="button" onclick="pressPin('1')">1</button><button class="pin-btn" type="button" onclick="pressPin('2')">2</button><button class="pin-btn" type="button" onclick="pressPin('3')">3</button>
-                <button class="pin-btn" type="button" onclick="pressPin('4')">4</button><button class="pin-btn" type="button" onclick="pressPin('5')">5</button><button class="pin-btn" type="button" onclick="pressPin('6')">6</button>
-                <button class="pin-btn" type="button" onclick="pressPin('7')">7</button><button class="pin-btn" type="button" onclick="pressPin('8')">8</button><button class="pin-btn" type="button" onclick="pressPin('9')">9</button>
-                <button class="pin-btn" type="button" onclick="clearPin()" style="font-family:var(--font-sarabun); font-size:11px; color:var(--danger);">ล้าง</button><button class="pin-btn" type="button" onclick="pressPin('0')">0</button><button class="pin-btn" type="button" onclick="location.href='../'" style="font-family:var(--font-sarabun); font-size:11px; color:var(--primary);">กลับ</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="dashboard-content" style="display:none;">
+<body data-auth-required="staff" class="dashboard-body">
+    <div id="dashboard-content">
         <div class="dashboard-shell">
             <aside class="dashboard-sidebar">
                 <a class="sidebar-brand" href="../">
@@ -51,10 +36,10 @@
                 <header class="dashboard-topbar">
                     <div class="dashboard-greeting">
                         <h1>สวัสดีค่ะ ครูพยาบาล</h1>
-                        <p id="dashboard-summary">กำลังโหลดภาพรวมการใช้งานวันนี้...</p>
+                        <p id="dashboard-summary">ประวัติและคลังจากส่วนกลางยังไม่พร้อมใช้งาน</p>
                     </div>
                     <div class="dashboard-actions">
-                        <button class="dashboard-action" type="button" onclick="exportCSV()"><span class="material-symbols-rounded" aria-hidden="true">download</span>ส่งออก CSV</button>
+
                         <a class="dashboard-action primary" href="/dashboard/medicine-management#add"><span class="material-symbols-rounded" aria-hidden="true">add</span>เติมเวชภัณฑ์</a>
                         <button class="dashboard-action" type="button" onclick="logout()" aria-label="ออกจากระบบ"><span class="material-symbols-rounded" aria-hidden="true">logout</span></button>
                     </div>
@@ -72,57 +57,41 @@
                 <section class="stats-grid" aria-label="สถิติสำคัญ">
                     <article class="stat-item">
                         <div class="stat-lbl">ใช้งานวันนี้</div>
-                        <div class="stat-val" id="stat-cases-today">0</div>
-                        <div class="stat-note positive" id="stat-today-note">ยังไม่มีเคสวันนี้</div>
+                        <div class="stat-val" id="stat-cases-today">—</div>
+                        <div class="stat-note positive" id="stat-today-note">ยังไม่มีข้อมูลจากส่วนกลาง</div>
                     </article>
                     <article class="stat-item">
                         <div class="stat-lbl">สแกนด้วย AI</div>
-                        <div class="stat-val" id="stat-ai-scans">0</div>
-                        <div class="stat-note" id="stat-ai-note">0% ของการใช้งาน</div>
+                        <div class="stat-val" id="stat-ai-scans">—</div>
+                        <div class="stat-note" id="stat-ai-note">ยังไม่มีข้อมูลจากส่วนกลาง</div>
                     </article>
                     <article class="stat-item">
                         <div class="stat-lbl">รายการทั้งหมด</div>
-                        <div class="stat-val" id="stat-total-items">0</div>
-                        <div class="stat-note">ใน 2 ช่องเก็บ</div>
+                        <div class="stat-val" id="stat-total-items">—</div>
+                        <div class="stat-note">ยังไม่มีข้อมูลจากส่วนกลาง</div>
                     </article>
                     <article class="stat-item alert-stat">
                         <div class="stat-lbl">ใกล้หมด</div>
-                        <div class="stat-val" id="stat-low-stock">0</div>
-                        <div class="stat-note">ต้องเติมสัปดาห์นี้</div>
+                        <div class="stat-val" id="stat-low-stock">—</div>
+                        <div class="stat-note">ยังไม่มีข้อมูลจากส่วนกลาง</div>
                     </article>
                 </section>
 
                 <section class="dashboard-grid">
                     <article class="db-card">
                         <div class="db-card-header"><h2>คลังเวชภัณฑ์</h2><a href="medicine-management.html">จัดการคลัง <span aria-hidden="true">→</span></a></div>
-                        <div class="inventory-preview" id="inventory-preview"></div>
+                        <div class="shared-unavailable" id="inventory-preview">ยังไม่เชื่อมข้อมูลคลังจากส่วนกลาง</div>
                     </article>
                     <article class="db-card">
                         <div class="db-card-header"><h2>การใช้งานล่าสุด</h2><a href="statistics.html">ดูทั้งหมด <span aria-hidden="true">→</span></a></div>
-                        <div class="timeline-container" id="recent-timeline"></div>
+                        <div class="shared-unavailable" id="recent-timeline">ยังไม่เชื่อมประวัติจากตู้</div>
                     </article>
                 </section>
             </main>
         </div>
     </div>
 
-    <!-- Case Detail Modal -->
-    <div id="case-modal" class="modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); align-items:center; justify-content:center; padding:20px;">
-        <div class="modal-content animate-slide-up" style="background:#fff; border-radius:24px; max-width:440px; width:100%; padding:24px; box-shadow:var(--shadow-lg);">
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
-                <h3 id="case-modal-title" style="font-size:18px; margin:0;">รายละเอียดการรักษา</h3>
-                <button type="button" onclick="closeCaseModal()" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-muted);">✕</button>
-            </div>
-            <div id="case-modal-body" style="font-size:13px; line-height:1.6; color:var(--text-main);"></div>
-            <div style="margin-top:18px; text-align:right;">
-                <button class="btn btn-primary" type="button" onclick="closeCaseModal()">ปิดหน้าต่าง</button>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/mqtt@5.15.2/dist/mqtt.min.js"></script>
     <script src="../js/storage.js"></script>
-    <script src="../js/mqtt-bridge.js"></script>
     <script src="../js/api-bridge.js"></script>
     <script src="../js/notification.js"></script>
     <script>
@@ -147,278 +116,15 @@
             }
         }
 
-        let currentPinInput = '';
 
-        function updatePinDots() {
-            for (let index = 0; index < 4; index += 1) {
-                document.getElementById(`dot-${index}`).classList.toggle('filled', index < currentPinInput.length);
-            }
-        }
-
-        function checkPinLockout() {
-            const lockoutUntil = Number(localStorage.getItem('pin_lockout_until') || 0);
-            return Date.now() < lockoutUntil ? Math.ceil((lockoutUntil - Date.now()) / 1000) : 0;
-        }
-
-        function pressPin(number) {
-            const remaining = checkPinLockout();
-            if (remaining > 0) {
-                NotificationService.showToast(`พักการลอง PIN อีก ${remaining} วินาที`, 'danger');
-                clearPin();
-                return;
-            }
-            if (currentPinInput.length < 4) currentPinInput += number;
-            updatePinDots();
-            if (currentPinInput.length !== 4) return;
-
-            if (currentPinInput === StorageService.getSettings().dashboardPin) {
-                localStorage.removeItem('pin_failed_attempts');
-                localStorage.removeItem('pin_lockout_until');
-                sessionStorage.setItem('dashboard_auth', 'true');
-                showDashboard();
-                NotificationService.showToast('เข้าสู่แดชบอร์ดครูพยาบาลแล้ว', 'success');
-                return;
-            }
-
-            const attempts = Number(localStorage.getItem('pin_failed_attempts') || 0) + 1;
-            localStorage.setItem('pin_failed_attempts', attempts);
-            if (attempts >= 5) {
-                localStorage.setItem('pin_lockout_until', String(Date.now() + 15 * 60 * 1000));
-                NotificationService.showToast('กรอก PIN ผิดเกิน 5 ครั้ง ระบบพักการลอง 15 นาที', 'danger');
-            } else {
-                NotificationService.showToast(`PIN ไม่ถูกต้อง เหลือ ${5 - attempts} ครั้ง`, 'danger');
-            }
-            clearPin();
-        }
-
-        function clearPin() {
-            currentPinInput = '';
-            updatePinDots();
-        }
-
-        function checkAuth() {
-            if (sessionStorage.getItem('dashboard_auth') === 'true') showDashboard();
-        }
-
-        function showDashboard() {
-            document.getElementById('lock-overlay').style.display = 'none';
-            document.getElementById('dashboard-content').style.display = 'block';
-            loadDashboardData();
-        }
-
-        function logout() {
-            sessionStorage.removeItem('dashboard_auth');
-            location.reload();
-        }
-
-        function escapeHtml(value) {
-            return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-        }
-
-        function medicineImage(name) {
-            const value = String(name || '').toLowerCase();
-            if (value.includes('น้ำเกลือ')) return '../images/med_saline.webp';
-            if (value.includes('เบตาดีน')) return '../images/med_betadine.webp';
-            if (value.includes('คาลา') || value.includes('คารา')) return '../images/med_calamine.webp';
-            if (value.includes('เย็น') || value.includes('cold')) return '../images/med_icepack.webp';
-            return '../images/med_bandage.webp';
-        }
-
-        function woundImage(log) {
-            if (log.woundType === 'insect') return '../images/wound_insect_bite.webp';
-            if (log.woundType === 'sos_emergency') return '../images/logo_first_aid.webp';
-            return '../images/wound_cut_abrasion.webp';
-        }
-
-        async function loadDashboardData() {
-            const history = StorageService.getHistory();
-            const medicines = StorageService.getMedicines();
-            const today = new Date().toDateString();
-            const casesToday = history.filter(item => new Date(item.timestamp || item.created_at).toDateString() === today).length;
-            const aiScans = history.filter(item => String(item.method || '').toLowerCase().includes('ai')).length;
-            const totalItems = medicines.length;
-            const lowStockItems = medicines.filter(item => Number(item.qty) <= Number(item.minQty));
-            const expiredItems = medicines.filter(item => new Date(item.exp) <= new Date());
-
-            document.getElementById('stat-cases-today').textContent = casesToday;
-            document.getElementById('stat-ai-scans').textContent = aiScans;
-            document.getElementById('stat-total-items').textContent = totalItems;
-            document.getElementById('stat-low-stock').textContent = lowStockItems.length;
-            document.getElementById('stat-ai-note').textContent = `${history.length ? Math.round(aiScans / history.length * 100) : 0}% ของการใช้งาน`;
-            document.getElementById('stat-today-note').textContent = casesToday > 0 ? `${casesToday} เคสที่บันทึกวันนี้` : 'ยังไม่มีเคสวันนี้';
-            document.getElementById('dashboard-summary').textContent = `วันนี้มีการใช้กล่อง ${casesToday} ครั้ง · เวชภัณฑ์ใกล้หมด ${lowStockItems.length} รายการ`;
-
-            const alerts = document.getElementById('alerts-panel');
-            alerts.innerHTML = '';
-            if (expiredItems.length > 0) alerts.innerHTML += `<div class="alert-banner"><span class="material-symbols-rounded">error</span><span>พบเวชภัณฑ์หมดอายุ <strong>${expiredItems.length} รายการ</strong> กรุณาตรวจสอบก่อนใช้งาน</span></div>`;
-            if (lowStockItems.length > 0) alerts.innerHTML += `<div class="alert-banner warning"><span class="material-symbols-rounded">inventory</span><span>มีเวชภัณฑ์ใกล้หมด <strong>${lowStockItems.length} รายการ</strong> ควรเติมสต็อก</span></div>`;
-
-            const inventory = document.getElementById('inventory-preview');
-            inventory.innerHTML = medicines.slice(0, 5).map(item => {
-                const target = Math.max(Number(item.minQty || 1) * 3, 1);
-                const percentage = Math.max(4, Math.min(100, Math.round(Number(item.qty || 0) / target * 100)));
-                const low = Number(item.qty) <= Number(item.minQty);
-                return `<div class="inventory-row" style="cursor:pointer;" onclick="location.href='medicine-management.html'" title="คลิกเพื่อจัดการคลังยา"><img class="inventory-image" src="${medicineImage(item.name)}" alt=""><div><div class="inventory-name">${escapeHtml(item.name)}</div><div class="inventory-track"><div class="inventory-fill${low ? ' low' : ''}" style="width:${percentage}%"></div></div></div><div class="inventory-qty">${Number(item.qty) || 0}<br>${escapeHtml(item.unit)}</div></div>`;
-            }).join('');
-
-            const timeline = document.getElementById('recent-timeline');
-            if (history.length === 0) {
-                timeline.innerHTML = '<div class="db-empty-state"><div><span class="material-symbols-rounded" aria-hidden="true">history</span><strong>ยังไม่มีประวัติการใช้งาน</strong><span>รายการจะปรากฏหลังทำแผลและบันทึกขั้นตอนสำเร็จ</span><br><button class="btn btn-outline" style="margin-top:12px; font-size:12px; min-height:36px; padding:6px 14px;" type="button" onclick="loadDemoData()"><span class="material-symbols-rounded" style="font-size:16px;">bolt</span> โหลดข้อมูลตัวอย่างสำหรับทดสอบ</button></div></div>';
-            } else {
-                timeline.innerHTML = history.slice(0, 5).map((log, index) => {
-                    const date = new Date(log.timestamp || log.created_at);
-                    const time = date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-                    const student = log.studentName || 'นักเรียนทั่วไป';
-                    const width = Math.max(28, 92 - index * 13);
-                    return `<div class="timeline-item" style="cursor:pointer;" onclick="showCaseDetail(${index})" title="คลิกเพื่อดูรายละเอียด"><img class="timeline-thumb" src="${woundImage(log)}" alt=""><div><div class="timeline-title">${escapeHtml(log.woundNameTh || 'ไม่ระบุอาการ')}</div><div class="timeline-meta">${escapeHtml(student)} · ${time} น.</div></div><div class="timeline-bar" aria-hidden="true"><span style="width:${width}%"></span></div></div>`;
-                }).join('');
-            }
-
-            const statusText = document.getElementById('cabinet-status-text');
-            const statusDot = document.getElementById('cabinet-dot');
-            const updated = document.getElementById('cabinet-last-update');
-            updated.textContent = `อัปเดต ${new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
-            try {
+        async function logout() { await AuthService.signOut(); }
+        document.addEventListener('DOMContentLoaded', () => {
+            AuthService.subscribe(async () => {
+                if (!AuthService.isStaff()) return;
                 const hardware = await ApiBridge.getHardwareStatus();
-                statusText.textContent = hardware.mode === 'simulation' ? 'โหมดสาธิต (เปิดใช้งาน)'
-                    : hardware.reason === 'awaiting_new_ready_epoch' ? 'ให้ครูตรวจตู้และสายสัญญาณ'
-                    : !hardware.connected ? 'ตู้ไม่ได้เชื่อมต่อ'
-                    : hardware.ready === false ? 'ตู้กำลังใช้งาน' : 'ตู้พร้อมใช้งาน (ฮาร์ดแวร์)';
-                statusDot.style.background = (hardware.connected || hardware.mode === 'simulation') ? 'oklch(0.79 0.18 145)' : 'oklch(0.72 0.20 28)';
-            } catch (error) {
-                console.warn('[Dashboard] Hardware status failed:', error);
-                statusText.textContent = 'ตรวจสถานะตู้ไม่ได้';
-                statusDot.style.background = 'oklch(0.72 0.20 28)';
-            }
-        }
-
-
-        function showCaseDetail(index) {
-            const history = StorageService.getHistory();
-            const log = history[index];
-            if (!log) return;
-            const modal = document.getElementById('case-modal');
-            const title = document.getElementById('case-modal-title');
-            const body = document.getElementById('case-modal-body');
-            const dateStr = new Date(log.timestamp || log.created_at).toLocaleString('th-TH');
-            const items = Array.isArray(log.itemsUsed) ? log.itemsUsed.join(', ') : (log.itemsUsed || '-');
-
-            title.textContent = `บันทึกการรักษา: ${log.woundNameTh || 'ไม่ระบุอาการ'}`;
-            body.innerHTML = `
-                <div style="display:flex; gap:12px; margin-bottom:14px; align-items:center;">
-                    <img src="${woundImage(log)}" alt="" style="width:60px; height:60px; border-radius:14px; object-fit:cover;">
-                    <div>
-                        <div style="font-weight:700; font-size:15px;">${escapeHtml(log.studentName || 'นักเรียนทั่วไป')}</div>
-                        <div style="color:var(--text-muted); font-size:12px;">ชั้น: ${escapeHtml(log.studentClass || '-')} · รหัส: ${escapeHtml(log.studentId || '-')}</div>
-                        <div style="color:var(--primary); font-size:11px;">เวลา: ${escapeHtml(dateStr)}</div>
-                    </div>
-                </div>
-                <hr style="border:0; border-top:1px solid var(--border-color); margin:12px 0;">
-                <div style="margin-bottom:8px;"><strong>ประเภทแผล:</strong> ${escapeHtml(log.woundNameTh || '-')}</div>
-                <div style="margin-bottom:8px;"><strong>วิธีการระบุ:</strong> ${escapeHtml(log.method || '-')}</div>
-                <div style="margin-bottom:8px;"><strong>เวชภัณฑ์ที่เปิดใช้:</strong> ${escapeHtml(items)}</div>
-            `;
-            modal.style.display = 'flex';
-        }
-
-        function closeCaseModal() {
-            const modal = document.getElementById('case-modal');
-            if (modal) modal.style.display = 'none';
-        }
-
-        function loadDemoData() {
-            const sampleHistory = [
-                {
-                    id: 'H-' + Date.now(),
-                    timestamp: new Date().toISOString(),
-                    studentId: '12345',
-                    studentName: 'นายหมิง',
-                    studentClass: 'ม.4/4',
-                    woundType: 'cut_abrasion',
-                    woundNameTh: 'มีดบาด / แผลถลอก',
-                    method: 'AI สแกนภาพถ่าย (มั่นใจ 95%)',
-                    itemsUsed: ['น้ำเกลือล้างแผล (Normal Saline)', 'ยาเบตาดีน (Antiseptic)', 'พลาสเตอร์ยา & ผ้าก๊อซ']
-                },
-                {
-                    id: 'H-' + (Date.now() - 3600000),
-                    timestamp: new Date(Date.now() - 3600000).toISOString(),
-                    studentId: '12346',
-                    studentName: 'นายเปตอง',
-                    studentClass: 'ม.4/4',
-                    woundType: 'insect',
-                    woundNameTh: 'แมลงสัตว์กัดต่อย',
-                    method: 'เลือกประเภทแผลด้วยตนเอง',
-                    itemsUsed: ['สบู่ล้างทำความสะอาด', 'ถุงน้ำแข็งประคบเย็น', 'ยาคาลาไมน์ / ยาหม่อง']
-                }
-            ];
-            localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(sampleHistory));
-            NotificationService.showToast('โหลดข้อมูลตัวอย่างเรียบร้อยแล้ว', 'success');
-            loadDashboardData();
-        }
-
-        function exportCSV() {
-            const history = StorageService.getHistory();
-            if (history.length === 0) {
-                NotificationService.showToast('ยังไม่มีข้อมูลสำหรับส่งออก', 'warning');
-                return;
-            }
-            let csv = '\uFEFFลำดับ,วันเวลา,นักเรียน,ประเภทบาดแผล,วิธีการระบุ,เวชภัณฑ์ที่ใช้\n';
-            history.forEach((log, index) => {
-                const fields = [
-                    index + 1,
-                    new Date(log.timestamp || log.created_at).toLocaleString('th-TH'),
-                    log.studentName || '-',
-                    log.woundNameTh || '-',
-                    log.method || '-',
-                    Array.isArray(log.itemsUsed) ? log.itemsUsed.join(' / ') : (log.itemsUsed || '-')
-                ].map(value => `"${String(value).replace(/"/g, '""')}"`);
-                csv += `${fields.join(',')}\n`;
+                if (!AuthService.isStaff()) return;
+                document.getElementById('cabinet-status-text').textContent = hardware.connected ? 'ตู้เชื่อมต่อแล้ว' : 'ยังยืนยันการเชื่อมต่อตู้ไม่ได้';
             });
-            const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `smart-first-aid-report-${new Date().toISOString().slice(0, 10)}.csv`;
-            link.click();
-            URL.revokeObjectURL(url);
-        }
-
-        function startMqttListener() {
-            if (!window.MqttBridge || !MqttBridge.isConfigured()) return;
-            MqttBridge.onStatus(status => {
-                if (ApiBridge.isDemoMode()) return;
-                const text = document.getElementById('cabinet-status-text');
-                const dot = document.getElementById('cabinet-dot');
-                if (!text || !dot) return;
-                text.textContent = status.reason === 'awaiting_new_ready_epoch' ? 'ให้ครูตรวจตู้และสายสัญญาณ'
-                    : !status.online ? 'ตู้ไม่ได้เชื่อมต่อ' : status.ready === false ? 'ตู้กำลังใช้งาน' : 'ตู้พร้อมใช้งาน';
-                dot.style.background = status.online ? 'oklch(0.79 0.18 145)' : 'oklch(0.72 0.20 28)';
-            });
-            MqttBridge.onEvent(data => {
-                const label = MqttBridge.EVENT_LABELS[data.event] || data.event;
-                NotificationService.showToast(`ตู้ยาแจ้ง: ${label}${data.drawer ? ` (ช่อง ${data.drawer})` : ''}`, data.event === 'ack_timeout' ? 'danger' : 'info');
-            });
-            MqttBridge.connect();
-        }
-
-        // Support keyboard entry for PIN on lock screen
-        document.addEventListener('keydown', (e) => {
-            const lockOverlay = document.getElementById('lock-overlay');
-            if (!lockOverlay || lockOverlay.style.display === 'none') return;
-            if (e.key >= '0' && e.key <= '9') {
-                pressPin(e.key);
-            } else if (e.key === 'Backspace') {
-                if (currentPinInput.length > 0) {
-                    currentPinInput = currentPinInput.slice(0, -1);
-                    updatePinDots();
-                }
-            } else if (e.key === 'Escape') {
-                clearPin();
-            }
-        });
-
-        window.addEventListener('load', () => {
-            checkAuth();
-            startMqttListener();
         });
     </script>
 </body>

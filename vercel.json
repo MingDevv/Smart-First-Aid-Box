@@ -1,5 +1,7 @@
 {
   "cleanUrls": true,
+  "buildCommand": "npm run build",
+  "git": { "deploymentEnabled": { "feat/firebase-auth-roles": false } },
   "functions": {
     "api/command.js": { "maxDuration": 180 }
   },

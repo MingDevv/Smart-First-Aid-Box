@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
-import notify from '../api/notify.js';
+import notify from '../edge/notify.mjs';
 
 const read = name => readFile(new URL(`../${name}`, import.meta.url), 'utf8');
 const source = await read('js/notification.js');
@@ -28,9 +28,9 @@ const webStorage = () => {
 // ⇒ ถ้ากติกาการประทับเปลี่ยน fixture เปลี่ยนตาม ไม่ใช่ค้างเขียวอยู่กับกติกาเก่า
 // buzzer: null = ใช้ ApiBridge.triggerBuzzer ตัวจริง (ใช้ตอนทดสอบเกตฮาร์ดแวร์)
 function browser({ demoMode = false, fetch = async () => reply({ success: false }, 503),
-    buzzer = async () => ({ success: false }), timeoutMs } = {}) {
+    buzzer = async () => ({ success: false }), timeoutMs, local = true } = {}) {
     const notices = [], mocks = [], elements = new Map();
-    const window = {};
+    const window = { SFAB_RUNTIME: local ? {transport:'pi-local', mode:demoMode === null ? 'unset' : demoMode ? 'demo' : 'real'} : undefined, AuthService:{state:{user:null}, isStaff:()=>false, authorizedFetch:fetch} };
     const localStorage = webStorage(), sessionStorage = webStorage();
     const context = vm.createContext({ window, fetch, AbortController, clearTimeout,
         setTimeout: (fn, ms) => setTimeout(fn, timeoutMs ?? ms), console: { log() {}, warn() {}, error() {} },
@@ -75,13 +75,13 @@ test('actual no-credentials notify response stays failure through the browser he
     assert.equal(b.mocks.length, 0, 'real failure must never open a Demo modal');
 });
 
-test('only explicit Demo simulates LINE and never sends a network request', async () => {
-    for (const demoMode of [true, 'true']) {
+test('local SOS LINE is never simulated by Demo or unset mode', async () => {
+    for (const demoMode of [true, null, false]) {
         let requests = 0;
         const b = browser({ demoMode, fetch: async () => { requests++; return reply({ success: true }); } });
-        assert.equal((await b.service.sendLineNotification('demo')).mode, 'simulation');
-        assert.equal(requests, 0);
-        assert.equal(b.mocks.length, 1);
+        assert.equal((await b.service.sendLineNotification('SOS')).success, true);
+        assert.equal(requests, 1);
+        assert.equal(b.mocks.length, 0);
     }
 });
 
@@ -110,68 +110,24 @@ test('all four real SOS buttons distinguish total failure, partial success and D
             if (!line) assert.doesNotMatch(b.notices.at(-1).message, /ส่ง.*(?:ถึงครู|ผ่าน LINE แล้ว)/);
             assert.equal(b.mocks.length, 0);
         }
-        const b = browser({ demoMode: true, buzzer: async () => ({ success: true, mode: 'simulation' }) });
-        vm.runInContext(dispatch, b.context);
-        await b.context[name]();
-        assert.match(b.notices.at(-1).message, /โหมดสาธิต/);
-        assert.notEqual(b.notices.at(-1).type, 'success');
+
     }
 });
 
-test('โหมดยังไม่ได้ตั้ง: SOS ยังส่ง LINE จริง ออดไม่ถูกสั่ง และ toast รายงานสองช่องทางแยกกัน', async () => {
-    // ความไม่สมมาตรนี้ตั้งใจ: เกต fail-closed ครอบ "การสั่งฮาร์ดแวร์" (มอเตอร์/ออด)
-    // ไม่ได้ครอบ "การขอความช่วยเหลือจากคน" ตู้ที่ยังไม่ถูกตั้งค่าต้องยังเรียกครูได้
-    const urls = [];
-    const b = browser({ demoMode: null, buzzer: null,
-        fetch: async url => { urls.push(url); return reply({ success: true }); } });
-    assert.equal(b.storage.getOperatingMode(), 'unset', 'fixture พัง — โปรไฟล์นี้ต้องยังไม่ถูกตั้งโหมด');
-
-    const { line, buzzer } = await b.service.sendSos('ช่วยด้วย ขอครูพยาบาลด่วน');
-
-    // 1. LINE ถูกยิงจริง และยิงครั้งเดียว — ไม่มี request ของออดปนมา
-    assert.deepEqual(urls, ['/api/notify']);
-    assert.equal(line.success, true);
-    assert.equal(b.mocks.length, 0, 'ยังไม่ตั้งโหมด ไม่ใช่โหมดสาธิต ห้ามเปิดหน้าต่างจำลอง');
-
-    // 2. ออดคือฮาร์ดแวร์ ต้องถูกกั้นตั้งแต่ก่อนแตะเครือข่าย และบอกว่ายังไม่ได้ส่ง
-    assert.equal(buzzer.mode, 'unprovisioned');
-    assert.equal(buzzer.success, false);
-    assert.equal(buzzer.retrySafe, true);
-    assert.notEqual(buzzer.mode, 'simulation');
-
-    // 3. toast ใบเดียว ที่พูดถึงสองช่องทางแยกกัน และไม่อ้างว่าสำเร็จทั้งหมด
-    assert.equal(b.notices.length, 1);
-    const toast = b.notices.at(-1);
-    assert.equal(toast.type, 'warning');
-    assert.match(toast.message, /ผ่าน LINE แล้ว/);
-    // ข้อความฝั่งออดต้องบอกว่า "ยังไม่ได้ตั้งโหมด" ไม่ใช่ "ยังยืนยันไม่ได้" แบบรวมๆ
-    // สองอย่างนี้ครูทำต่างกันคนละเรื่อง: อย่างหนึ่งกดตั้งค่า อีกอย่างไปไล่สายไฟ
-    assert.match(toast.message, /ยังไม่ได้ตั้งโหมด/);
-    assert.doesNotMatch(toast.message, /ยังยืนยันเสียงที่ตู้ไม่ได้/);
-    assert.match(toast.message, /เรียกครู/);
-    assert.doesNotMatch(toast.message, /โหมดสาธิต/);
-});
-
-test('โปรไฟล์เก่าที่ demoMode:true แต่ไม่มีตราประทับ ถือว่ายังไม่ตั้งโหมด ไม่ใช่โหมดสาธิต', async () => {
-    // ค่าเริ่มต้นเดิมคือ demoMode:true ทุกเครื่องจึงมีค่านี้ติดมาโดยไม่มีใครเลือก
-    // แยกไม่ออกจากการตั้งใจเลือก ⇒ ต้องถือว่ายังไม่ตั้ง ไม่ใช่เดาให้เป็นโหมดสาธิต
-    let requests = 0;
-    const b = browser({ demoMode: null, fetch: async () => { requests++; return reply({ success: true }); } });
-    b.localStorage.setItem('smart_first_aid_settings', JSON.stringify({ demoMode: true }));
-    assert.equal(b.storage.getSettings().demoMode, true);
-    assert.equal(b.storage.getOperatingMode(), 'unset');
-
-    const result = await b.service.sendLineNotification('ทดสอบ');
-    assert.notEqual(result.mode, 'simulation');
-    assert.equal(b.mocks.length, 0);
-    assert.equal(requests, 1, 'โปรไฟล์เก่าต้องส่งของจริง ไม่ใช่จำลองแล้วบอกว่าสำเร็จ');
-
-    // ครูเลือกโหมดสาธิตเองหนึ่งครั้ง ค่าเดิมค่าเดียวกันนี้จึงกลายเป็นโหมดสาธิตจริง
-    b.storage.saveSettings({ demoMode: true });
-    assert.equal(b.storage.getOperatingMode(), 'demo');
-    assert.equal((await b.service.sendLineNotification('ทดสอบ')).mode, 'simulation');
-    assert.equal(requests, 1);
-    assert.equal(b.mocks.length, 1);
+test('student web SOS sends only the constrained event and never calls the buzzer', async () => {
+    let buzzers = 0;
+    const requests = [];
+    const b = browser({ local: false,
+        fetch: async (url, options) => { requests.push([url, JSON.parse(options.body)]); return reply({success:true}); },
+        buzzer: async () => { buzzers++; return {success:true}; }
+    });
+    b.localStorage.setItem('smart_first_aid_settings', JSON.stringify({demoMode:true,dashboard_auth:true}));
+    const result = await b.service.sendSos({name:'forged',messages:[{}]});
+    assert.deepEqual(requests,[['/api/notify',{event:'sos'}]]);
+    assert.equal(buzzers,0);
+    assert.equal(result.buzzer.mode,'not-requested');
+    assert.equal(b.notices.at(-1).type,'success');
+    assert.equal(b.mocks.length,0);
 });
 
 test('one rejected SOS channel preserves the other channel result', async () => {
@@ -185,7 +141,7 @@ test('dashboard stop waits for off completion, prevents double click, and expose
     const html = await readFile(new URL('../dashboard/index.html', import.meta.url), 'utf8');
     const start = html.indexOf('        async function stopSosBuzzer()');
     assert.notEqual(start, -1, 'teacher must have an actual stop control');
-    const dispatch = html.slice(start, html.indexOf('        let currentPinInput', start));
+    const dispatch = html.slice(start, html.indexOf('        async function logout()', start));
     for (const result of [{ success: true }, { success: false }, { success: true, mode: 'simulation' }]) {
         let resolve, calls = 0;
         const b = browser({ buzzer: state => { assert.equal(state, 'off'); calls++; return new Promise(r => { resolve = r; }); } });

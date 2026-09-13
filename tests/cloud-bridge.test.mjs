@@ -30,9 +30,10 @@ function storageStub(seed = {}) {
 // js/storage.js ตัวจริงถูกโหลดเข้า context เดียวกับ js/api-bridge.js เหมือนสองแท็ก <script>
 // บนหน้าเว็บจริง แทนการปลอม window.StorageService — ของปลอมคือสิ่งที่ปิดตาเราไม่ให้เห็น
 // ว่าไฟล์จริงไม่เคยแขวนตัวเองไว้บน window มาตลอด
-function browser(fetch, settings = realMode(), protocol = 'https:') {
+function browser(fetch, settings = realMode(), protocol = 'https:', { staff = true, runtime } = {}) {
     const deadlines = [];
-    const window = { location: { protocol },
+    const window = { location: { protocol }, SFAB_RUNTIME: runtime,
+        AuthService: { isStaff: () => staff, authorizedFetch: fetch },
         crypto: { randomUUID: () => '12345678-1234-1234-1234-123456789abc' } };
     const context = vm.createContext({ window, fetch, AbortController, console, clearTimeout,
         localStorage: storageStub({ smart_first_aid_settings: settings }), sessionStorage: storageStub(),
@@ -111,26 +112,14 @@ test('lost response or explicit refusal never falls back to another actuator tra
     }
 });
 
-test('HTTPS with no MQTT never attempts mixed-content LAN; HTTP LAN waits for protocol-2 completion', async () => {
-    const cloud = browser(async () => reply({ mqttConfigured: false }), realMode({ esp32Url: 'http://cabinet' }));
-    const blocked = await cloud.api.openCompartment('cut');
-    assert.equal(blocked.success, false);
-    assert.match(blocked.error, /HTTPS/);
-    for (const action of ['open', 'buzzer']) {
-        let sentId, actuations = 0;
-        const { api } = browser(async (url) => {
-            if (url === '/api/command') return reply({ mqttConfigured: false });
-            const parsed = new URL(url);
-            if (parsed.pathname === '/status') return reply({ ...ready, microbit: 'connected' });
-            if (parsed.pathname === '/open' || parsed.pathname === '/buzzer') {
-                actuations++;
-                sentId = parsed.searchParams.get('id');
-                return reply({ accepted: true }, 202);
-            }
-            return reply({ success: true, ...ack({ id: sentId, action, drawer: 1, state: 'on' }) });
-        }, realMode({ esp32Url: 'http://cabinet' }), 'http:');
-        assert.equal((await (action === 'open' ? api.openCompartment('cut') : api.triggerBuzzer('on'))).success, true);
-        assert.equal(actuations, 1);
+test('missing MQTT or an authorization refusal never falls back to browser-configured LAN', async () => {
+    for (const protocol of ['http:', 'https:']) {
+        for (const response of [reply({ mqttConfigured: false }), reply({}, 401), reply({}, 403)]) {
+            const calls = [];
+            const { api } = browser(async url => { calls.push(url); return response; }, realMode({ esp32Url: 'http://cabinet' }), protocol);
+            assert.equal((await api.openCompartment('cut')).success, false);
+            assert.deepEqual(calls, ['/api/command']);
+        }
     }
 });
 
@@ -148,47 +137,28 @@ test('status body remains subject to deadline and cannot dispatch after expirati
     assert.equal(posts, 0);
 });
 
-test('Demo makes no hardware calls and unsupported real wound never becomes drawer 1', async () => {
+test('local Demo simulates dispensing; unsupported cloud wounds never become drawer 1', async () => {
     let calls = 0;
     const fetch = async () => { calls++; throw new Error('should not fetch'); };
-    const demo = browser(fetch, demoMode()).api;
+    const demo = browser(fetch, {}, 'http:', { runtime: {transport:'pi-local', mode:'demo'} }).api;
     assert.equal((await demo.openCompartment('cut')).mode, 'simulation');
-    assert.equal((await demo.triggerBuzzer('on')).mode, 'simulation');
     assert.equal((await browser(fetch).api.openCompartment('unsupported')).success, false);
     assert.equal(calls, 0);
 });
 
-// เกตโหมดที่ยังไม่ได้ตั้งต้องมาก่อนทั้ง MQTT และ LAN: ตู้ที่ตั้งค่า esp32Url ไว้ครบ
-// ก็ยังต้องไม่มี request สักใบออกจากเบราว์เซอร์ และต้องบอกตรงๆ ว่ายังไม่ได้ส่ง
-test('unprovisioned cabinet actuates nothing on the cloud path, for drawer and buzzer alike', async () => {
-    for (const action of ['open', 'buzzer']) {
+test('student/anonymous browser cannot actuate even with forged old settings', async () => {
+    for (const settings of [realMode(), demoMode(), {dashboardPin:'1234', dashboard_auth:true}]) {
         let calls = 0;
-        const { api } = browser(async () => { calls++; throw new Error('should not fetch'); },
-            { esp32Url: 'http://cabinet' });
-        const result = await (action === 'open' ? api.openCompartment('cut') : api.triggerBuzzer('on'));
-        assert.equal(result.success, false);
-        assert.equal(result.mode, 'unprovisioned');
-        assert.equal(result.retrySafe, true);
-        assert.ok(result.commandId);
+        const { api, storage } = browser(async () => { calls++; }, settings, 'https:', {staff:false});
+        assert.equal(storage.getOperatingMode(), 'unset');
+        assert.equal(api.operatingMode(), 'unset');
+        for (const result of [await api.openCompartment('cut'), await api.triggerBuzzer('on')]) {
+            assert.equal(result.success, false);
+            assert.equal(result.mode, 'unauthorized');
+            assert.equal(result.retrySafe, true);
+        }
         assert.equal(calls, 0);
     }
-});
-
-// โปรไฟล์เก่าพก demoMode: true มาจากค่าเริ่มต้นเดิมโดยไม่มีใครเลือก = ยังไม่ได้ตั้ง ไม่ใช่ demo
-// ต่างกันตรงที่ demo กล้าบอกว่า "สำเร็จ" ส่วน unset ต้องบอกว่ายังไม่ได้ทำอะไรเลย
-test('inherited demoMode with no provisioning stamp reads unset, never simulation', async () => {
-    let calls = 0;
-    const { api, storage } = browser(async () => { calls++; throw new Error('should not fetch'); },
-        { demoMode: true });
-    assert.equal(storage.getOperatingMode(), 'unset');
-    assert.equal(api.operatingMode(), 'unset');
-    assert.equal(api.isDemoMode(), false);
-    for (const result of [await api.openCompartment('cut'), await api.triggerBuzzer('on')]) {
-        assert.equal(result.mode, 'unprovisioned');
-        assert.notEqual(result.mode, 'simulation');
-        assert.equal(result.success, false);
-    }
-    assert.equal(calls, 0);
 });
 
 const listenerSource = await readFile(new URL('../js/mqtt-bridge.js', import.meta.url), 'utf8');

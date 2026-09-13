@@ -206,6 +206,9 @@
         }
     </style>
     <link rel="stylesheet" href="../css/student-responsive.css">
+    <link rel="stylesheet" href="../css/auth.css">
+    <script src="../js/auth.js" defer></script>
+    <script src="../js/auth-ui.js" defer></script>
 </head>
 <body class="guide-body">
     <header class="app-header" id="detail-header">
@@ -244,7 +247,7 @@
             <span><strong id="hardware-status-label">กำลังเชื่อมต่อตู้ยา</strong><br><span id="hardware-log">กำลังเตรียมคำสั่งปลดล็อก...</span></span>
         </div>
 
-        <button class="btn btn-primary unlock-button" id="manual-open-drawer-btn" type="button" onclick="startTreatment()">
+        <button class="btn btn-primary unlock-button" data-staff-only id="manual-open-drawer-btn" type="button" onclick="startTreatment()">
             <span class="material-symbols-rounded" aria-hidden="true">lock_open</span>
             <span>ปลดล็อกช่อง <span id="drawer-button-number">1</span> &amp; เริ่มทำแผล</span>
         </button>
@@ -328,7 +331,6 @@
 
     <script src="../js/wound-data.js"></script>
     <script src="../js/storage.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mqtt@5.15.2/dist/mqtt.min.js"></script>
     <script src="../js/mqtt-bridge.js"></script>
     <script src="../js/api-bridge.js"></script>
     <script src="../js/notification.js"></script>
@@ -575,67 +577,9 @@
         }
 
         async function finishTreatment() {
-            // รอบที่แค่มาดูวิธีทำแผล ไม่มีการจ่ายของ จึงไม่บันทึกประวัติและไม่แจ้งครูว่าเบิกของ
-            if (instructionsOnly) {
-                NotificationService.showToast('อ่านครบแล้ว — รอบนี้ยังไม่ได้เบิกของจากตู้ ถ้าต้องใช้ให้เรียกครู', 'warning');
-                setTimeout(() => { location.href = '/student/wound-select'; }, 900);
-                return;
-            }
-            if (!drawerOpened) {
-                NotificationService.showToast('ยังไม่ได้ยืนยันการเปิดช่องยา', 'danger');
-                return;
-            }
-            const button = document.getElementById('next-step-btn');
-            button.disabled = true;
-            button.innerHTML = '<span class="material-symbols-rounded">sync</span><span>กำลังบันทึก...</span>';
-            if (synth.speaking) synth.cancel();
-
-            const isDemo = ApiBridge.isDemoMode();
-
-            const student = StorageService.getCurrentStudent() || { studentId: '99999', name: 'นักเรียนทั่วไป', class: '-' };
-            const method = urlParams.get('source') === 'ai-scan' ? 'AI วิเคราะห์จากภาพถ่าย' : 'เลือกประเภทแผลเอง';
-
-            if (isDemo) {
-                // โหมดสาธิต (Demo Mode): ไม่บันทึกประวัติ ไม่เด้งแจ้งเตือน LINE ให้แสดง Toast แล้วเด้งกลับหน้าเลือกแผลทันที
-                NotificationService.showToast('เสร็จสิ้นขั้นตอนทำแผล (โหมดสาธิต — ไม่บันทึกประวัติ)', 'success');
-                setTimeout(() => { location.href = '/student/wound-select'; }, 800);
-                return;
-            }
-
-            // ระบบจริง (Real Mode): บันทึกประวัติ และส่ง LINE Notification แจ้งเตือนครูพยาบาลตามปกติ
-            StorageService.addHistoryEntry({
-                studentId: student.studentId,
-                studentName: student.name,
-                studentClass: student.class,
-                woundType: wound.id,
-                woundNameTh: wound.name_th,
-                method,
-                itemsUsed: wound.items,
-                timestamp: new Date().toISOString()
-            });
-
-            // ระบบจริง (Real Mode): ส่ง LINE Notification แจ้งเตือนครูพยาบาลตามปกติ
-            try {
-                const payload = NotificationService.buildFirstAidFlexMessage({
-                    studentId: student.studentId,
-                    name: student.name,
-                    studentClass: student.class,
-                    woundNameTh: wound.name_th,
-                    woundNameEn: wound.name_en,
-                    items: wound.items,
-                    method,
-                    timeStr: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-                });
-                const result = await NotificationService.sendLineNotification(payload);
-                if (result.mode === 'simulation') NotificationService.showToast('บันทึกแล้ว · การแจ้งเตือนเป็นโหมดสาธิต ไม่มีการส่ง LINE จริง', 'warning');
-                else if (result.success === true) NotificationService.showToast('บันทึกแล้ว และส่งคำขอผ่าน LINE แล้ว', 'success');
-                else NotificationService.showToast(result.error || 'บันทึกแล้ว แต่ส่งการแจ้งเตือนไม่สำเร็จ', 'warning');
-            } catch (error) {
-                console.error('[Guide] Notification failed:', error);
-                NotificationService.showToast('บันทึกประวัติแล้ว แต่ส่งการแจ้งเตือนไม่สำเร็จ', 'warning');
-            }
-
-            setTimeout(() => { location.href = '/student/wound-select'; }, 900);
+            if (synth) synth.cancel();
+            NotificationService.showToast('จบขั้นตอนดูแลแผล หากอาการไม่ดีขึ้นให้ติดต่อครูพยาบาล', 'info');
+            location.href = '/student/wound-select';
         }
     </script>
 </body>
