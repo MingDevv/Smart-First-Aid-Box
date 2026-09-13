@@ -258,7 +258,7 @@ cloud path — the journal shows `[SFAB cloud] disabled: …` and the touchscree
 # on the Mac
 rsync -a --delete --exclude node_modules --exclude .git --exclude '*.sqlite*' <checkout>/ pi5:~/sfab/
 # on the Pi
-cd ~/sfab && ~/.local/node/bin/npm ci --omit=dev
+cd ~/sfab && PATH=$HOME/.local/node/bin:$PATH npm ci --omit=dev   # npm re-spawns `node` via PATH
 timedatectl show -p NTPSynchronized      # must be yes: commands carry a timestamp the Pi judges
 systemctl --user restart sfab-edge
 journalctl _SYSTEMD_USER_UNIT=sfab-edge.service -n 20    # expect "[SFAB cloud] on broker as <base>"
