@@ -95,16 +95,7 @@
                 const student = StorageService.getCurrentStudent();
                 const studentName = student ? `${student.name} (${student.class})` : 'นักเรียนทั่วไป';
                 const payload = NotificationService.buildSosFlexMessage(studentName);
-                const [notificationResult, buzzerResult] = await Promise.all([
-                    NotificationService.sendLineNotification(payload),
-                    ApiBridge.triggerBuzzer('on')
-                ]);
-
-                if (notificationResult.success || notificationResult.mode === 'simulation' || buzzerResult.success || buzzerResult.mode === 'simulation') {
-                    NotificationService.showToast('ส่ง SOS ถึงครูพยาบาลเรียบร้อยแล้ว', 'success');
-                } else {
-                    NotificationService.showToast('ส่งคำขอได้ไม่ครบ กรุณาเรียกครูใกล้ที่สุดทันที', 'danger');
-                }
+                await NotificationService.sendSos(payload);
             } catch (error) {
                 console.error('[Home] SOS failed:', error);
                 NotificationService.showToast('ส่ง SOS ไม่สำเร็จ กรุณาเรียกครูใกล้ที่สุดทันที', 'danger');

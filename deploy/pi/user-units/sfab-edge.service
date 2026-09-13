@@ -1,0 +1,25 @@
+[Unit]
+Description=Smart First Aid Box — local edge service (kiosk backend)
+Documentation=file:///home/technology/sfab/deploy/pi/VERIFIED-2026-09-11.md
+# ไม่ผูกกับ graphical-session.target — บน Pi OS/labwc เครื่องนี้ target นั้น dead ตลอด
+# ทั้งที่ labwc รันอยู่และมี wayland-0 แล้ว unit ที่ WantedBy มันจึงไม่ถูกปลุกหลังบูต
+# (เจอตอนทดสอบบูตจริง 2026-09-11) · บริการนี้ไม่ต้องใช้จอ ใช้ default.target พอ
+StartLimitBurst=5
+StartLimitIntervalSec=300
+
+[Service]
+Type=simple
+WorkingDirectory=%h/sfab
+Environment=PATH=%h/.local/node/bin:/usr/local/bin:/usr/bin:/bin
+Environment=SFAB_PORT=8787
+Environment=SFAB_DATABASE=%h/.local/share/smart-first-aid-box/commands.sqlite
+ExecStartPre=/bin/mkdir -p %h/.local/share/smart-first-aid-box
+ExecStart=%h/.local/node/bin/node edge/server.mjs
+Restart=on-failure
+RestartSec=3
+# ต้องครอบคำสั่งที่ยังวิ่งอยู่ ไม่งั้นโดน SIGKILL กลางคำสั่งแล้วทิ้งแถว uncertain
+# ที่บล็อกตู้จนกว่าครูจะมาเคลียร์ด้วย edge/resolve.mjs
+TimeoutStopSec=150
+
+[Install]
+WantedBy=default.target

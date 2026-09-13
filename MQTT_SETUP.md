@@ -1,187 +1,181 @@
-# การตั้งค่า MQTT — Smart First Aid Box
+# MQTT on Vercel, local control on Raspberry Pi
 
-เอกสารนี้เป็นคู่มือเส้นทาง MQTT เดิม สำหรับ Pi 5 ใช้ [คู่มือ Pi-local](docs/PI_LOCAL_SETUP.md)
-ซึ่งสั่งงานผ่าน LAN โดยไม่ต้องใช้ broker
+The same protocol-2 ESP32 + micro:bit firmware supports both clients:
 
-เฟิร์มแวร์ protocol 2 ชุดปัจจุบันตอบ ACK หลังมอเตอร์จบ แต่เส้นทาง MQTT/LAN เดิมยังรอ ACK
-7.5 วินาที และเบราว์เซอร์รอรวม 9.5 วินาที จึงไม่รองรับการควบคุมฮาร์ดแวร์ด้วยเฟิร์มแวร์
-ชุดนี้จนกว่าจะปรับและทดสอบเวลาให้ตรงกัน การเพิ่ม `MQTT_DRAWER_ACK_TIMEOUT_MS` ฝั่ง
-เซิร์ฟเวอร์อย่างเดียวไม่เพิ่มเวลาเบราว์เซอร์ ใช้ Pi-local สำหรับสั่งตู้จริง
-หน้าเว็บ Vercel, Demo และฟีเจอร์ cloud อื่นยังเปิดใช้งานได้
-
-## ทำไมต้องใช้ MQTT
-
-เดิมหน้าเว็บยิง `http://192.168.1.100/open` ตรงไปที่ ESP32 ซึ่งใช้ได้เฉพาะตอนเปิดหน้าเว็บ
-ในวง LAN เดียวกัน เพราะเว็บที่ deploy บน Vercel เป็น `https://` แล้วเบราว์เซอร์จะบล็อก
-การเรียก `http://` จากหน้า `https://` (เรียกว่า mixed content) โดยไม่แจ้งอะไรให้เห็นเลย
-
-MQTT แก้สองเรื่องพร้อมกัน
-
-1. ESP32 เป็นฝ่ายต่อ **ออกไป** หา broker เอง ไม่มีใครต้องยิงเข้ามาหามัน จึงไม่ติด mixed content
-   และไม่ต้องเปิดพอร์ตที่เราเตอร์
-2. มี **ทางกลับ** ให้ตู้ยาส่งเหตุการณ์ขึ้นมาเอง (ประตูเปิด กดปุ่มยืนยัน ลิ้นชักเปิดสำเร็จ)
-   ซึ่งเป็นข้อมูลที่โครงงานต้องใช้เป็นหลักฐานเชิงประจักษ์
-
-## ภาพรวมเส้นทาง
-
-```
-                 สั่งเปิดลิ้นชัก (ขาลง)
-  เบราว์เซอร์ ──POST /api/command──▶ Vercel ──publish──▶ broker ──▶ ESP32 ──UART──▶ micro:bit
-                                   (ถือรหัส publish)
-
-                 สถานะ + เหตุการณ์ (ขาขึ้น)
-  เบราว์เซอร์ ◀──subscribe wss://──── broker ◀──publish── ESP32 ◀──UART──── micro:bit
-  (ถือรหัส subscribe เท่านั้น)
-```
-
-**ทำไมขาลงต้องอ้อมผ่านเซิร์ฟเวอร์** — JavaScript ในเบราว์เซอร์เปิดอ่านได้หมด ถ้าเอารหัสที่
-publish ได้ไปใส่ในหน้าเว็บ ใครกด View Source ก็สั่งเปิดตู้ยาได้จากที่ไหนก็ได้ในโลก
-รหัสที่ publish ได้จึงอยู่ใน environment variable ของ Vercel เท่านั้น
-
-## หัวข้อ (Topic) ที่ระบบใช้
-
-Base topic เริ่มต้นคือ `crms6/firstaidbox/box1` — ตั้งให้ตรงกันทั้งสามที่เสมอ
-
-| Topic | ใครส่ง | Retained | เนื้อหา |
-|---|---|---|---|
-| `<base>/cmd` | Vercel | **ไม่** | `{"action":"open","drawer":1,"id":"...","ts":...}` |
-| `<base>/evt` | ESP32 | ไม่ | `{"event":"drawer_opened","drawer":1,"id":"...","ts":...}` |
-| `<base>/status` | ESP32 | **ใช่** | `{"online":true,"ip":"...","ts":...}` |
-
-`<base>/status` ตั้ง retained ไว้เพื่อให้หน้าเว็บที่เพิ่งเปิดรู้สถานะทันทีโดยไม่ต้องรอ และ ESP32
-ตั้ง LWT (Last Will and Testament) ไว้กับหัวข้อเดียวกัน แปลว่าถ้าบอร์ดดับหรือเน็ตหลุด broker
-จะประกาศ `{"online":false}` แทนให้เอง หน้าเว็บจึงรู้ว่ากล่องดับภายในไม่กี่วินาที
-โดยที่เราไม่ต้องเขียนโค้ด poll อะไรเลย
-
-> ⚠️ **ห้าม publish หัวข้อ `cmd` แบบ retained เด็ดขาด** ข้อความ retained จะถูกส่งซ้ำให้ทุกคน
-> ที่ subscribe ใหม่ ถ้าเผลอ retain คำสั่ง "เปิดลิ้นชัก 1" ไว้ ตู้ยาจะเปิดเองทุกครั้งที่ ESP32
-> รีบูตหรือเน็ตกลับมา โค้ดฝั่งเซิร์ฟเวอร์บังคับ `retain: false` ไว้แล้ว และฝั่ง ESP32
-> มีด่านกันอีกสองชั้น (ทิ้งข้อความใหม่ที่เข้ามาใน 500 ms แรกหลัง subscribe และบังคับให้ `ts`
-> เป็นตัวเลข UTC ที่ไม่อยู่ในอนาคตและมีอายุไม่เกิน 30 วินาที) พร้อมจำ 8 command id ล่าสุดไม่ให้เปิดซ้ำ
-
-## ขั้นตอนที่ 1 — สร้าง broker
-
-ใช้ HiveMQ Cloud แผน Serverless Free ได้ (100 connections, 10 GB/เดือน รองรับ WebSocket
-และตั้ง topic permission ต่อ credential ได้)
-
-1. สมัครที่ https://console.hivemq.cloud แล้วสร้าง cluster
-2. จดค่า **Cluster URL** ไว้ เช่น `abc123def.s1.eu.hivemq.cloud`
-3. ไปที่แท็บ **Access Management** สร้าง credential **สามชุด แยกสิทธิ์กัน**
-
-| ชื่อผู้ใช้ | สิทธิ์ | ใครใช้ |
+| Client | Command path | Internet |
 |---|---|---|
-| `esp32-box1` | publish + subscribe บน `crms6/firstaidbox/box1/#` | เฟิร์มแวร์ ESP32 |
-| `vercel-publisher` | publish `.../cmd` + subscribe `.../evt` | Vercel (`api/command.js`) |
-| `web-viewer` | **subscribe อย่างเดียว** บน `crms6/firstaidbox/box1/#` | หน้าเว็บในเบราว์เซอร์ |
+| Vercel website | HTTPS `/api/command` → MQTT broker → ESP32 → UART → micro:bit | Required |
+| Chromium on Pi | localhost `/api/command` → Pi SQLite journal → ESP32 HTTP → UART → micro:bit | Not required for manual selection and cabinet control |
 
-การแยกสามชุดคือหัวใจ ถ้าใช้ชุดเดียวกันหมด รหัสที่หลุดจากหน้าเว็บจะสั่งเปิดตู้ยาได้ทันที
+Use [PI_LOCAL_SETUP.md](docs/PI_LOCAL_SETUP.md) for the Pi service, UART wiring,
+paired flashing, motor timing measurements and physical acceptance checks.
+The Pi does not connect to cloud MQTT or fall back to it. ESP32 can accept both
+transports; a busy micro:bit refuses a second motor command, while SOS is still
+allowed. Demo mode never sends an actuator command or records real treatment.
 
-> HiveMQ แคชสิทธิ์ไว้ช่วงหนึ่ง แก้ permission แล้วอาจไม่มีผลทันที อย่าเพิ่งสรุปว่าตั้งผิด
+## Broker and permissions
 
-## ขั้นตอนที่ 2 — ตั้งค่า Vercel
+Use a private MQTT broker with TLS and WebSocket support, such as HiveMQ Cloud.
+Create three separate credentials with these exact permissions:
 
-ใส่ environment variables ใน Project Settings (ดูรายการเต็มใน `.env.example`)
+| Credential | Publish | Subscribe | Stored in |
+|---|---|---|---|
+| ESP32 device | `<base>/evt`, `<base>/status` | `<base>/cmd` | Ignored `device_config.h` |
+| Vercel publisher | `<base>/cmd` | `<base>/evt`, **`<base>/status`** | Vercel environment |
+| Optional web viewer | None | `<base>/evt`, `<base>/status` | Browser settings |
 
+The new server requires permission to subscribe to **both event and status**
+topics. An old publisher credential allowing only events must be updated.
+Do not put publisher/device credentials in browser JavaScript or Git.
+
+Default base topic: `crms6/firstaidbox/box1`. Keep it identical on every side.
+Commands and events are **never retained**. Status is retained and includes
+an offline Last Will. Never publish test commands to the real cabinet topic.
+
+## Vercel configuration
+
+Set these values in Project Settings → Environment Variables, for the intended
+deployment environment:
+
+- `MQTT_URL`: `mqtts://<cluster-host>:8883`
+- `MQTT_USERNAME`: the Vercel publisher username
+- `MQTT_PASSWORD`: its password
+- `MQTT_BASE_TOPIC`: the cabinet base topic
+
+Install dependencies with `npm ci`. `vercel.json` sets `api/command.js`
+`maxDuration` to **180 seconds**; the deployment must honor this setting.
+Enable **Fluid Compute** in the Vercel project's function settings and verify
+the deployed duration before connecting the real cabinet. Vercel's
+[current duration limits](https://vercel.com/docs/functions/configuring-functions/duration)
+(checked 2026-09-10) allow 300 seconds on Hobby with Fluid Compute. The older
+60-second Hobby limit is not the Fluid limit; a legacy non-Fluid deployment
+must be migrated or assessed separately. Do not shorten this handler to 60
+seconds while allowing firmware to advertise a 120-second motor budget.
+No frontend listener credential is required to issue commands or read status:
+a fresh browser obtains readiness from `GET /api/command`.
+
+Optional live events: Dashboard → medicine management → MQTT settings. Supply
+`wss://<cluster-host>:8884/mqtt`, the **subscribe-only** credential and base topic.
+Pi ignores these browser settings. The main kiosk polls the server for status
+when no browser subscriber is configured.
+
+## ESP32 configuration
+
+Copy `firmware/esp32_smart_box/device_config.example.h` to `device_config.h`
+in the same directory. Fill the Wi-Fi values locally. To enable the cloud
+path, also configure the three MQTT macros shown in the example. Empty
+`SFAB_MQTT_HOST` disables MQTT; local Pi control still works.
+
+Use the **single canonical sketch** `firmware/esp32_smart_box/esp32_smart_box.ino`.
+Required build versions: ESP32 core 3.3.1, ArduinoJson 7.4.2, PubSubClient 2.8.
+Flash the matching `microbit/main.py` from this branch, using the existing
+MakeCode Activity:Bit/OLED extensions. Update **both boards together** before
+using protocol 2; old bare `OK1/OK2` responses cannot confirm commands.
+
+## Readiness, timing and success
+
+ESP32 publishes status every second with `protocol:2`, `online`, `microbit`,
+`ready`, `ackTimeoutMs`, `reason`, and UTC `ts`. Vercel refuses to dispatch when
+status is missing, older than five seconds, offline, the wrong protocol, or has
+an invalid timing budget. `open` additionally requires `ready:true`; buzzer
+commands can run while the motor is busy. NTP must be working on ESP32.
+If MQTT shows offline despite working LAN control, check ESP32 NTP access
+(UDP 123), broker access and the client/server clock before changing budgets.
+
+Before each command the browser reads this metadata. With firmware budget `B`:
+
+- Firmware accepts `B` between 3 and 120 seconds. The provisional default is
+  **30 seconds**, pending physical OPEN-to-DONE measurement.
+- Vercel waits for the exact device event for `B + 3 seconds` after connecting.
+- The server advertises `commandTimeoutMs = B + 10 seconds`, accounting for
+  MQTT connection and status reads. The browser allows another five seconds.
+  With default `B=30s`, this gives a **45-second browser deadline**.
+- Pi keeps its existing `B + 3 seconds` service / `B + 8 seconds` browser budgets.
+- If firmware timing changes between the cloud browser's status read and POST,
+  the server refuses before sending. Reload/check status and try again.
+
+`PUBACK`, HTTP 202 and a generic `success:true` are not completion evidence.
+Success requires the exact protocol-2 event, command ID and drawer or buzzer
+state. ESP32 emits `drawer_opened` after matching UART `DONE1:<id>` or
+`DONE2:<id>`, and `buzzer_set` after matching `BUZZ_DONE1:<id>` or
+`BUZZ_DONE0:<id>`. This confirms firmware completion, not actual item output
+or audible sound; those require physical observation.
+
+A lost response or timeout after publishing remains uncertain. The browser
+**does not automatically retry through LAN**, invent a successful Demo result,
+or re-dispatch after a refusal. Inspect the cabinet before starting a new
+command. A response marked `retrySafe:true` means the server/browser had not
+sent an actuator command.
+Validation failures (400) and rate-limit refusals (429) also carry this flag;
+wait for the rate-limit window or correct the request before trying again.
+
+SOS reports LINE acceptance and the cabinet's buzzer ACK separately. A failed
+LINE request never silently becomes a Demo notification. In explicit Demo
+mode, no LINE request is sent. The teacher dashboard provides **หยุดเสียง SOS
+ที่ตู้**, which sends `buzzer:off` and waits for the matching ACK; check the
+actual speaker as well. Stopping sound does not retract the LINE message.
+
+The Pi's SQLite journal survives restarts. ESP32's shared deduplication ring
+covers eight recent IDs from both MQTT and LAN, refuses ID reuse for a different
+action, and re-ACKs completed duplicates without another motor/speaker command.
+That ring does **not** survive board resets; Vercel has no durable command
+journal. Do not manually replay uncertain cloud commands after a reset.
+
+## Direct LAN fallback
+
+An HTTP-hosted browser may use its configured ESP32 address only when Vercel
+explicitly reports `mqttConfigured:false`. It first reads protocol-2 readiness
+and the firmware budget, sends once, then polls `/command-status` for completion
+(including buzzer commands). If the initial response is lost it only polls.
+
+An HTTPS Vercel page cannot call an HTTP ESP32 due to browser mixed-content
+rules. Use MQTT from Vercel, or open the **local Pi kiosk** for offline control.
+Do not disable browser security flags to work around this.
+
+## Verification
+
+Run `npm test` for browser contracts, local HTTP/SQLite integration, native C++
+command history and the micro:bit protocol tests.
+
+For MQTT integration use a dedicated local Mosquitto listener on
+`127.0.0.1:18884` with anonymous access and persistence disabled, then run:
+
+```sh
+npm run test:mqtt
 ```
-MQTT_URL=mqtts://abc123def.s1.eu.hivemq.cloud:8883
-MQTT_USERNAME=vercel-publisher
-MQTT_PASSWORD=<รหัสของ vercel-publisher>
-MQTT_BASE_TOPIC=crms6/firstaidbox/box1
-```
 
-โปรเจ็กต์นี้เพิ่ง dependency ตัวแรกเข้ามา (`mqtt`) — Vercel จะ `npm install` ให้อัตโนมัติ
-ตอน deploy ถ้าพัฒนาในเครื่องให้รัน `npm install` เองหนึ่งครั้ง
+Alternatively point `SFAB_TEST_MQTT_URL` at an **isolated test broker**. Tests
+use unique `crms6/firstaidbox/integration/...` topics and a simulated device;
+never use production credentials or the real cabinet topic. The integration
+suite exercises a ten-second motor ACK, mismatched ACKs, SOS during a pending
+motor, missing ACKs, refusals, stale/legacy metadata and concurrent requests.
+It does not prove physical movement or a production Vercel deployment.
 
-## ขั้นตอนที่ 3 — ตั้งค่าเฟิร์มแวร์ ESP32
+Before production, check `GET https://<site>/api/command` without actuating.
+Expected after paired firmware/broker setup: `mqttConfigured:true`,
+`connected:true`, `protocol:2`, `ready:true` and the measured timing budget.
+Then perform the operator-present physical checks in the Pi guide from **both**
+clients. Keep the Pi LAN connected and disconnect internet to prove offline
+local control separately.
 
-ติดตั้งไลบรารีใน Arduino IDE ที่ Library Manager
+**Open hardware gate: MQTT enabled + WAN down.** The current ESP32 sketch calls
+the synchronous MQTT connect/TLS path from the same loop that serves HTTP and
+drains UART. `setSocketTimeout(2)` does not bound DNS/TCP/TLS time. Therefore
+offline Pi responsiveness with MQTT configured is **not yet validated**.
+Keep Wi-Fi/LAN up, block only WAN/DNS/broker access, poll `/status` during
+reconnect attempts, and measure HTTP latency, UART heartbeat loss and an
+operator-supervised open/SOS/stop cycle. Include WAN restoration and check for
+delayed or duplicate actuation. Failure requires moving MQTT I/O off the
+HTTP/UART loop; increasing retry backoff alone does not prove isolation.
+Do not close this gate using a test with `SFAB_MQTT_HOST` empty.
 
-- **PubSubClient** (Nick O'Leary)
-- **ArduinoJson** (Benoit Blanchon) เวอร์ชัน 7 ขึ้นไป
+## Remaining deployment limits
 
-เปิด sketch `firmware/esp32_smart_box/esp32_smart_box.ino` แล้วคัดลอก
-`device_config.example.h` ในโฟลเดอร์เดียวกันเป็น `device_config.h` (Git ไม่ติดตาม)
-ใส่ค่า Wi-Fi และค่า MQTT ต่อไปนี้ในไฟล์นั้นโดยไม่ commit ข้อมูลลับ
-
-```cpp
-#define SFAB_MQTT_HOST "abc123def.s1.eu.hivemq.cloud"
-#define SFAB_MQTT_USER "esp32-box1"
-#define SFAB_MQTT_PASSWORD "<รหัสของ esp32-box1>"
-```
-
-ปล่อย `SFAB_MQTT_HOST` เป็นค่าว่างไว้ = ปิด MQTT (ค่าเริ่มต้นสำหรับ Pi-local)
-ตั้งค่า broker อย่างเดียวไม่ได้แก้ข้อจำกัดเวลา ACK ที่ระบุไว้ต้นเอกสาร
-
-## ขั้นตอนที่ 4 — ตั้งค่าหน้าเว็บ
-
-เข้า Dashboard ครู → จัดการเวชภัณฑ์ → หัวข้อ "การเชื่อมต่อ MQTT"
-
-```
-MQTT WebSocket URL : wss://abc123def.s1.eu.hivemq.cloud:8884/mqtt
-ชื่อผู้ใช้           : web-viewer
-รหัสผ่าน            : <รหัสของ web-viewer>
-Base Topic         : crms6/firstaidbox/box1
-```
-
-ต้องเป็น `wss://` เท่านั้น `ws://` จะถูกเบราว์เซอร์บล็อกด้วยเหตุผลเดียวกับ `http://`
-(ฟอร์มดักไว้ให้แล้ว) และอย่าลืม `/mqtt` ต่อท้าย เพราะเป็น path ของ WebSocket listener
-ค่านี้ใช้ฟังสถานะ/event โดยตรงเท่านั้น ขาลงจะลอง `/api/command` ทุกครั้งแม้ browser
-เครื่องใหม่ยังไม่มีค่าใน localStorage และให้ server เป็นผู้รายงานว่า MQTT ถูกตั้งไว้หรือไม่
-
-## ขั้นตอนที่ 5 — ทดสอบทีละชั้น
-
-อย่าเพิ่งประกอบทุกอย่างแล้วเปิดพร้อมกัน ถ้าพังจะแยกไม่ออกว่าพังที่ broker, WiFi, TLS หรือโค้ด
-
-1. เปิด MQTTX สองหน้าต่าง ให้คุยกันเองผ่าน broker ให้ได้ก่อน
-2. เปิด Dashboard แล้วดู Console ว่าขึ้น `[MqttBridge] เชื่อมต่อ broker สำเร็จ`
-3. ใช้ MQTTX publish `{"online":true}` ไปที่ `<base>/status` → ตัวเลขสถานะฮาร์ดแวร์บน
-   Dashboard ต้องเปลี่ยนเป็น Online เอง
-4. ใช้ MQTTX publish `{"event":"door_open"}` ไปที่ `<base>/evt` → ต้องมี toast เด้ง
-5. เสียบ ESP32 (ยังไม่ต้องต่อเซอร์โว) ดูว่ามันขึ้นออนไลน์เองไหม
-6. ค่อยต่อ micro:bit และเซอร์โวเป็นขั้นสุดท้าย
-
-## เส้นทาง LAN และการกู้คืน
-
-เฟิร์มแวร์ยังเปิด HTTP endpoint ไว้ครบ (`/status`, `/open?drawer=1&id=...`,
-`/command-status?id=...`, `/buzzer?state=1&id=...`) โดย Pi-local ใช้ LAN เป็นเส้นหลัก
-เมื่ออินเทอร์เน็ตขาดแต่ LAN ยังอยู่ จึงไม่ต้องเปลี่ยน transport หรือส่งคำสั่งซ้ำ
-อย่าใช้ legacy MQTT/LAN เป็นทางแก้ timeout ของเฟิร์มแวร์ชุดนี้ และอย่าส่งซ้ำเมื่อผลยังไม่แน่นอน
-
-`PubSubClient::connect` เป็น synchronous จึงยังหยุด loop ชั่วคราวหนึ่งครั้งต่อความพยายาม
-โค้ดจำกัด socket timeout ไว้ 2 วินาที เว้นอย่างน้อย 5 วินาทีระหว่างครั้ง และข้ามทันทีเมื่อ WiFi
-หลุด เพื่อให้เว็บเซิร์ฟเวอร์ LAN กลับมาตอบได้โดยไม่ติดอยู่ใน reconnect loop
-
-micro:bit ต้องส่ง `DONE1:<id>`/`DONE2:<id>` หลังมอเตอร์จบ โดย ID และช่องตรงกับคำสั่ง
-ESP32 ใช้งบ `SFAB_COMMAND_ACK_TIMEOUT_MS` (3–120 วินาที; ค่าเริ่มต้นชั่วคราว 30 วินาที)
-และประกาศ `ack_timeout` เมื่อหมดเวลา การหมดเวลาไม่ปลดล็อกคำสั่งที่อาจค้างใน UART
-ถ้าไม่มี `REJECT:<id>` ที่ตรงคำสั่งและ READY ใหม่ ตู้จะคงสถานะรอตรวจสอบไว้
-ให้ตรวจผลจ่าย ปิดไฟมอเตอร์ ตรวจสาย และเริ่มบอร์ดทั้งคู่ใหม่ก่อนเปิดไฟมอเตอร์ตาม
-[ขั้นตอนกู้คืน Pi-local](docs/PI_LOCAL_SETUP.md#command-and-acknowledgement-contract)
-
-## ข้อจำกัดด้านความปลอดภัยที่ยังเหลืออยู่
-
-อ่านให้จบก่อนเปิดใช้จริง
-
-1. **`/api/command` ยังไม่มีการยืนยันตัวตน** ใครก็ตามที่รู้ URL ของเว็บสามารถ POST
-   เข้ามาสั่งเปิดตู้ยาได้ ตอนนี้กันด้วย rate limit เท่านั้น (10 ครั้ง/นาที/IP และ 12 ครั้ง/นาที
-   รวมทุก IP) สาเหตุที่ยังไม่ใส่คือหน้า kiosk เป็นหน้าสาธารณะที่ไม่มีการล็อกอิน
-   ความลับอะไรที่ใส่ลงไปก็เปิดอ่านได้อยู่ดี
-   ทางแก้ที่ควรคิดต่อ: ให้กดปุ่ม A บน micro:bit ยืนยันก่อนเซอร์โวจะหมุน (ต้องอยู่หน้ากล่องจริง)
-   หรือทำระบบล็อกอินให้หน้า kiosk
-2. **ESP32 ยังไม่ตรวจใบรับรองของ broker** (`tlsClient.setInsecure()`) ข้อมูลถูกเข้ารหัสแล้ว
-   แต่ถ้ามีคนดักกลางทางได้จะไม่มีอะไรเตือน เมื่อได้ root CA ของ broker มาให้เปลี่ยนไปใช้
-   `tlsClient.setCACert(root_ca)` — ต้อง sync เวลาให้ตรงก่อน ไม่งั้น handshake จะไม่ผ่าน
-   เพราะบอร์ดคิดว่าใบรับรองยังไม่ถึงวันใช้งาน (โค้ดเรียก `configTime()` ไว้ให้แล้ว)
-3. **รหัส `web-viewer` เปิดอ่านได้จากเบราว์เซอร์** โดยตั้งใจ จึงต้องตั้งสิทธิ์ให้ subscribe
-   ได้อย่างเดียวจริง ๆ ถ้าเผลอให้สิทธิ์ publish ด้วย เท่ากับเปิดตู้ยาให้ทุกคน
-
-## อาการที่เจอบ่อยและสาเหตุ
-
-| อาการ | สาเหตุที่พบบ่อยที่สุด |
-|---|---|
-| เบราว์เซอร์ต่อ broker ไม่ติด ไม่มี error ชัดเจน | ใช้ `ws://` แทน `wss://` หรือลืม `/mqtt` ต่อท้าย |
-| ต่อติดแต่ไม่ได้รับข้อความ | base topic ไม่ตรงกันระหว่างสามที่ หรือ credential ไม่มีสิทธิ์ subscribe |
-| เปิดสองแท็บแล้วต่อ ๆ หลุด ๆ วนไม่จบ | clientId ซ้ำกัน (โค้ดสุ่มให้แล้ว แต่ถ้าไปแก้เองต้องระวัง) |
-| ESP32 publish แล้วข้อความหายเงียบ ไม่มี error | ข้อความยาวเกิน buffer ของ PubSubClient (โค้ดตั้ง `setBufferSize(512)` ไว้แล้ว) |
-| ESP32 ต่อ broker ไม่ติด rc=-2 | ปัญหา TLS หรือชื่อโฮสต์ผิด ลองเช็คว่าใส่ host โดยไม่มี `mqtts://` นำหน้า |
-| ตู้ยาปฏิเสธคำสั่งว่า `cmd_rejected` | คำสั่งเก่ากว่า 30 วินาที หรือเข้ามาเร็วเกินไปหลัง ESP32 เพิ่ง subscribe |
+- `/api/command` has in-memory per-IP/global rate limits but no user login.
+  The public endpoint can be invoked by someone who knows the URL. Decide the
+  intended access boundary before exposing the real cabinet to the internet.
+- ESP32 still uses `setInsecure()` for broker TLS: encryption without server
+  certificate verification. Configure the correct root CA before treating the
+  cloud connection as authenticated.
+- Removing old credentials from source does not revoke them. Rotate any
+  previously exposed values at their provider before reuse.

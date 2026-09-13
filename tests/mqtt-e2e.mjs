@@ -1,199 +1,148 @@
 import assert from 'node:assert/strict';
+import { test } from 'node:test';
 import mqtt from 'mqtt';
 
-const brokerUrl = process.env.SFAB_TEST_MQTT_URL || 'mqtt://broker.emqx.io:1883';
-const runId = `${process.pid}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
-const baseTopic = `crms6/firstaidbox/integration/${runId}`;
+// Use an isolated loopback broker by default; never send test commands to the real cabinet topic.
+const brokerUrl = process.env.SFAB_TEST_MQTT_URL || 'mqtt://127.0.0.1:18884';
+const ack = c => ({ protocol: 2, id: c.id, ...(c.action === 'open'
+    ? { event: 'drawer_opened', drawer: c.drawer } : { event: 'buzzer_set', state: c.state }) });
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-process.env.MQTT_URL = brokerUrl;
-process.env.MQTT_BASE_TOPIC = baseTopic;
-process.env.MQTT_DRAWER_ACK_TIMEOUT_MS = '1800';
+async function fixture(t, onCommand, status = {}) {
+    const runId = `${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    const base = `crms6/firstaidbox/integration/${runId}`;
+    process.env.MQTT_URL = brokerUrl;
+    process.env.MQTT_BASE_TOPIC = base;
+    delete process.env.MQTT_USERNAME;
+    delete process.env.MQTT_PASSWORD;
+    const api = await import(`../api/command.js?test=${runId}`);
+    const device = mqtt.connect(brokerUrl, { clientId: `test-device-${runId}`, clean: true,
+        reconnectPeriod: 0, connectTimeout: 2000 });
+    const timers = new Set();
+    let heartbeat;
+    const publishing = new Set();
+    t.after(async () => {
+        clearInterval(heartbeat);
+        for (const timer of timers) clearTimeout(timer);
+        await Promise.allSettled([...publishing]);
+        await api.closeMqttClientForTests();
+        await new Promise(resolve => device.end(true, {}, resolve));
+    });
+    await new Promise((resolve, reject) => {
+        device.once('connect', resolve);
+        device.once('error', reject);
+    });
+    const send = (topic, data, retain = false) => {
+        const task = new Promise((resolve, reject) => device.publish(
+            `${base}/${topic}`, JSON.stringify(data), { qos: 1, retain }, err => err ? reject(err) : resolve()));
+        publishing.add(task);
+        task.then(() => publishing.delete(task), () => publishing.delete(task));
+        return task;
+    };
+    const event = data => send('evt', data);
+    const later = (ms, data) => {
+        const timer = setTimeout(() => { timers.delete(timer); void event(data); }, ms);
+        timers.add(timer);
+    };
+    let hardware = { online: true, protocol: 2, microbit: 'connected', ready: true, ackTimeoutMs: 3000, ...status };
+    const advertise = () => send('status', { ts: Date.now(), ...hardware }, true);
+    const commands = [];
+    device.on('message', (topic, bytes, packet) => {
+        if (topic !== `${base}/cmd`) return;
+        const command = JSON.parse(bytes.toString());
+        assert.equal(packet.retain, false);
+        assert.equal(command.protocol, 2);
+        commands.push(command);
+        onCommand?.(command, { event, later, advertise });
+    });
+    await new Promise((resolve, reject) => device.subscribe(`${base}/cmd`, { qos: 1 }, err => err ? reject(err) : resolve()));
+    await advertise();
+    heartbeat = setInterval(() => { void advertise(); }, 500);
+    let requestNumber = 0;
+    const invoke = (body) => new Promise((resolve, reject) => {
+        const req = { method: body ? 'POST' : 'GET', body,
+            headers: { 'x-forwarded-for': `test-${++requestNumber}` } };
+        const res = { statusCode: 200, setHeader() {}, status(code) { this.statusCode = code; return this; },
+            json(body) { resolve({ status: this.statusCode, body }); }, end() { resolve({ status: this.statusCode }); } };
+        Promise.resolve(api.default(req, res)).catch(reject);
+    });
+    return { invoke, commands, api, event, async setStatus(change) {
+        hardware = { ...hardware, ...change }; await advertise(); await delay(60);
+    } };
+}
 
-const {
-    default: commandHandler,
-    closeMqttClientForTests,
-    mqttClientStatsForTests
-} = await import('../api/command.js');
-
-const device = mqtt.connect(brokerUrl, {
-    clientId: `sfab-test-device-${runId}`,
-    clean: true,
-    reconnectPeriod: 0,
-    connectTimeout: 6000
+test('MQTT waits beyond legacy browser deadline and ignores wrong ID, drawer, and old protocol', async t => {
+    const f = await fixture(t, (c, { event, later }) => {
+        void event({ ...ack(c), id: 'c-unrelated-command' });
+        void event({ ...ack(c), drawer: 2 });
+        void event({ ...ack(c), protocol: 1 });
+        later(10000, ack(c));
+    }, { ackTimeoutMs: 12000 });
+    const status = (await f.invoke()).body;
+    assert.equal(status.connected, true);
+    assert.equal(status.commandTimeoutMs, 22000);
+    const began = Date.now();
+    const result = await f.invoke({ action: 'open', drawer: 1, id: 'c-long-motor-command', ackTimeoutMs: 12000 });
+    assert.equal(result.status, 200);
+    assert.ok(Date.now() - began >= 9800, 'must not finish on mismatched/old ACK');
+    assert.equal(f.commands.length, 1);
 });
 
-function waitForConnect(client) {
-    return new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error('test device connect timeout')), 7000);
-        client.once('connect', () => {
-            clearTimeout(timer);
-            resolve();
-        });
-        client.once('error', (err) => {
-            clearTimeout(timer);
-            reject(err);
-        });
+test('matching buzzer on/off UART events are required, and SOS can run while a motor waits', async t => {
+    const f = await fixture(t, (c, { event, later }) => {
+        if (c.action === 'open') later(700, ack(c));
+        else { void event({ ...ack(c), state: c.state === 'on' ? 'off' : 'on' }); later(200, ack(c)); }
     });
-}
-
-function subscribe(client, topic) {
-    return new Promise((resolve, reject) => {
-        client.subscribe(topic, { qos: 1 }, (err) => (err ? reject(err) : resolve()));
-    });
-}
-
-function publishEvent(event) {
-    return new Promise((resolve, reject) => {
-        device.publish(
-            `${baseTopic}/evt`,
-            JSON.stringify(event),
-            { qos: 0, retain: false },
-            (err) => (err ? reject(err) : resolve())
-        );
-    });
-}
-
-let requestNumber = 0;
-function invoke(method, body = {}) {
-    requestNumber++;
-    return new Promise((resolve, reject) => {
-        const req = {
-            method,
-            body,
-            headers: { 'x-forwarded-for': `integration-${requestNumber}` },
-            socket: { remoteAddress: `integration-${requestNumber}` }
-        };
-        const res = {
-            statusCode: 200,
-            setHeader() {},
-            status(code) {
-                this.statusCode = code;
-                return this;
-            },
-            json(payload) {
-                resolve({ status: this.statusCode, body: payload });
-                return this;
-            },
-            end() {
-                resolve({ status: this.statusCode, body: null });
-            }
-        };
-        Promise.resolve(commandHandler(req, res)).catch(reject);
-    });
-}
-
-const actuations = new Map();
-const ignoredIds = new Set();
-const wrongDrawerFirstIds = new Set();
-const uartTimeoutIds = new Set();
-
-device.on('message', (_topic, bytes) => {
-    const command = JSON.parse(bytes.toString());
-    console.log(`[test device] received ${command.id}`);
-    if (command.action !== 'open' || ignoredIds.has(command.id)) return;
-
-    const seen = actuations.get(command.id) || 0;
-    if (seen === 0) actuations.set(command.id, 1);
-
-    if (uartTimeoutIds.has(command.id)) {
-        setTimeout(() => {
-            void publishEvent({
-                event: 'ack_timeout',
-                id: command.id,
-                drawer: command.drawer,
-                reason: 'uart_timeout',
-                ts: Date.now()
-            });
-        }, 140);
-        return;
+    const motor = f.invoke({ action: 'open', drawer: 1, id: 'c-motor-busy-test' });
+    await delay(100);
+    await f.setStatus({ ready: false });
+    for (const state of ['on', 'off']) {
+        const began = Date.now();
+        const result = await f.invoke({ action: 'buzzer', state, id: `c-buzzer-test-${state}` });
+        assert.equal(result.status, 200);
+        assert.equal(result.body.ack.state, state);
+        assert.ok(Date.now() - began >= 150, 'broker acceptance is not buzzer completion');
     }
-
-    if (seen > 0) {
-        setTimeout(() => {
-            void publishEvent({ event: 'drawer_opened', id: command.id, drawer: command.drawer, ts: Date.now() });
-        }, 30);
-        return;
-    }
-
-    if (wrongDrawerFirstIds.has(command.id)) {
-        setTimeout(() => {
-            void publishEvent({
-                event: 'drawer_opened',
-                id: command.id,
-                drawer: command.drawer === 1 ? 2 : 1,
-                ts: Date.now()
-            });
-        }, 40);
-        setTimeout(() => {
-            void publishEvent({ event: 'drawer_opened', id: command.id, drawer: command.drawer, ts: Date.now() });
-        }, 260);
-        return;
-    }
-
-    setTimeout(() => {
-        void publishEvent({ event: 'drawer_opened', id: command.id, drawer: command.drawer, ts: Date.now() });
-    }, 140);
+    assert.equal((await motor).status, 200);
+    assert.equal(f.commands.length, 3);
 });
 
-try {
-    await waitForConnect(device);
-    await subscribe(device, `${baseTopic}/cmd`);
-
-    const availabilityBefore = await invoke('GET');
-    assert.equal(availabilityBefore.body.mqttConfigured, true);
-
-    const firstId = 'c-e2e-dedupe-001';
-    const firstStarted = Date.now();
-    const first = await invoke('POST', { action: 'open', drawer: 1, id: firstId });
-    assert.equal(first.status, 200);
-    assert.deepEqual(first.body.ack, { event: 'drawer_opened', id: firstId, drawer: 1 });
-    assert.ok(Date.now() - firstStarted >= 100, 'API returned before device ACK');
-    assert.equal(actuations.get(firstId), 1);
-
-    // Model the firmware ring: duplicate id re-ACKs but does not actuate again.
-    const duplicate = await invoke('POST', { action: 'open', drawer: 1, id: firstId });
-    assert.equal(duplicate.status, 200);
-    assert.equal(actuations.get(firstId), 1);
-
-    const wrongDrawerId = 'c-e2e-drawer-002';
-    wrongDrawerFirstIds.add(wrongDrawerId);
-    const wrongStarted = Date.now();
-    const rightAck = await invoke('POST', { action: 'open', drawer: 2, id: wrongDrawerId });
-    assert.equal(rightAck.status, 200);
-    assert.equal(rightAck.body.ack.drawer, 2);
-    assert.ok(Date.now() - wrongStarted >= 220, 'wrong-drawer event incorrectly satisfied the waiter');
-
-    const uartTimeoutId = 'c-e2e-uart-timeout';
-    uartTimeoutIds.add(uartTimeoutId);
-    const uartTimedOut = await invoke('POST', { action: 'open', drawer: 1, id: uartTimeoutId });
-    assert.equal(uartTimedOut.status, 504);
-    assert.match(uartTimedOut.body.error, /UART/);
-
-    const timeoutId = 'c-e2e-timeout-003';
-    ignoredIds.add(timeoutId);
-    const timeoutStarted = Date.now();
-    const timedOut = await invoke('POST', { action: 'open', drawer: 1, id: timeoutId });
-    assert.equal(timedOut.status, 504);
-    assert.equal(timedOut.body.success, false);
-    assert.ok(Date.now() - timeoutStarted >= 1700, 'ACK timeout returned too early');
-
-    const concurrentIds = ['c-e2e-concurrent-004', 'c-e2e-concurrent-005'];
-    const concurrent = await Promise.all(concurrentIds.map((id, index) => (
-        invoke('POST', { action: 'open', drawer: index + 1, id })
-    )));
-    assert.deepEqual(concurrent.map((result) => result.status), [200, 200]);
-    assert.deepEqual(concurrent.map((result) => result.body.ack.id), concurrentIds);
-
-    const availabilityAfter = await invoke('GET');
-    assert.equal(availabilityAfter.body.mqttConnected, true);
-    assert.deepEqual(mqttClientStatsForTests(), {
-        created: 1,
-        active: true,
-        connecting: false,
-        retiring: false
+test('broker acceptance without device ACK times out; explicit UART timeout and rejection fail', async t => {
+    const f = await fixture(t, (c, { later }) => {
+        if (c.id.includes('reject')) later(100, { protocol: 2, event: 'cmd_rejected', id: c.id });
+        if (c.id.includes('uart')) later(100, { protocol: 2, event: 'ack_timeout', id: c.id });
     });
-    console.log('real broker MQTT integration passed');
-} finally {
-    await closeMqttClientForTests();
-    await new Promise((resolve) => device.end(true, {}, resolve));
-}
+    const began = Date.now();
+    const silent = await f.invoke({ action: 'buzzer', state: 'on', id: 'c-silent-buzzer' });
+    assert.equal(silent.status, 504);
+    assert.ok(Date.now() - began >= 5900);
+    for (const [id, expected] of [['c-explicit-reject', 409], ['c-explicit-uart', 504]]) {
+        const result = await f.invoke({ action: 'open', drawer: 1, id });
+        assert.equal(result.status, expected);
+        assert.equal(result.body.success, false);
+    }
+});
+
+test('stale/offline/busy/legacy status and changed timing budget prevent publishing', async t => {
+    const f = await fixture(t);
+    for (const change of [{ ts: Date.now() - 30000 }, { online: false }, { ready: false },
+        { protocol: 1 }, { ackTimeoutMs: 200000 }, { microbit: 'unknown' }]) {
+        await f.setStatus({ ts: Date.now(), online: true, ready: true, protocol: 2,
+            ackTimeoutMs: 3000, microbit: 'connected', ...change });
+        const result = await f.invoke({ action: 'open', drawer: 1, id: 'c-never-dispatched' });
+        assert.equal(result.status, 503);
+        assert.equal(result.body.retrySafe, true);
+    }
+    await f.setStatus({ ts: Date.now(), online: true, ready: true, protocol: 2, ackTimeoutMs: 3000, microbit: 'connected' });
+    assert.equal((await f.invoke({ action: 'open', drawer: 1, id: 'c-budget-change', ackTimeoutMs: 30000 })).status, 503);
+    assert.equal(f.commands.length, 0);
+});
+
+test('concurrent requests share one warm MQTT connection and keep their exact ACKs separate', async t => {
+    const f = await fixture(t, (c, { later }) => later(100, ack(c)));
+    const results = await Promise.all([1, 2].map(drawer => f.invoke({
+        action: 'open', drawer, id: `c-concurrent-${drawer}` })));
+    assert.deepEqual(results.map(r => r.body.ack.drawer), [1, 2]);
+    assert.equal(f.api.mqttClientStatsForTests().created, 1);
+    assert.equal(f.commands.length, 2);
+});

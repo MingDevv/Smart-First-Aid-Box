@@ -7,8 +7,23 @@ export const isAck = (ack, command) => ack?.id === command.id && ack.protocol ==
         : ack.event === 'buzzer_set' && ack.state === command.state);
 
 export class LocalController {
-    constructor({ esp32Url = '', database, timeoutMs, pollMs = 200 }) {
-        if (esp32Url) {
+    // mode: 'real' | 'demo' | 'unset' — เกตการสั่งฮาร์ดแวร์อยู่ตรงนี้ ไม่ใช่ในเบราว์เซอร์
+    //
+    // เดิมโหมดถูกบังคับใช้ฝั่งหน้าเว็บอย่างเดียว เซิร์ฟเวอร์ไม่เคยเห็นมันเลย ⇒ POST ตรงเข้า
+    // /api/command ในโหมดสาธิตหรือโหมดที่ยังไม่ตั้ง **ยังสั่งมอเตอร์จริงได้** และคืน ACK
+    // เหมือนของจริง (นัยวัดได้: หนึ่ง POST = หนึ่ง /open ทั้งใน demo และ unset)
+    // หน้าเว็บที่โหลดค้างไว้ตอนเป็น Real ก็ยังยิงได้หลังผู้ดูแลสลับเป็น Demo แล้ว
+    // การตรวจ Host/Origin ไม่ช่วย เพราะคนยิงเป็น client ที่ถูกต้องใน origin เดียวกัน
+    constructor({ esp32Url = '', serial = null, database, timeoutMs, pollMs = 200, mode = 'unset' }) {
+        this.mode = mode === 'real' || mode === 'demo' ? mode : 'unset';
+        // 2026-09-12: the cabinet's ESP32 is gone; the Pi talks to the micro:bit over USB
+        // through edge/microbit-serial.mjs, which answers the very same four requests.
+        // Precedence: serial wins, so an old SFAB_ESP32_URL left in a unit cannot re-route
+        // commands to a box that no longer exists.
+        if (serial) {
+            this.serial = serial;
+            this.origin = 'serial:' + serial.device;
+        } else if (esp32Url) {
             const url = new URL(esp32Url);
             if (url.protocol !== 'http:' || url.username || url.password || url.search ||
                 url.hash || url.pathname !== '/') throw new Error('Use an HTTP ESP32 origin');
@@ -29,6 +44,7 @@ export class LocalController {
     }
 
     async request(path, timeoutMs = 1500) {
+        if (this.serial) return this.serial.request(path);
         const response = await fetch(this.origin + path, {
             signal: AbortSignal.timeout(timeoutMs), redirect: 'error'
         });
@@ -36,22 +52,39 @@ export class LocalController {
     }
 
     async status() {
-        if (!this.origin) return { connected: false, ready: false, mode: 'pi-local', configured: false };
+        // Reported on every status read, including the unconfigured and unreachable branches:
+        // a cabinet that has gone offline while a command was in flight is exactly the case
+        // where the caller must not be told it is free to send another one.
+        const unresolved = this.unresolved();
+        const deviceMode = this.mode;
+        if (!this.origin) return { connected: false, ready: false, mode: 'pi-local', configured: false, unresolved, deviceMode };
         try {
             const { status, data } = await this.request('/status');
             const validBudget = Number.isInteger(data.ackTimeoutMs) && data.ackTimeoutMs >= 3000 && data.ackTimeoutMs <= 120000;
             const connected = status === 200 && data.protocol === 2 && data.microbit === 'connected' && validBudget;
             return { connected, ready: connected && data.ready === true, mode: 'pi-local', configured: true,
                 commandTimeoutMs: validBudget ? data.ackTimeoutMs + 3000 : null,
-                reason: data.reason === 'awaiting_new_ready_epoch' ? data.reason : '' };
+                reason: data.reason === 'awaiting_new_ready_epoch' ? data.reason : '', unresolved, deviceMode };
         } catch {
-            return { connected: false, ready: false, mode: 'pi-local', configured: true };
+            return { connected: false, ready: false, mode: 'pi-local', configured: true, unresolved, deviceMode };
         }
     }
 
     history() {
         return this.db.prepare(`SELECT id, drawer, state, created_at, confirmed_at FROM commands
             ORDER BY rowid DESC LIMIT 100`).all();
+    }
+
+    // The hold that outlives a student session, a page reload and a process restart.
+    // A command that was sent but never confirmed is a physical operation nobody has
+    // reconciled: the drawer may already be open, the stepper may be mid-travel. Issuing a
+    // fresh command with a new ID is not a replay — the journal cannot catch it — so the
+    // block has to come from here, from durable state, not from UI memory.
+    // Cleared only by an operator through edge/resolve.mjs over SSH. Deliberately not
+    // reachable over HTTP: the only HTTP client is the touchscreen the students use.
+    unresolved() {
+        return this.db.prepare(`SELECT id, drawer, created_at FROM commands
+            WHERE state = 'uncertain' ORDER BY rowid DESC LIMIT 1`).get() ?? null;
     }
 
     failure(status, id, error) {
@@ -64,6 +97,19 @@ export class LocalController {
               command.action === 'buzzer' && ['on', 'off'].includes(command.state))) {
             return this.failure(400, undefined, 'คำสั่งเปิดช่องยาไม่ถูกต้อง');
         }
+        // เกตโหมดต้องมาก่อนทุกอย่างที่ทิ้งร่องรอย — ก่อนดูประวัติ ก่อนเขียนแถว ก่อนแตะสาย
+        // คำสั่งที่ถูกปฏิเสธตรงนี้ยังไม่เคยออกไปไหน จึงไม่เขียนสมุด ไม่แตะ hold ที่ค้างอยู่
+        // และปลอดภัยที่จะลองใหม่หลังผู้ดูแลตั้งโหมดแล้ว
+        if (this.mode !== 'real') {
+            return { status: 503, body: {
+                success: false, mode: 'pi-local', commandId: command.id,
+                // ยังไม่ได้ส่งอะไรออกไป จึงลองใหม่ได้อย่างปลอดภัยเมื่อตั้งโหมดแล้ว
+                retrySafe: true, deviceMode: this.mode,
+                error: this.mode === 'demo'
+                    ? 'ตู้อยู่ในโหมดสาธิต จึงไม่สั่งฮาร์ดแวร์จริง'
+                    : 'ตู้ยังไม่ได้ตั้งโหมดการทำงาน ให้ผู้ดูแลตั้งค่าที่เครื่องก่อน'
+            } };
+        }
         const channel = command.action === 'open' ? command.drawer : command.state === 'on' ? 3 : 4;
         const previous = this.db.prepare('SELECT * FROM commands WHERE id = ?').get(command.id);
         if (previous) {
@@ -72,8 +118,18 @@ export class LocalController {
             if (previous.response) return JSON.parse(previous.response);
             return this.failure(409, command.id, 'ผลคำสั่งเดิมยังไม่แน่นอน กรุณาตรวจตู้ก่อน ห้ามสั่งซ้ำ');
         }
-        if (!this.origin) return this.failure(503, command.id, 'ยังไม่ได้ตั้งค่าการเชื่อมต่อ ESP32 บน Pi');
+        if (!this.origin) return this.failure(503, command.id, 'ยังไม่ได้ตั้งค่าการเชื่อมต่อ micro:bit บน Pi');
         if (command.action === 'open' && this.activeOpens.size) return this.failure(409, command.id, 'ตู้กำลังทำงาน กรุณารอ');
+        // Enforced here, not only in the UI: a reload, a new student or a second browser tab
+        // all produce a fresh command ID, which the per-ID replay guard above cannot catch.
+        // The buzzer is left alone — calling for help must never be blocked by a stuck drawer.
+        if (command.action === 'open') {
+            const held = this.unresolved();
+            if (held) {
+                return this.failure(409, command.id,
+                    `ตู้ยังมีคำสั่งค้างที่ไม่รู้ผล (ช่องที่ ${held.drawer}) ต้องให้ครูตรวจตู้และเคลียร์ก่อน`);
+            }
+        }
 
         this.db.prepare("INSERT INTO commands (id, drawer, state, created_at) VALUES (?, ?, 'pending', ?)")
             .run(command.id, channel, new Date().toISOString());
@@ -138,6 +194,7 @@ export class LocalController {
 
     async close() {
         await Promise.allSettled(this.active.values());
+        await this.serial?.close();
         this.db.close();
     }
 }

@@ -1,0 +1,187 @@
+# Smart First Aid Box — local edge service (Node) on the Raspberry Pi 5 cabinet.
+#
+# STATUS: written from source, NEVER APPLIED AND NEVER STARTED ON HARDWARE.
+#         Every value below is derived from edge/server.mjs and edge/controller.mjs
+#         in this checkout, not from a running Pi. See deploy/pi/README.md.
+#
+# Install: /etc/systemd/system/sfab-edge.service
+#
+# Facts this unit is built on (read from edge/server.mjs this session):
+#   · server.listen(port, '127.0.0.1')          -> loopback only, no LAN exposure
+#   · port = Number(process.env.SFAB_PORT || 8787)
+#   · Host header must be exactly 127.0.0.1:<port> or localhost:<port>
+#   · database = process.env.SFAB_DATABASE || ~/.local/share/smart-first-aid-box/commands.sqlite
+#   · process.once('SIGTERM') -> server.close() -> controller.close()
+#   · SFAB_ESP32_URL is parsed by `new URL()` and REJECTED unless it is a bare
+#     http:// origin: no https, no user:pass, no ?query, no #hash, pathname '/'.
+#     `http://192.168.1.100` is accepted. `http://192.168.1.100/api` is not.
+
+[Unit]
+Description=Smart First Aid Box local edge service (cabinet control)
+Documentation=file:///opt/smart-first-aid-box/docs/PI_LOCAL_SETUP.md
+Documentation=file:///opt/smart-first-aid-box/deploy/pi/README.md
+
+# network-online.target, not network.target: the service fetches the ESP32 over the
+# private LAN at first /api/local/status. It survives a missing ESP32 (status() catches
+# and returns connected:false), so this is about avoiding noise, not correctness.
+After=network-online.target
+Wants=network-online.target
+
+# Crash-loop containment. The root filesystem is an SD card; a service that restarts
+# forever writes journal entries forever and wears the card out. After 5 failed starts
+# inside 300s systemd gives up and leaves the unit failed until someone looks at it.
+# NOTE: RestartSteps=/RestartMaxDelaySec= (exponential backoff) need systemd >= 254.
+#       Debian 12 bookworm / Raspberry Pi OS ships systemd 252, so they are NOT used
+#       here. Verify with `systemctl --version` before adding them.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=sfab
+Group=sfab
+
+# Deploy the checkout OUTSIDE /home. ProtectHome=yes below makes /home invisible to
+# this process, so a checkout at /home/technology/... would fail to start with ENOENT.
+WorkingDirectory=/opt/smart-first-aid-box
+
+# Absolute path required: systemd does not run a login shell, so nvm/fnm/asdf shims in
+# a user's ~/.profile do not exist here. `command -v node` on the device must print this
+# path, and `node --version` must be >= 24 (docs/PI_LOCAL_SETUP.md step 1).
+# node:sqlite was flag-gated (--experimental-sqlite) in Node 22.x; on Node 24 it is not.
+ExecStart=/usr/bin/node edge/server.mjs
+
+Environment=SFAB_PORT=8787
+Environment=SFAB_DATABASE=/var/lib/sfab/commands.sqlite
+# REPLACE with the cabinet's real ESP32 address before enabling. docs/PI_LOCAL_SETUP.md
+# is explicit that 192.168.1.100 is an example, not discovered hardware.
+Environment=SFAB_ESP32_URL=http://192.168.1.100
+# Do NOT set MQTT_* here. edge/server.mjs routes POST /api/command to the local
+# controller and never imports the MQTT command handler; MQTT vars would be dead weight
+# on a cabinet whose whole point is working with the internet unplugged.
+
+# Optional secrets for /api/analyze (GEMINI_API_KEY) and /api/notify (LINE_*), which
+# edge/server.mjs forwards to the existing Vercel handlers. The leading '-' means the
+# service still starts when the file is absent — those two endpoints then fail, the
+# cabinet's drawer control does not.
+# Create as root:  install -o root -g sfab -m 0640 /dev/null /etc/sfab/edge.env
+# Never commit this file. Names come from .env.example: GEMINI_API_KEY,
+# LINE_CHANNEL_ACCESS_TOKEN, LINE_GROUP_ID, LINE_CHANNEL_SECRET, LINE_NOTIFY_TOKEN.
+EnvironmentFile=-/etc/sfab/edge.env
+
+# /var/lib/sfab, created and chowned by systemd before ExecStart, and automatically
+# read-write even under ProtectSystem=strict. The service ALSO mkdirs this path itself
+# (server.mjs, mode 0700), but under ProtectSystem=strict it could not create it inside
+# a read-only /var/lib — StateDirectory is what makes that mkdir a no-op instead of a
+# crash.
+StateDirectory=sfab
+StateDirectoryMode=0700
+
+# Explicit and redundant with StateDirectory, kept because it is the line an operator
+# has to change if SFAB_DATABASE ever moves. SQLite in WAL mode (controller.mjs sets
+# journal_mode=WAL, synchronous=FULL) writes commands.sqlite, -wal and -shm in this
+# DIRECTORY, so the directory must be writable — not just the file.
+ReadWritePaths=/var/lib/sfab
+
+Restart=on-failure
+RestartSec=5s
+
+# TimeoutStopSec — sized against the SUPPORTED maximum in-flight command, not against the
+# provisional bench setting. RAISED 45s -> 150s; the reasoning is worth reading before
+# anyone trims it back.
+#
+# WHY 45s WAS WRONG. It covered only the provisional 30s firmware ACK budget quoted in
+# docs/PI_LOCAL_SETUP.md. But that 30s is a configurable starting point, not a limit:
+# controller.mjs ACCEPTS whatever the firmware advertises, up to 120s, and then adds 3s.
+# Read from edge/controller.mjs in this checkout, not from memory:
+#     status():  Number.isInteger(data.ackTimeoutMs) && >= 3000 && <= 120000  -> valid
+#                commandTimeoutMs = data.ackTimeoutMs + 3000                  -> up to 123s
+#     dispatch(): deadline = Date.now() + (this.timeoutMs ?? hardware.commandTimeoutMs)
+# So a cabinet flashed at the top of the supported range holds one /open in flight for
+# 123s — plus roughly 1.5s for the /status fetch dispatch() makes before the deadline
+# starts. 45s would SIGKILL that at a third of the way through.
+#
+# WHAT ACTUALLY HOLDS THE STOP OPEN (measured on node v26.8.2 against this server, not
+# assumed; the old note here asserted the opposite and was wrong):
+#   · An idle keep-alive socket does NOT hold it. close() WITHOUT closeIdleConnections(),
+#     with one parked keep-alive connection open, resolved in 0.2ms.
+#   · An IN-FLIGHT request does. A 3s stubbed command measured 2808ms with
+#     `Connection: close` — i.e. exactly the command time still to run.
+#   · The socket that goes idle AFTER that response adds up to keepAliveTimeout (5s on
+#     this server). The same 3s command measured 6811ms over a keep-alive agent, because
+#     closeIdleConnections() fires once at stop time and cannot catch a socket that
+#     becomes idle later.
+#
+#   worst case ~= 1.5s (status) + 123s (command budget) + 5s (keep-alive tail) ~= 129.5s
+#
+# 150s leaves about 20s of margin on that. The failure this buys off is not untidiness:
+# a SIGKILL before dispatch() finishes leaves a 'pending' row, the next start rewrites it
+# to 'uncertain', and since the durable-hold change an uncertain row REFUSES every
+# subsequent drawer-open until an operator clears it over SSH with
+# `node edge/resolve.mjs --check-cabinet <id>`. That is a cabinet out of service. The stop
+# budget must not be the thing that puts it there.
+#
+# WHAT 150s COSTS: bounded, and much less than it looks. Because idle keep-alive sockets
+# do not hold close() open, a stop with no command in flight still returns in
+# milliseconds. 150s is a ceiling only a genuinely mid-dispense stop can reach — it is not
+# a routine wait, and it is no longer necessary to stop sfab-kiosk first to avoid it.
+# It does mean a shutdown/reboot issued mid-dispense can wait up to 150s.
+#
+# THE OTHER OPTION, AND WHY NOT: capping the admitted runtime budget instead. There is no
+# environment variable for it today — LocalController reads timeoutMs from its constructor
+# and edge/server.mjs never passes one, so the firmware's advertised budget always wins.
+# Capping would mean editing edge/server.mjs, which is outside this directory's scope.
+# If that cap is ever added, this value can come back down to match it.
+TimeoutStopSec=150
+
+# ── Hardening ────────────────────────────────────────────────────────────────
+# Chosen to leave node:sqlite writes working. Anything that breaks the journal breaks
+# the anti-replay guarantee, which is worse than a slightly larger attack surface.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+PrivateDevices=yes
+DevicePolicy=closed
+UMask=0077
+
+# Port 8787 > 1024, so no CAP_NET_BIND_SERVICE and no capabilities at all are needed.
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# AF_INET/AF_INET6 for the HTTP listener and the ESP32 fetch; AF_UNIX for the journal
+# socket. AF_NETLINK is deliberately absent — remove the restriction, do not widen it
+# blindly, if Node reports EAFNOSUPPORT at startup.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+# DELIBERATELY NOT SET — MemoryDenyWriteExecute=yes. It blocks V8's JIT and Node will
+# not start. If you are copying hardening from a systemd-analyze security report, this
+# is the line to keep skipping.
+
+# OPTIONAL egress lockdown. Uncomment ONLY if you accept that it disables /api/analyze
+# (Gemini) and /api/notify (LINE), which reach the public internet from THIS process.
+# Drawer control does not need it: the ESP32 is on the private LAN.
+#IPAddressDeny=any
+#IPAddressAllow=localhost
+#IPAddressAllow=192.168.1.0/24
+
+SyslogIdentifier=sfab-edge
+
+[Install]
+WantedBy=multi-user.target

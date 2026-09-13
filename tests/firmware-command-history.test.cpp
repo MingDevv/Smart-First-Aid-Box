@@ -52,7 +52,12 @@ int main() {
   latch.ready(5, 100);
   assert(latch.canOpen(100));
   latch.consume("c-refused-0001");
+  assert(!latch.needsResync()); // accepted OPEN is ordinary busy, not an epoch fault
+  latch.busy(150);
+  assert(!latch.canOpen(150));
+  assert(!latch.needsResync());
   latch.ready(5, 200);
+  assert(latch.needsResync()); // only a repeated READY with the consumed epoch needs recovery
   assert(!latch.canOpen(200));
   assert(latch.waitingForEpoch());
   assert(!latch.reject("c-unrelated-01"));

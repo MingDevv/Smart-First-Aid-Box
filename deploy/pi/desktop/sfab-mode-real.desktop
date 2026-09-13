@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=ตั้งเป็นใช้งานจริง
+Comment=ตู้จะสั่งมอเตอร์จริง — ใช้ตอนเปิดให้นักเรียนใช้งาน
+Icon=/home/technology/sfab/images/logo_first_aid.png
+Exec=/home/technology/.local/bin/sfab-set-mode.sh real
+Terminal=false
+Categories=Utility;

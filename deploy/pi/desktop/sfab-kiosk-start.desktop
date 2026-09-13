@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=เปิดหน้าตู้ยา
+Comment=เปิดหน้าจอตู้ปฐมพยาบาลแบบเต็มจอ (ปกติขึ้นเองตอนบูต ไอคอนนี้ไว้ใช้ตอนปิดไปแล้ว)
+Icon=/home/technology/sfab/images/logo_first_aid.png
+# สั่งผ่าน systemd ไม่เรียก chromium ตรงๆ — ไม่งั้นจะได้หน้าตู้สองตัวแย่งจอกัน
+# และตัวที่เปิดมือจะไม่มี Restart/ExecStartPre ที่รอ edge ตอบก่อน
+Exec=systemctl --user start sfab-kiosk.service
+Terminal=false
+Categories=Utility;

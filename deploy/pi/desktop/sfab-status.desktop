@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=ดูสถานะตู้ยา
+Comment=แสดงสถานะบริการ ไฟเลี้ยง และคำสั่งที่ค้างอยู่
+Icon=utilities-system-monitor
+Exec=lxterminal -e /home/technology/.local/bin/sfab-status.sh
+Terminal=false
+Categories=Utility;

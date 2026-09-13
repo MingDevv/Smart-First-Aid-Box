@@ -39,7 +39,17 @@ const DEFAULT_SETTINGS = {
     mqttPassword: '',
     // ต้องตรงกับ MQTT_BASE_TOPIC บน Vercel และ BASE_TOPIC ในเฟิร์มแวร์ ESP32
     mqttBaseTopic: 'crms6/firstaidbox/box1',
-    demoMode: true
+    // โหมดการทำงานมีสามค่า ไม่ใช่สอง:
+    //   true  = Demo   จำลองผล ไม่แตะฮาร์ดแวร์
+    //   false = Real   สั่งตู้จริง
+    //   ยังไม่ตั้ง     = ห้ามสั่งจริง และห้ามอ้างว่าจำลองสำเร็จ ต้องให้ครูเลือกก่อน
+    // ค่าเริ่มต้นคือ "ยังไม่ตั้ง" ตามที่ Bank เคาะ 2026-09-11 — ไม่มีทางที่ใครจะเข้าใจผิด
+    // ว่าตู้อยู่โหมดไหน เพราะไม่มีโหมดไหนถูกเดาให้
+    demoMode: null,
+    // ตราประทับว่าโหมดถูกเลือกโดยคน ไม่ใช่ถูกเขียนโดยค่าเริ่มต้นเก่าหรือปุ่มหนีของหน้าเว็บเดิม
+    // โปรไฟล์ที่มีอยู่แล้วมี demoMode: true ติดมาจากค่าเริ่มต้นเดิมซึ่งแยกไม่ออกว่าใครตั้ง
+    // จึงถือว่ายังไม่ตั้งทั้งหมด และครูต้องเลือกใหม่หนึ่งครั้ง
+    modeProvisionedAt: null
 };
 
 const StorageService = {
@@ -147,10 +157,9 @@ const StorageService = {
         let anonKey = (settings.supabaseAnonKey || '').trim();
 
         if (!baseUrl || !anonKey) {
+            // ข้อความชวนตั้งค่า Supabase เป็นเรื่องของผู้ดูแล ไม่ใช่ของคนที่กำลังทำแผลอยู่
+            // เดิมเด้ง toast ใส่ผู้ใช้ทุกครั้งที่บันทึกประวัติ ซึ่งบนหน้าตู้ยิ่งไม่ควร
             console.log('[Supabase] URL or Anon Key not configured in settings. Local fallback active.');
-            if (window.NotificationService) {
-                window.NotificationService.showToast('คุณสามารถตั้งค่า Supabase URL และ Key เพื่อบันทึกลงฐานข้อมูลออนไลน์ได้', 'info');
-            }
             return;
         }
 
@@ -285,9 +294,52 @@ const StorageService = {
 
     saveSettings(settings) {
         const current = this.getSettings();
-        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify({ ...current, ...settings }));
+        const next = { ...current, ...settings };
+        // เลือกโหมดแล้วต้องมีตราประทับ ไม่งั้น getOperatingMode() จะยังถือว่ายังไม่ตั้ง
+        // รับสตริง 'true'/'false' ด้วย เพราะ <select> กับโค้ดเก่าบางที่ส่งมาเป็นสตริง
+        // ถ้ารับแต่ boolean คนที่บันทึกด้วยสตริงจะไม่ได้ตราประทับ แล้วตู้จะเงียบๆ ไม่ยอมทำงานตลอดไป
+        // โดยไม่มีอะไรบอกว่าเพราะอะไร — ปลอดภัยแต่หาสาเหตุไม่เจอ
+        if (Object.hasOwn(settings, 'demoMode') &&
+            [true, false, 'true', 'false'].includes(settings.demoMode)) {
+            next.demoMode = settings.demoMode === true || settings.demoMode === 'true';
+            next.modeProvisionedAt = new Date().toISOString();
+        }
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
+    },
+
+    // 'demo' | 'real' | 'unset' — แหล่งความจริงเดียวของทั้ง ApiBridge และ NotificationService
+    // 'unset' ไม่ใช่คำพ้องของ 'demo' — demo แปลว่าจำลองแล้วบอกว่าสำเร็จ
+    // ส่วน unset แปลว่าไม่ทำอะไรเลยและบอกตามตรงว่ายังไม่ได้ทำ
+    // 'device' = ผู้ดูแลตั้งที่เครื่อง (แก้จากเบราว์เซอร์ไม่ได้) · 'browser' = ตั้งในโปรไฟล์นี้
+    modeSource() {
+        const injected = (typeof window !== 'undefined' && window.SFAB_RUNTIME?.mode) || '';
+        return ['demo', 'real', 'unset'].includes(injected) ? 'device' : 'browser';
+    },
+
+    getOperatingMode(settings) {
+        // โหมดที่ฉีดมาจากบริการบน Pi ชนะเสมอ — มันมาจากไฟล์ตั้งค่าของเครื่องซึ่งเป็น
+        // การตัดสินใจของผู้ติดตั้ง ส่วน localStorage เป็นของเบราว์เซอร์เครื่องเดียว
+        // ถ้าปล่อยให้ localStorage ทับได้ จะมีสองแหล่งความจริงเรื่อง "ตู้จะสั่งจริงไหม"
+        // มีค่าฉีดมา = เครื่องนี้ถูกจัดการโดยผู้ดูแล ⇒ เป็นคำตอบสุดท้าย **รวมค่า unset ด้วย**
+        // ถ้าปล่อยให้ unset ตกกลับไปอ่าน localStorage เครื่องที่เคยตั้ง Real ไว้แล้วลบคอนฟิกทิ้ง
+        // จะฟื้นคืน Real จากค่าเก่าแทนที่จะกลับเป็นยังไม่ตั้ง (นัยวัดได้จริง R3-1)
+        const injected = (typeof window !== 'undefined' && window.SFAB_RUNTIME?.mode) || '';
+        if (injected === 'demo' || injected === 'real' || injected === 'unset') return injected;
+        const s = settings || this.getSettings();
+        if (!s.modeProvisionedAt) return 'unset';
+        if (s.demoMode === true || s.demoMode === 'true') return 'demo';
+        if (s.demoMode === false || s.demoMode === 'false') return 'real';
+        return 'unset';
     }
 };
+
+// js/notification.js กับ js/api-bridge.js แขวนตัวเองไว้บน window แต่ไฟล์นี้ไม่เคยแขวน
+// `const` ระดับบนสุดของสคริปต์ธรรมดาอยู่ใน global lexical environment ไม่ใช่ property ของ window
+// ⇒ `window.StorageService` เป็น undefined มาตลอด ทำให้ ApiBridge.getSettings() ตกไป fallback
+// `{esp32Url:''}` ทุกครั้ง และ isDemoMode() คืน false เสมอ ไม่ว่าค่าที่เก็บไว้จะเป็นอะไร
+// วัดด้วย Chromium จริงทั้ง /kiosk, /student/kiosk และ /student/first-aid-guide (2026-09-11)
+// นัยยืนยันซ้ำอิสระอีกรอบบนทั้งสามหน้า
+window.StorageService = StorageService;
 
 // Initialize if empty
 StorageService.getMedicines();

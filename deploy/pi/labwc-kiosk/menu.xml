@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Empty labwc menus for the cabinet kiosk.
+
+  STATUS: NEVER APPLIED. Not parsed by labwc on hardware.
+  Install: /home/technology/.config/labwc/menu.xml
+
+  Purpose: leave nothing behind the root menu (normally right-click on the desktop) or
+  the client menu (normally the window menu, Alt+Space or a titlebar click). The stock
+  root menu contains a terminal entry, a run-command entry, a reconfigure entry and
+  exit/reboot/shutdown entries — every one of them an escape from the kiosk, and all of
+  them reachable with nothing but the touchscreen once mouse emulation is on.
+
+  This is the second of two barriers. The first is rc.xml's empty <mouse> block, which
+  binds no context action to opening a menu at all. Both are here because they fail
+  differently: a wrong assumption about labwc's default-fallback behaviour in rc.xml
+  would restore the bindings, and then this file is what the bindings find.
+
+  VERIFY: the root element name (<openbox_menu>) and the reserved menu ids
+  ("root-menu", "client-menu") against `man 5 labwc-menu` on the device. If labwc logs a
+  parse error for this file it may fall back to its built-in menu, which is the
+  behaviour this file exists to prevent — so check the journal after installing rather
+  than assuming silence means success, and then confirm by actually long-pressing and
+  right-clicking on the screen.
+-->
+<openbox_menu>
+  <menu id="root-menu" label="">
+  </menu>
+  <menu id="client-menu" label="">
+  </menu>
+</openbox_menu>

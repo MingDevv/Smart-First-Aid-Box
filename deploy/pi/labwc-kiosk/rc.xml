@@ -1,0 +1,59 @@
+<?xml version="1.0"?>
+<!--
+  labwc config AS DEPLOYED on the cabinet: /home/technology/.config/labwc/rc.xml
+  (labwc 0.9.8). Replaces the never-applied template that lived here until 2026-09-12; the
+  installed file had diverged from it since 09-11 and the repo copy was the wrong one.
+
+  Keep this byte-identical to the device. Change here, scp there, then `labwc -r`.
+
+  <libinput>/<touch>: the measured five-point ADS7846 calibration and the HDMI-A-1 mapping
+  (it had pointed at NOOP-1, which is why touch looked dead). Measured, not invented — safe
+  to keep in git; there is no secret in it.
+
+  <keyboard>: `labwc -m` MERGES the system rc.xml, so an empty block removes nothing (found
+  09-11 when Ctrl+Alt+T opened a terminal over the kiosk after a reboot). Every stock bind
+  that could leave the kiosk is therefore overridden one by one with action None.
+
+  The two live binds are the operator's way out and back, decided by Bank 2026-09-12 as the
+  alternative to giving students SSH: a keyboard has to be plugged in, and the combo has to
+  be known. Students at the touchscreen have neither. Both act on the systemd user unit,
+  so the watchdog leaves a deliberately stopped kiosk alone and the desktop icons
+  (โหมดดูแล / โหมดจริง / โหมดสาธิต / สถานะ / เปิดหน้าตู้) become reachable.
+    Ctrl+Alt+K  = stop the kiosk (exit to the desktop)
+    Ctrl+Alt+R  = start the kiosk again
+  Verified 2026-09-12 with wtype from SSH: combo before this file = no effect (control);
+  after `labwc -r`: K -> unit inactive, R -> unit active.
+-->
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <libinput>
+    <device category="ADS7846 Touchscreen">
+      <calibrationMatrix>0.0072091456468 -0.973154231364 0.973769470816 1.01817655533 0.0165697405347 -0.00758388772081</calibrationMatrix>
+    </device>
+  </libinput>
+  <touch deviceName="ADS7846 Touchscreen" mapToOutput="HDMI-A-1" mouseEmulation="yes"/>
+  <keyboard>
+    <keybind key="C-A-t"><action name="None"/></keybind>
+    <keybind key="C-A-w"><action name="None"/></keybind>
+    <keybind key="C-A-b"><action name="None"/></keybind>
+    <keybind key="C-A-m"><action name="None"/></keybind>
+    <keybind key="C-A-space"><action name="None"/></keybind>
+    <keybind key="C-A-Delete"><action name="None"/></keybind>
+    <keybind key="Super_L"><action name="None"/></keybind>
+    <keybind key="W-d"><action name="None"/></keybind>
+    <keybind key="A-Tab"><action name="None"/></keybind>
+    <keybind key="A-F4"><action name="None"/></keybind>
+    <keybind key="Print"><action name="None"/></keybind>
+    <keybind key="XF86PowerOff"><action name="None"/></keybind>
+    <keybind key="A-Left"><action name="None"/></keybind>
+    <keybind key="A-Right"><action name="None"/></keybind>
+    <keybind key="A-Up"><action name="None"/></keybind>
+    <keybind key="A-Down"><action name="None"/></keybind>
+    <keybind key="C-A-Left"><action name="None"/></keybind>
+    <keybind key="C-A-Right"><action name="None"/></keybind>
+    <keybind key="C-A-Up"><action name="None"/></keybind>
+    <keybind key="C-A-Down"><action name="None"/></keybind>
+    <!-- operator exit / return — see header -->
+    <keybind key="C-A-k"><action name="Execute"><command>systemctl --user stop sfab-kiosk.service</command></action></keybind>
+    <keybind key="C-A-r"><action name="Execute"><command>systemctl --user start sfab-kiosk.service</command></action></keybind>
+  </keyboard>
+</openbox_config>

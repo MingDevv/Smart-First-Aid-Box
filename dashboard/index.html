@@ -60,6 +60,13 @@
                     </div>
                 </header>
 
+                <section class="db-card" aria-label="ควบคุมเสียงฉุกเฉิน" style="margin-bottom:20px; padding:18px;">
+                    <button class="dashboard-action" id="stop-sos-button" type="button" onclick="stopSosBuzzer()" style="min-height:44px;">
+                        <span class="material-symbols-rounded" aria-hidden="true">volume_off</span>หยุดเสียง SOS ที่ตู้
+                    </button>
+                    <p id="stop-sos-status" role="status" style="margin:10px 0 0;">ใช้เมื่อครูรับทราบเหตุแล้ว การหยุดเสียงไม่ยกเลิกข้อความ LINE ที่ส่งไป</p>
+                </section>
+
                 <div id="alerts-panel"></div>
 
                 <section class="stats-grid" aria-label="สถิติสำคัญ">
@@ -119,6 +126,27 @@
     <script src="../js/api-bridge.js"></script>
     <script src="../js/notification.js"></script>
     <script>
+        async function stopSosBuzzer() {
+            const button = document.getElementById('stop-sos-button');
+            const status = document.getElementById('stop-sos-status');
+            if (button.disabled) return;
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+            status.textContent = 'กำลังรอตู้ยืนยันหยุดเสียง...';
+            try {
+                const result = await ApiBridge.triggerBuzzer('off');
+                status.textContent = result.mode === 'simulation'
+                    ? 'โหมดสาธิต: จำลองการหยุดเสียง ไม่มีการสั่งตู้จริง'
+                    : result.success === true ? 'ตู้ยืนยันหยุดเสียงแล้ว กรุณาตรวจเสียงที่หน้างาน'
+                    : 'ยังยืนยันการหยุดเสียงไม่ได้ กรุณาตรวจตู้และแจ้งผู้ดูแล';
+            } catch {
+                status.textContent = 'ยังยืนยันการหยุดเสียงไม่ได้ กรุณาตรวจตู้และแจ้งผู้ดูแล';
+            } finally {
+                button.disabled = false;
+                button.removeAttribute('aria-busy');
+            }
+        }
+
         let currentPinInput = '';
 
         function updatePinDots() {
@@ -252,7 +280,10 @@
             updated.textContent = `อัปเดต ${new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
             try {
                 const hardware = await ApiBridge.getHardwareStatus();
-                statusText.textContent = (hardware.mode === 'mqtt' || hardware.mode === 'production') ? 'ตู้พร้อมใช้งาน (ฮาร์ดแวร์)' : hardware.mode === 'simulation' ? 'โหมดสาธิต (เปิดใช้งาน)' : 'ตู้ไม่ได้เชื่อมต่อ';
+                statusText.textContent = hardware.mode === 'simulation' ? 'โหมดสาธิต (เปิดใช้งาน)'
+                    : hardware.reason === 'awaiting_new_ready_epoch' ? 'ให้ครูตรวจตู้และสายสัญญาณ'
+                    : !hardware.connected ? 'ตู้ไม่ได้เชื่อมต่อ'
+                    : hardware.ready === false ? 'ตู้กำลังใช้งาน' : 'ตู้พร้อมใช้งาน (ฮาร์ดแวร์)';
                 statusDot.style.background = (hardware.connected || hardware.mode === 'simulation') ? 'oklch(0.79 0.18 145)' : 'oklch(0.72 0.20 28)';
             } catch (error) {
                 console.warn('[Dashboard] Hardware status failed:', error);
@@ -354,10 +385,12 @@
         function startMqttListener() {
             if (!window.MqttBridge || !MqttBridge.isConfigured()) return;
             MqttBridge.onStatus(status => {
+                if (ApiBridge.isDemoMode()) return;
                 const text = document.getElementById('cabinet-status-text');
                 const dot = document.getElementById('cabinet-dot');
                 if (!text || !dot) return;
-                text.textContent = status.online ? 'ตู้พร้อมใช้งาน' : 'ตู้ไม่ได้เชื่อมต่อ';
+                text.textContent = status.reason === 'awaiting_new_ready_epoch' ? 'ให้ครูตรวจตู้และสายสัญญาณ'
+                    : !status.online ? 'ตู้ไม่ได้เชื่อมต่อ' : status.ready === false ? 'ตู้กำลังใช้งาน' : 'ตู้พร้อมใช้งาน';
                 dot.style.background = status.online ? 'oklch(0.79 0.18 145)' : 'oklch(0.72 0.20 28)';
             });
             MqttBridge.onEvent(data => {

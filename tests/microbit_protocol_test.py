@@ -1,4 +1,9 @@
-"""Execute the actual MakeCode Python functions with hardware stubs (no motor attached)."""
+"""Execute the actual MicroPython firmware functions with hardware stubs (no motor attached).
+
+Rewritten 2026-09-12 for the USB/MicroPython firmware. Same seven behaviours the MakeCode
+version pinned, plus the two things that changed: serial is USB (nothing redirected to edge
+pins) and the buzzer lives on P16, not P0.
+"""
 import ast
 from pathlib import Path
 from types import SimpleNamespace
@@ -7,105 +12,122 @@ import unittest
 SOURCE = Path(__file__).resolve().parents[1] / 'microbit/main.py'
 
 
-def load():
+class Pin:
+    def __init__(self, name, events):
+        self.name = name
+        self.events = events
+    def write_digital(self, value):
+        self.events.append(('pin', self.name, value))
+
+
+def load(*, busy=False, epoch=7):
     tree = ast.parse(SOURCE.read_text())
     functions = ast.Module(body=[n for n in tree.body if isinstance(n, ast.FunctionDef)], type_ignores=[])
     events = []
-    ns = dict(number=int, any=object, List=list, DigitalPin=object,
-              serial=SimpleNamespace(write_line=lambda s: events.append(s),
-                                     write_string=lambda s: events.append(s.strip()), read_string=lambda: ''),
-              basic=SimpleNamespace(pause=lambda _: None),
-              music=SimpleNamespace(ring_tone=lambda _: events.append('sound-on'),
-                                    stop_all_sounds=lambda: events.append('sound-off')),
-              input=SimpleNamespace(running_time=lambda: 1000),
-              remoteCommandId='c-motor-test-01', readyEpoch=7, serialBuffer='', serialOverflow=False,
-              state=0, STATE_WELCOME=0, STATE_MENU=1, STATE_ABRASION=2, STATE_INSECT=3, STATE_SLEEP=4,
-              lastAction=0, lastHeartbeat=0, MOTOR1_PINS=[], MOTOR2_PINS=[],
-              DISPENSE_STEPS=2048, STEP_DELAY_MS=2, SYMPTOM_DISPLAY_MS=2500,
-              CARE_DONE_MS=3000, PIN_ABRASION=8, PIN_INSECT=12)
+    chunks = []
+    pins = {n: Pin(n, events) for n in ('p0', 'p1', 'p2', 'p8', 'p12', 'p13', 'p14', 'p15')}
+    ns = dict(
+        uart=SimpleNamespace(write=lambda s: events.append(s.strip()) if isinstance(s, str) else events.append(s),
+                             read=lambda n: chunks.pop(0) if chunks else None),
+        music=SimpleNamespace(pitch=lambda *a, **k: events.append('sound-on'),
+                              stop=lambda *a, **k: events.append('sound-off')),
+        display=SimpleNamespace(show=lambda _: None),
+        Image=SimpleNamespace(ARROW_S=1, ARROW_N=2, YES=3),
+        running_time=lambda: 1000,
+        sleep=lambda _: None,
+        pin16=Pin('p16', events),
+        DISPENSE_STEPS=200, STEP_MS=5, HEARTBEAT_MS=500,
+        ID_CHARS='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-',
+        MOTORS={1: [pins['p12'], pins['p14'], pins['p13'], pins['p15']],
+                2: [pins['p0'], pins['p2'], pins['p1'], pins['p8']]},
+        busy=busy, ready_epoch=epoch, last_heartbeat=0, line=b'', overflow=False,
+    )
     exec(compile(functions, str(SOURCE), 'exec'), ns)
-    for name in ['show_running', 'show_abrasion_care1', 'show_abrasion_care2',
-                 'show_insect_care1', 'show_insect_care2', 'show_care_done', 'reset_to_welcome']:
-        ns[name] = lambda: None
     ns['_actual_motor_run'] = ns['motor_run']
     ns['motor_run'] = lambda *args: events.append('motor-finished')
-    ns['wait_for_button_again'] = lambda *args: None
-    ns['pause_with_service'] = lambda *args: None
-    return ns, events
+    return ns, events, chunks
 
 
 class ProtocolTests(unittest.TestCase):
-    def test_ack_only_after_motor_finishes(self):
-        for name, drawer in [('dispense_abrasion', 1), ('dispense_insect', 2)]:
-            ns, events = load()
-            ns[name]()
-            self.assertEqual(events[0], 'motor-finished', 'ACK must follow motor completion')
-            self.assertEqual(events[1:], [f'DONE{drawer}:c-motor-test-01'])
+    def test_ack_only_after_motor_finishes_and_epoch_bumps_first(self):
+        for drawer in (1, 2):
+            ns, events, _ = load(epoch=7)
+            ns['dispense'](drawer, 'c-motor-test-01')
+            self.assertEqual(events, ['BUSY', 'motor-finished', f'DONE{drawer}:c-motor-test-01'])
+            self.assertEqual(ns['ready_epoch'], 8, 'epoch must change before the motor moves')
+            self.assertFalse(ns['busy'])
 
-    def test_buzzer_ack_follows_setting_with_exact_id(self):
-        for state in ['1', '0']:
-            ns, events = load()
+    def test_buzzer_ack_follows_setting_with_exact_id_on_p16(self):
+        for state in ('1', '0'):
+            ns, events, _ = load()
             ns['handle_serial_frame']('BUZZ' + state + ':c-sound-test-01')
             self.assertEqual(events, ['sound-on' if state == '1' else 'sound-off',
                                       'BUZZ_DONE' + state + ':c-sound-test-01'])
+        source = SOURCE.read_text()
+        self.assertIn('pin=pin16', source, 'music defaults to P0, which is now a motor coil')
 
     def test_motor_keeps_heartbeat_and_services_sos(self):
-        ns, events = load()
+        ns, events, chunks = load(busy=True)
         now = [0]
-        chunks = ['BUZZ1:c-sos-motor-01\n']
-        ns['state'] = ns['STATE_ABRASION']
-        ns['input'].running_time = lambda: now[0]
-        ns['basic'].pause = lambda ms: now.__setitem__(0, now[0] + ms)
-        ns['serial'].read_string = lambda: chunks.pop(0) if chunks else ''
-        ns['pins'] = SimpleNamespace(digital_write_pin=lambda *args: None)
-        ns['STEP_SEQUENCE'] = [[1, 0, 0, 0]]
-        ns['motor_stop'] = lambda _: None
-        ns['_actual_motor_run']([4, 5, 6, 7], 512, 2)
+        ns['running_time'] = lambda: now[0]
+        ns['sleep'] = lambda ms: now.__setitem__(0, now[0] + ms)
+        chunks.append(b'BUZZ1:c-sos-motor-01\n')
+        ns['_actual_motor_run'](ns['MOTORS'][1], 512, 2)
         self.assertIn('BUSY', events)
         self.assertIn('BUZZ_DONE1:c-sos-motor-01', events)
+        self.assertEqual(events[-4:], [('pin', n, 0) for n in ('p12', 'p14', 'p13', 'p15')], 'coils released at the end')
 
-    def test_refusal_preserves_exact_id_for_esp32(self):
-        ns, events = load()
-        ns['state'] = ns['STATE_ABRASION']
+    def test_refusal_preserves_exact_id(self):
+        ns, events, _ = load(busy=True)
         ns['handle_serial_frame']('OPEN1:c-reject-wire-01:7')
         self.assertEqual(events, ['REJECT:c-reject-wire-01'])
 
-    def test_rx_buffer_configuration_after_redirect_and_full_frame(self):
-        tree = ast.parse(SOURCE.read_text())
-        calls = [n.value for n in tree.body if isinstance(n, ast.Expr)
-                 and isinstance(n.value, ast.Call) and isinstance(n.value.func, ast.Attribute)
-                 and isinstance(n.value.func.value, ast.Name) and n.value.func.value.id == 'serial']
-        self.assertEqual([c.func.attr for c in calls], ['redirect', 'set_rx_buffer_size'])
-        self.assertEqual(calls[1].args[0].value, 128)
-        ns, events = load()
-        ns['readyEpoch'] = 4294967295
-        ns['go_to_state'] = lambda state: events.append(('accepted', ns['remoteCommandId']))
+    def test_stale_epoch_is_refused_with_the_id(self):
+        ns, events, _ = load(epoch=7)
+        ns['dispense'] = lambda *a: self.fail('stale epoch actuated motor')
+        ns['handle_serial_frame']('OPEN1:c-stale-0001:6')
+        self.assertEqual(events, ['REJECT:c-stale-0001'])
+
+    def test_usb_serial_and_full_128_byte_frame(self):
+        source = SOURCE.read_text()
+        self.assertNotIn('serial.redirect', source)
+        self.assertNotIn('redirect(', source)
+        self.assertIn('uart.init(baudrate=115200)', source)
+        ns, events, chunks = load(epoch=4294967295)
+        ns['dispense'] = lambda drawer, cid: events.append(('accepted', drawer, cid))
         full_id = 'c-' + 'x' * 62
         frame = 'OPEN1:' + full_id + ':4294967295\n'
         self.assertLess(len(frame), 128)
-        ns['serial'].read_string = lambda: frame
+        chunks.append(frame.encode())
         ns['check_serial_commands']()
-        self.assertEqual(events, [('accepted', full_id)])
+        self.assertEqual(events, [('accepted', 1, full_id)])
 
     def test_fragmented_command_and_exact_identity(self):
-        ns, events = load()
-        ns['remoteCommandId'] = ''
-        ns['go_to_state'] = lambda state: events.append(('state', state, ns['remoteCommandId']))
-        for chunk in ['OPEN1:c-proto-', 'test-01:7\n']:
-            ns['serial'].read_string = lambda: chunk
-            ns['check_serial_commands']()
-        self.assertEqual(events, [('state', 2, 'c-proto-test-01')])
+        ns, events, chunks = load()
+        ns['dispense'] = lambda drawer, cid: events.append(('accepted', drawer, cid))
+        chunks.extend([b'OPEN2:c-proto-', b'test-01:7\r\n'])
+        ns['check_serial_commands']()
+        ns['check_serial_commands']()
+        self.assertEqual(events, [('accepted', 2, 'c-proto-test-01')])
 
-    def test_stale_epoch_busy_and_malformed_never_actuate(self):
-        for state, line in [(0, 'OPEN1:c-stale-0001:6'), (2, 'OPEN1:c-busy-0001:7'),
-                            (0, 'junkOPEN1:c-inject-001:7'), (0, 'OPEN1'),
-                            (0, 'OPEN1:x:7'), (0, 'OPEN1:' + 'a' * 140 + ':7')]:
-            ns, events = load()
-            ns['state'] = state
-            ns['go_to_state'] = lambda _: self.fail('invalid frame actuated motor')
-            ns['serial'].read_string = lambda: line + '\n'
+    def test_busy_and_malformed_never_actuate(self):
+        for busy, line in [(True, 'OPEN1:c-busy-0001:7'), (False, 'junkOPEN1:c-inject-001:7'),
+                           (False, 'OPEN1'), (False, 'OPEN1:x:7'), (False, 'OPEN1:' + 'a' * 140 + ':7'),
+                           (False, 'OPEN3:c-no-such-drawer-1:7')]:
+            ns, events, chunks = load(busy=busy)
+            ns['dispense'] = lambda *a: self.fail('invalid frame actuated motor: ' + line[:40])
+            chunks.append((line + '\n').encode())
             ns['check_serial_commands']()
             self.assertFalse(any(isinstance(e, tuple) for e in events))
+
+    def test_no_button_dispensing_and_no_local_done(self):
+        # Identifiers, not prose: the header comment is allowed to explain why buttons went away.
+        tree = ast.parse(SOURCE.read_text())
+        names = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)} | \
+                {n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
+        for forbidden in ('button_a', 'button_b', 'PIN_START', 'PIN_ABRASION', 'PIN_INSECT', 'read_digital', 'is_pressed'):
+            self.assertNotIn(forbidden, names)
+        self.assertNotIn('LOCAL_DONE', SOURCE.read_text())
 
 
 if __name__ == '__main__':

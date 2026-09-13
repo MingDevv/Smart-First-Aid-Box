@@ -99,10 +99,10 @@
             const badge = document.getElementById('kiosk-mode-badge');
             if (!badge) return;
             badge.className = 'home-status';
-            if (status.mode === 'pi-local' && status.reason === 'awaiting_new_ready_epoch') {
+            if (status.reason === 'awaiting_new_ready_epoch') {
                 badge.className = 'home-status status-offline';
                 badge.textContent = 'ให้ครูตรวจตู้และสายสัญญาณ';
-            } else if (status.mode === 'pi-local' && status.connected && status.ready === false) {
+            } else if (status.connected && status.ready === false) {
                 badge.className = 'home-status status-checking';
                 badge.textContent = 'ตู้กำลังใช้งาน';
             } else if (status.connected || status.mode === 'simulation') {
@@ -117,7 +117,10 @@
             }
         }
 
+        let statusRefreshing = false;
         async function refreshKioskStatus() {
+            if (statusRefreshing) return;
+            statusRefreshing = true;
             const mqttConfigured = window.MqttBridge && MqttBridge.isConfigured();
             if (mqttConfigured) renderKioskStatus({ connected: false, mode: 'checking' });
             try {
@@ -126,7 +129,7 @@
             } catch (error) {
                 console.warn('[Kiosk] Hardware status failed:', error.message);
                 renderKioskStatus({ connected: false, mode: 'error' });
-            }
+            } finally { statusRefreshing = false; }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -135,13 +138,17 @@
             document.addEventListener('pointermove', resetIdleTimer, { passive: true });
             document.addEventListener('keydown', resetIdleTimer);
             if (window.MqttBridge && MqttBridge.isConfigured()) {
-                MqttBridge.onStatus(status => renderKioskStatus({ connected: status.online, mode: status.online ? 'mqtt' : 'error' }));
+                MqttBridge.onStatus(status => {
+                    if (ApiBridge.isDemoMode()) return;
+                    renderKioskStatus({ connected: status.online, ready: status.ready, reason: status.reason, mode: 'mqtt' });
+                });
                 MqttBridge.connect();
                 setTimeout(() => {
-                    if (!MqttBridge.isOnline()) renderKioskStatus({ connected: false, mode: 'error' });
+                    if (!ApiBridge.isDemoMode() && !MqttBridge.isOnline()) renderKioskStatus({ connected: false, mode: 'error' });
                 }, 8500);
             }
             refreshKioskStatus();
+            if (!window.MqttBridge?.isConfigured()) setInterval(refreshKioskStatus, 5000);
         });
 
         async function triggerKioskSos() {
@@ -151,15 +158,7 @@
             button.disabled = true;
             button.setAttribute('aria-busy', 'true');
             try {
-                const [notificationResult, buzzerResult] = await Promise.all([
-                    NotificationService.sendLineNotification(NotificationService.buildSosFlexMessage(studentName)),
-                    ApiBridge.triggerBuzzer('on')
-                ]);
-                if (notificationResult.success || notificationResult.mode === 'simulation' || buzzerResult.success || buzzerResult.mode === 'simulation') {
-                    NotificationService.showToast('ส่ง SOS ถึงครูพยาบาลเรียบร้อยแล้ว', 'success');
-                } else {
-                    NotificationService.showToast('ส่งคำขอได้ไม่ครบ กรุณาเรียกครูใกล้ที่สุดทันที', 'danger');
-                }
+                await NotificationService.sendSos(NotificationService.buildSosFlexMessage(studentName));
             } catch (error) {
                 console.error('[Kiosk] SOS failed:', error);
                 NotificationService.showToast('ส่ง SOS ไม่สำเร็จ กรุณาเรียกครูใกล้ที่สุดทันที', 'danger');

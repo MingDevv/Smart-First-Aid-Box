@@ -10,6 +10,7 @@
 // เพราะหน้าเว็บเสิร์ฟด้วย https ถ้าใช้ ws:// เบราว์เซอร์จะบล็อกแบบเดียวกับ http://
 const MqttBridge = {
     client: null,
+    statusTimer: null,
     lastStatus: { online: false, receivedAt: 0, payload: null },
     eventHandlers: [],
     statusHandlers: [],
@@ -33,7 +34,8 @@ const MqttBridge = {
     // สถานะที่เชื่อถือได้ต้องครบสองอย่าง: เราต่อ broker อยู่ และ broker บอกว่ากล่องออนไลน์
     // ถ้าเราหลุดจาก broker เราไม่รู้อะไรเลยเกี่ยวกับกล่อง จึงต้องถือว่าออฟไลน์ ไม่ใช่ค้างค่าเดิมไว้
     isOnline() {
-        return !!(this.client && this.client.connected && this.lastStatus.online);
+        return !!(this.client && this.client.connected && this.lastStatus.online &&
+            Date.now() - this.lastStatus.payload?.ts <= 5000);
     },
 
     onEvent(handler) {
@@ -73,13 +75,26 @@ const MqttBridge = {
     },
 
     settleDrawerOpened(data) {
-        if (!data || data.event !== 'drawer_opened' || typeof data.id !== 'string') return;
+        if (!data || data.protocol !== 2 || data.event !== 'drawer_opened' || typeof data.id !== 'string') return;
         const waiters = this.drawerAckWaiters.get(data.id);
         if (!waiters) return;
 
         for (const waiter of [...waiters]) {
             if (Number(data.drawer) === waiter.drawer) waiter.finish(data);
         }
+    },
+
+    updateStatus(data) {
+        clearTimeout(this.statusTimer);
+        const age = Date.now() - data?.ts;
+        const online = data?.online === true && data.protocol === 2 && data.microbit === 'connected' &&
+            Number.isFinite(age) && age >= -2000 && age <= 5000 &&
+            Number.isInteger(data.ackTimeoutMs) && data.ackTimeoutMs >= 3000 && data.ackTimeoutMs <= 120000;
+        this.lastStatus = { online, ready: online && data.ready === true,
+            reason: data?.reason === 'awaiting_new_ready_epoch' ? data.reason : '',
+            receivedAt: Date.now(), payload: data };
+        this.statusHandlers.forEach(h => h(this.lastStatus));
+        if (online) this.statusTimer = setTimeout(() => this.updateStatus(null), Math.max(1, 5000 - age));
     },
 
     connect() {
@@ -118,13 +133,12 @@ const MqttBridge = {
             try {
                 data = JSON.parse(payload.toString());
             } catch (e) {
-                console.warn('[MqttBridge] ข้อความไม่ใช่ JSON:', payload.toString());
+                console.warn('[MqttBridge] ข้อความไม่ใช่ JSON');
                 return;
             }
 
             if (topic === `${cfg.baseTopic}/status`) {
-                this.lastStatus = { online: data.online === true, receivedAt: Date.now(), payload: data };
-                this.statusHandlers.forEach(h => h(this.lastStatus));
+                this.updateStatus(data);
             } else if (topic === `${cfg.baseTopic}/evt`) {
                 this.settleDrawerOpened(data);
                 this.eventHandlers.forEach(h => h(data));
@@ -136,14 +150,14 @@ const MqttBridge = {
         });
 
         this.client.on('close', () => {
-            this.lastStatus = { online: false, receivedAt: Date.now(), payload: null };
-            this.statusHandlers.forEach(h => h(this.lastStatus));
+            this.updateStatus(null);
         });
 
         return this.client;
     },
 
     disconnect() {
+        clearTimeout(this.statusTimer);
         if (this.client) {
             this.client.end(true);
             this.client = null;
