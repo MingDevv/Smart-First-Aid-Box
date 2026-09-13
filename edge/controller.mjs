@@ -63,6 +63,8 @@ export class LocalController {
             const validBudget = Number.isInteger(data.ackTimeoutMs) && data.ackTimeoutMs >= 3000 && data.ackTimeoutMs <= 120000;
             const connected = status === 200 && data.protocol === 2 && data.microbit === 'connected' && validBudget;
             return { connected, ready: connected && data.ready === true, mode: 'pi-local', configured: true,
+                // The raw firmware budget, republished verbatim on the broker by edge/mqtt-cloud.mjs.
+                ackTimeoutMs: validBudget ? data.ackTimeoutMs : null,
                 commandTimeoutMs: validBudget ? data.ackTimeoutMs + 3000 : null,
                 reason: data.reason === 'awaiting_new_ready_epoch' ? data.reason : '', unresolved, deviceMode };
         } catch {
