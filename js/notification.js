@@ -129,6 +129,11 @@ const NotificationService = {
     // LINE acceptance and a cabinet ACK are independent evidence; neither proves the other.
     async sendSos(payload) {
         if (window.SFAB_RUNTIME?.transport !== 'pi-local') {
+            if (window.AuthService?.state?.status !== 'ready') {
+                this.showToast('เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน แล้วกด SOS อีกครั้ง', 'warning');
+                document.getElementById('google-sign-in')?.focus();
+                return { line: { success: false, error: 'sign_in_required' }, buzzer: { success: false, mode: 'not-requested' } };
+            }
             const line = await this.sendLineNotification({ event: 'sos' });
             this.showToast(line.success ? 'ส่งคำขอ SOS ผ่าน LINE แล้ว' : 'ยังยืนยันการส่ง LINE ไม่ได้ กรุณาเรียกครูใกล้ที่สุดทันที', line.success ? 'success' : 'danger');
             return { line, buzzer: { success: false, mode: 'not-requested' } };

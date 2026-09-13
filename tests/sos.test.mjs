@@ -28,9 +28,9 @@ const webStorage = () => {
 // ⇒ ถ้ากติกาการประทับเปลี่ยน fixture เปลี่ยนตาม ไม่ใช่ค้างเขียวอยู่กับกติกาเก่า
 // buzzer: null = ใช้ ApiBridge.triggerBuzzer ตัวจริง (ใช้ตอนทดสอบเกตฮาร์ดแวร์)
 function browser({ demoMode = false, fetch = async () => reply({ success: false }, 503),
-    buzzer = async () => ({ success: false }), timeoutMs, local = true } = {}) {
+    buzzer = async () => ({ success: false }), timeoutMs, local = true, authStatus = 'ready' } = {}) {
     const notices = [], mocks = [], elements = new Map();
-    const window = { SFAB_RUNTIME: local ? {transport:'pi-local', mode:demoMode === null ? 'unset' : demoMode ? 'demo' : 'real'} : undefined, AuthService:{state:{user:null}, isStaff:()=>false, authorizedFetch:fetch} };
+    const window = { SFAB_RUNTIME: local ? {transport:'pi-local', mode:demoMode === null ? 'unset' : demoMode ? 'demo' : 'real'} : undefined, AuthService:{state:{user:null,status:authStatus}, isStaff:()=>false, authorizedFetch:fetch} };
     const localStorage = webStorage(), sessionStorage = webStorage();
     const context = vm.createContext({ window, fetch, AbortController, clearTimeout,
         setTimeout: (fn, ms) => setTimeout(fn, timeoutMs ?? ms), console: { log() {}, warn() {}, error() {} },
@@ -181,5 +181,42 @@ test('public home SOS sends no request before school sign-in and focuses the sig
             assert.match(b.notices.at(-1).message,/เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน แล้วกด SOS อีกครั้ง/);
             assert.equal(b.elements.get('google-sign-in').focused,true);
         }
+    }
+});
+
+
+test('shared cloud SOS requires school sign-in before any delivery, including future callers', async () => {
+    for (const status of ['loading', 'signed-out', 'forbidden', 'unavailable', undefined]) {
+        let calls=0,buzzers=0;
+        const b=browser({local:false,authStatus:status,
+            fetch:async()=>{calls++;return reply({success:true});},
+            buzzer:async()=>{buzzers++;return {success:true};}});
+        if(status===undefined)delete b.context.window.AuthService;
+        const result=await b.service.sendSos({event:'sos'});
+        assert.equal(calls,0,'shared anonymous SOS must not attempt network delivery');
+        assert.equal(buzzers,0);
+        assert.equal(result.line.success,false);
+        assert.equal(result.line.error,'sign_in_required');
+        assert.equal(result.buzzer.mode,'not-requested');
+        assert.match(b.notices.at(-1).message,/เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน แล้วกด SOS อีกครั้ง/);
+        assert.equal(b.notices.at(-1).type,'warning');
+        assert.equal(b.elements.get('google-sign-in').focused,true);
+    }
+});
+
+test('all four cloud SOS callers use sign-in guidance instead of a delivery failure', async () => {
+    for (const [file,name] of [['index.html','triggerHomeSos'],['student/index.html','triggerSOS'],
+        ['student/kiosk.html','triggerKioskSos'],['student/wound-select.html','triggerSelectSos']]) {
+        const html=await read(file);
+        const start=html.indexOf(`        async function ${name}()`);
+        assert.notEqual(start,-1);
+        const dispatch=html.slice(start,html.indexOf('    </script>',start));
+        let calls=0;
+        const b=browser({local:false,authStatus:'signed-out',fetch:async()=>{calls++;return reply({success:false},401);}});
+        vm.runInContext(dispatch,b.context);
+        await b.context[name]();
+        assert.equal(calls,0,`${file}: anonymous SOS must not contact the API`);
+        assert.match(b.notices.at(-1).message,/เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน แล้วกด SOS อีกครั้ง/,file);
+        assert.equal(b.elements.get('google-sign-in').focused,true,file);
     }
 });
