@@ -1,4 +1,15 @@
 (() => {
+    const inAppBrowser = /Line\/|FBAN|FBAV|Instagram/i.test(navigator.userAgent);
+    const openBrowserCopy = 'เบราว์เซอร์ในแอปไม่รองรับการเข้าสู่ระบบ Google กรุณาเปิดลิงก์นี้ใน Safari/Chrome';
+    const signInErrorCopy = error => {
+        if (inAppBrowser) return openBrowserCopy;
+        const code = error?.code || '';
+        if (code === 'auth/popup-blocked') return 'เบราว์เซอร์บล็อกหน้าต่างเข้าสู่ระบบ กรุณาอนุญาตป๊อปอัปแล้วลองอีกครั้ง';
+        if (code === 'auth/unauthorized-domain') return 'เว็บไซต์นี้ยังไม่ได้รับอนุญาตให้เข้าสู่ระบบ กรุณาแจ้งครูผู้ดูแลระบบ';
+        if (code.startsWith('auth/operation-not-supported-')) return 'เบราว์เซอร์นี้ไม่รองรับการเข้าสู่ระบบ กรุณาเปิดลิงก์นี้ใน Safari/Chrome';
+        if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return 'ยกเลิกการเข้าสู่ระบบแล้ว กดเข้าสู่ระบบด้วย Google เมื่อต้องการลองอีกครั้ง';
+        return 'เข้าสู่ระบบไม่สำเร็จ ลองอีกครั้งด้วยบัญชี @tesaban6.ac.th';
+    };
     const start = () => {
         if (window.SFAB_RUNTIME?.transport === 'pi-local') { document.body.dataset.localKiosk = 'true'; return; }
         const panel = document.createElement('section');
@@ -10,10 +21,13 @@
         const status = panel.querySelector('#auth-status'), retry = panel.querySelector('#auth-retry');
         const action = async (button, fn) => {
             button.disabled = true;
-            try { await fn(); } catch { status.textContent = 'เข้าสู่ระบบไม่สำเร็จ ลองอีกครั้งด้วยบัญชี @tesaban6.ac.th'; }
+            try { await fn(); } catch (error) { status.textContent = signInErrorCopy(error); }
             finally { button.disabled = false; }
         };
-        signIn.onclick = () => action(signIn, () => AuthService.signIn());
+        signIn.onclick = () => action(signIn, () => {
+            if (inAppBrowser) { status.textContent = openBrowserCopy; return; }
+            return AuthService.signIn();
+        });
         signOut.onclick = () => action(signOut, () => AuthService.signOut());
         retry.onclick = () => location.reload();
         AuthService.subscribe(state => {
@@ -30,7 +44,7 @@
                 ? `${state.user.name || state.user.email}${required === 'staff' && !staff ? ' · บัญชีนี้ไม่มีสิทธิ์สำหรับครู' : ''}`
                 : state.status === 'loading' ? 'กำลังตรวจสอบบัญชี…'
                 : state.status === 'unavailable' ? 'ระบบบัญชียังไม่พร้อม กรุณาลองอีกครั้ง หรือเรียกครูใกล้ที่สุด'
-                : 'ใช้บัญชี Google @tesaban6.ac.th ที่ยืนยันอีเมลแล้ว';
+                : inAppBrowser ? openBrowserCopy : 'ใช้บัญชี Google @tesaban6.ac.th ที่ยืนยันอีเมลแล้ว';
         });
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);

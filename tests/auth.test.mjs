@@ -97,8 +97,10 @@ test('LINE sends minimal plain text to a configured group and preserves transpor
         assert.match(body.messages[0].text,/First/);assert.doesNotMatch(body.messages[0].text,/Surname/);
         globalThis.fetch=async()=>({ok:false});assert.equal((await sendSchoolSos(school)).success,false);
         delete process.env.LINE_GROUP_ID;
-        globalThis.fetch=()=>{throw new Error('must not broadcast');};
+        let calls = 0;
+        globalThis.fetch=async()=>{calls++;return {ok:false};};
         assert.equal((await sendSchoolSos(school)).success,false);
+        assert.equal(calls,0,'missing group must not contact LINE or broadcast');
     } finally {
         globalThis.fetch=oldFetch;
         for (const [key,value] of [['LINE_CHANNEL_ACCESS_TOKEN',oldToken],['LINE_GROUP_ID',oldGroup]]) {
@@ -129,4 +131,67 @@ test('public Firebase config is an explicit allowlist and missing config fails c
         delete process.env.FIREBASE_WEB_APP_ID;
         assert.equal((await invoke(firebaseConfig,{method:'GET'})).status,503);
     } finally { assign(previous); }
+});
+
+
+test('SOS coalesces concurrent requests and deduplicates successful delivery for 120 seconds', async () => {
+    let time = 1000, calls = 0, release, started;
+    const sending = new Promise(resolve => { started = resolve; });
+    const pending = new Promise(resolve => { release = resolve; });
+    const handler = createNotifyHandler({authorizeRequest:createAuthorizer(services()), now:()=>time,
+        send:async()=>{calls++;started();await pending;return {success:true};}});
+    const first = invoke(handler,request({event:'sos'}));
+    await sending;
+    const duplicate = invoke(handler,request({event:'sos'}));
+    release();
+    const [original, repeated] = await Promise.all([first,duplicate]);
+    assert.equal(original.status,200);
+    assert.equal(repeated.status,200);
+    assert.equal(repeated.data.deduplicated,true);
+    assert.equal(calls,1,'concurrent SOS must send LINE once');
+    time += 119999;
+    assert.equal((await invoke(handler,request({event:'sos'}))).data.deduplicated,true);
+    assert.equal(calls,1);
+    time++;
+    assert.equal((await invoke(handler,request({event:'sos'}))).data.deduplicated,undefined);
+    assert.equal(calls,2,'a fresh SOS is allowed after the dedupe window');
+});
+
+test('SOS failures stay failures for concurrent callers and are never cached as success', async () => {
+    let calls=0, release, started;
+    const sending=new Promise(resolve=>{started=resolve;});
+    const pending=new Promise(resolve=>{release=resolve;});
+    const handler=createNotifyHandler({authorizeRequest:createAuthorizer(services()),send:async()=>{
+        calls++;
+        if(calls===1){started();await pending;return {success:false};}
+        if(calls===2)throw new Error('synthetic transport failure');
+        return {success:true};
+    }});
+    const first=invoke(handler,request({event:'sos'}));
+    await sending;
+    const duplicate=invoke(handler,request({event:'sos'}));
+    await new Promise(resolve=>setImmediate(resolve));
+    release();
+    const results=await Promise.all([first,duplicate]);
+    assert.deepEqual(results.map(r=>r.status),[503,503]);
+    assert.equal(calls,1,'concurrent failures must share the same attempt');
+    assert.equal((await invoke(handler,request({event:'sos'}))).status,503);
+    assert.equal((await invoke(handler,request({event:'sos'}))).status,200);
+    assert.equal(calls,3,'failed attempts must not suppress a later retry');
+});
+
+test('SOS caps new attempts globally at 10 per minute per instance, including failures', async () => {
+    let time=1000,calls=0;
+    const handler=createNotifyHandler({now:()=>time,
+        authorizeRequest:async req=>({token:{...school,uid:req.headers['x-test-uid']}}),
+        send:async()=>{calls++;return {success:calls!==1};}});
+    const sos=uid=>invoke(handler,{...request({event:'sos'}),headers:{'x-test-uid':uid}});
+    const results=await Promise.all(Array.from({length:20},(_,i)=>sos('synthetic-'+i)));
+    assert.equal(calls,10);
+    assert.equal(results.filter(r=>r.status===429).length,10);
+    assert.equal((await sos('synthetic-1')).data.deduplicated,true,'already delivered duplicates do not use the cap');
+    assert.equal((await sos('synthetic-0')).status,429,'failures also consume the attempt budget');
+    time+=60000;
+    assert.equal((await sos('new-window')).status,200);
+    assert.equal(calls,11);
 });

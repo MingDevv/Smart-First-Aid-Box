@@ -4,7 +4,7 @@ WP1 implements Google school sign-in, API authorization and Firestore read rules
 
 ## Local development
 
-Use Node 24 or newer and Java 21. Recorded checks used Node 26.8.2, npm 11.19.1 and Java 21. Firebase CLI superstatic warns about Node 26; it did not prevent the checks.
+The runtime floor is Node 22; use Node 24 and Java 21 for development and CI. Validated with Node 24.21.0, npm 11.19.1 and Java 21.
 
 Run npm ci, npm run build, npm test, then npm run test:firebase.
 
@@ -50,13 +50,23 @@ Existing MQTT_URL, MQTT_USERNAME, MQTT_PASSWORD, MQTT_BASE_TOPIC, LINE_CHANNEL_A
 ## Access contract and later work
 
 - /api/command GET and POST require a verified school ID token and current nurse/teacher/admin role, including buzzer operations. Missing/invalid/expired/revoked tokens produce 401; authenticated forbidden users produce 403. Auth/role lookup failures close access with 503 before MQTT starts.
-- /api/notify POST accepts any verified school user only for { "event": "sos" }. It derives the sender from the verified token; client UID/name/Flex/messages are ignored. Other event kinds are rejected. Only server-generated first name, UID reference and time go to the configured LINE target. The per-instance 15/minute UID limiter is a best-effort guard, not a distributed quota.
+- /api/notify POST accepts any verified school user only for { "event": "sos" }. It derives the sender from the verified token; client UID/name/Flex/messages are ignored. Other event kinds are rejected. Only server-generated first name, UID reference and time go to the configured LINE target. Successful SOS deliveries are deduplicated per UID for 120 seconds; concurrent requests share the actual delivery outcome. A duplicate returns 200 with deduplicated:true only after LINE acceptance. Failed sends remain 503 and can be retried. New attempts, including failures, are capped globally at 10 per minute per instance (429 with Retry-After). These in-memory limits do not coordinate separate Vercel instances.
 - /api/me returns only uid, email, name, effective role, and profile.active (boolean or null). Clinical fields and studentNo are never included. /api/firebase-config exposes only registered public SDK configuration.
 - Firestore denies every client write and unmatched read. Clinical collections, including students and photos, are nurse/admin-readable only. Students may read only their own dispenses, using a UID-constrained list query; staff may read cabinet status. Teacher is not a clinical-reader role.
 - Firebase handles its own session persistence in IndexedDB. Application localStorage contains UI preferences only; legacy identity/PIN/mode/inventory/history values are ignored. Unsynced inventory/history and unimplemented digital badges show unavailable states, pending WP2-WP4.
 - Local Pi runtime remains authoritative for its own mode. Only physical open is gated by mode; local SOS/buzzer and the guide remain accessible. Cloud student SOS does not request a buzzer. The one-line edge/controller.mjs gate adjustment is isolated for the separate Pi bridge change.
 - Photos are a WP4 Firestore concern: photos/{eventId}, JPEG base64 up to 300 KB, dispenses.photoId. WP4 must add expiresAt read enforcement in API/rules, short-lived signed image URLs and daily /api/cron/cleanup deletion using CRON_SECRET before accepting any photos. No TTL provisioning or photo/cron endpoint is included in WP1.
 
-The feature branch disables Vercel Git deployments in vercel.json; opening this PR must not deploy a preview. Merge and deployment remain held for review and WP0 readiness.
+## Ordered pre-merge gate (Bank/Khai)
+
+Merging master deploys production. Missing Firebase env correctly fails closed, but would interrupt school sign-in and cloud commands. Complete these gates in order; the implementation PR does not authorize any deployment or merge.
+
+1. Set the six FIREBASE variables above on the Vercel project for Preview and Production, keeping the service-account values Sensitive. Resolve project/team access first. Complete WP0 Google provider, Internal audience, under-18 trust and role bootstrap before live acceptance.
+2. Add smart-first-aid-box.vercel.app to Firebase Authentication Authorized domains. Also authorize the exact preview hostname selected for K2; verify it against the Vercel project rather than allowing arbitrary preview domains.
+3. Once those prerequisites are ready and Bank authorizes the preview, re-enable this branch preview by removing the branch-specific git.deploymentEnabled line in vercel.json. It remains disabled in this fix commit. Record the resulting preview URL and SHA.
+4. Run K2 on that preview with a real std…@tesaban6.ac.th student account on iPhone Safari and Android Chrome. Check sign-in, student scanning/guide access, SOS sign-in guidance, sign-out, student command denial and staff access. Preserve the results; emulator tests cannot satisfy K2. Any physical-command acceptance must wait for the cabinet power-work hold to be lifted.
+5. Only after K2 passes and review dispositions are closed may Bank merge. Nai leaves this PR open and does not merge or deploy.
+
+If PR #17 merges first, resolve package.json scripts by keeping both tests/mqtt-cloud.test.mjs in test:edge and npm run test:auth in test, regenerate package-lock.json and rerun npm test plus npm run test:firebase before the final gate. Do not alter its worktree.
 
 The gaxios 6.7.1 dependency uses compatible CommonJS uuid 11.1.1 through an override to remove the uuid buffer-bounds advisory. Gaxios calls v4() without caller-provided buffers; API/emulator checks and a clean install cover the resulting dependency tree.

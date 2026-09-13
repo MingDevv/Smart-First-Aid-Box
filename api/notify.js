@@ -18,8 +18,13 @@ export async function sendSchoolSos(token) {
     } catch { return { success: false }; }
 }
 
-export function createNotifyHandler({ authorizeRequest = authorize, send = sendSchoolSos } = {}) {
-    const limits = new Map();
+const DEDUPE_WINDOW_MS = 120000;
+const GLOBAL_WINDOW_MS = 60000;
+const GLOBAL_MAX_ATTEMPTS = 10;
+
+export function createNotifyHandler({ authorizeRequest = authorize, send = sendSchoolSos, now = Date.now } = {}) {
+    const deliveries = new Map();
+    let globalWindow = { count: 0, until: 0 };
     return async function handler(req, res) {
         apiHeaders(res, 'POST, OPTIONS');
         if (req.method === 'OPTIONS') return res.status(204).end();
@@ -28,17 +33,34 @@ export function createNotifyHandler({ authorizeRequest = authorize, send = sendS
         try { identity = await authorizeRequest(req); }
         catch (error) { return accessFailure(res, error); }
         if (req.body?.event !== 'sos') return res.status(400).json({ success: false, error: 'sos_event_required' });
-        const now = Date.now();
-        for (const [uid, entry] of limits) if (entry.until <= now) limits.delete(uid);
-        const entry = limits.get(identity.token.uid) || { count: 0, until: now + 60000 };
-        entry.count++;
-        limits.set(identity.token.uid, entry);
-        if (entry.count > 15) return res.status(429).json({ success: false, error: 'too_many_requests' });
-        try {
-            const result = await send(identity.token);
-            return res.status(result.success ? 200 : 503).json(result.success
-                ? { success: true, mode: 'messaging_api' } : { success: false, error: 'line_unavailable' });
-        } catch { return res.status(503).json({ success: false, error: 'line_unavailable' }); }
+        const time = now(), uid = identity.token.uid;
+        for (const [key, entry] of deliveries) {
+            if (entry.settled && entry.until <= time) deliveries.delete(key);
+        }
+        let delivery = deliveries.get(uid);
+        const deduplicated = Boolean(delivery);
+        if (!delivery) {
+            if (globalWindow.until <= time) globalWindow = { count: 0, until: time + GLOBAL_WINDOW_MS };
+            if (globalWindow.count >= GLOBAL_MAX_ATTEMPTS) {
+                res.setHeader('Retry-After', String(Math.ceil((globalWindow.until - time) / 1000)));
+                return res.status(429).json({ success: false, error: 'too_many_requests' });
+            }
+            globalWindow.count++;
+            delivery = { until: time + DEDUPE_WINDOW_MS, settled: false };
+            // Reserve before LINE starts so concurrent requests share its actual outcome.
+            deliveries.set(uid, delivery);
+            delivery.result = Promise.resolve().then(() => send(identity.token))
+                .then(result => result?.success === true, () => false)
+                .then(success => {
+                    delivery.settled = true;
+                    if (!success) deliveries.delete(uid);
+                    return success;
+                });
+        }
+        const success = await delivery.result;
+        return res.status(success ? 200 : 503).json(success
+            ? { success: true, mode: 'messaging_api', ...(deduplicated ? { deduplicated: true } : {}) }
+            : { success: false, error: 'line_unavailable' });
     };
 }
 export default createNotifyHandler();

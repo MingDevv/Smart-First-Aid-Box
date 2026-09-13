@@ -73,7 +73,7 @@
     <script src="../js/auth.js" defer></script>
     <script src="../js/auth-ui.js" defer></script>
 </head>
-<body data-auth-required="staff" class="scan-body">
+<body data-auth-required="school" class="scan-body">
     <div class="scan-app">
         <section id="input-section">
             <header class="scan-header">
@@ -187,7 +187,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             if (window.SFAB_RUNTIME?.transport === 'pi-local') startCamera();
-            else AuthService.subscribe(state => { if (state.status === 'ready' && AuthService.isStaff()) startCamera(); else stopCamera(); });
+            else AuthService.subscribe(state => { if (state.status === 'ready') startCamera(); else stopCamera(); });
         });
 
         function showToast(message, type = 'info') {

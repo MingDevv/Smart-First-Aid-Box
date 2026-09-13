@@ -13,3 +13,4 @@ firmware/**/device_config.h
 js/firebase-sdk.js
 *-debug.log
 .firebase/
+.firebaserc

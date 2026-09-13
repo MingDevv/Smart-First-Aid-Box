@@ -37,7 +37,7 @@ function browser({ demoMode = false, fetch = async () => reply({ success: false 
         localStorage, sessionStorage, confirm: () => true,
         document: { getElementById(id) {
             if (!elements.has(id)) elements.set(id, { disabled: false, textContent: '',
-                setAttribute() {}, removeAttribute() {}, querySelector() { return this; } });
+                focus() { this.focused = true; }, setAttribute() {}, removeAttribute() {}, querySelector() { return this; } });
             return elements.get(id);
         } } });
     vm.runInContext(storageSource, context);
@@ -157,5 +157,29 @@ test('dashboard stop waits for off completion, prevents double click, and expose
         assert.equal(button.disabled, false);
         assert.match(status.textContent, result.mode === 'simulation' ? /โหมดสาธิต/
             : result.success ? /ยืนยันหยุดเสียงแล้ว/ : /ยังยืนยันการหยุดเสียงไม่ได้/);
+    }
+});
+
+
+test('public home SOS sends no request before school sign-in and focuses the sign-in control', async () => {
+    const html = await read('index.html');
+    const start = html.indexOf('        async function triggerHomeSos()');
+    const dispatch = html.slice(start, html.indexOf('    </script>', start));
+    for (const status of ['loading', 'signed-out', 'forbidden', 'unavailable', 'ready']) {
+        let calls = 0, confirms = 0;
+        const b = browser({local:false,fetch:async()=>{calls++;return reply({success:true});}});
+        b.context.window.AuthService.state.status = status;
+        b.context.confirm = () => { confirms++; return true; };
+        vm.runInContext(dispatch, b.context);
+        await b.context.triggerHomeSos();
+        if (status === 'ready') {
+            assert.equal(calls,1);
+            assert.equal(confirms,1);
+        } else {
+            assert.equal(calls,0,'anonymous home SOS must not attempt network delivery');
+            assert.equal(confirms,0,'explain sign-in before asking to send');
+            assert.match(b.notices.at(-1).message,/เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน แล้วกด SOS อีกครั้ง/);
+            assert.equal(b.elements.get('google-sign-in').focused,true);
+        }
     }
 });
