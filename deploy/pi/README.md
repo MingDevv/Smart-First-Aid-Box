@@ -232,6 +232,24 @@ sudo install -o root -g sfab -m 0640 /dev/null /etc/sfab/edge.env
 # then add GEMINI_API_KEY / LINE_* from .env.example. Never commit this file.
 ```
 
+Optional cloud path (the website on Vercel opening the cabinet through the broker) — the
+Pi holds the **device** credential from `MQTT_SETUP.md` (publish `evt`/`status`, subscribe
+`cmd`). Same variable names as the Vercel side; leave them out and the cabinet stays
+touchscreen-only:
+
+```sh
+MQTT_URL=mqtts://<cluster-host>:8883
+MQTT_USERNAME=<device username>
+MQTT_PASSWORD=<device password>
+MQTT_BASE_TOPIC=crms6/firstaidbox/box1
+```
+
+`edge/mqtt-cloud.mjs` needs the `mqtt` package, so the checkout on the Pi must have run
+`npm ci --omit=dev` (the edge service itself uses only Node built-ins). After editing the
+env: `systemctl --user restart sfab-edge`, then confirm the broker shows a retained
+`<base>/status` with `"transport":"pi"` and `GET /api/command` on the website reports
+`connected:true`.
+
 Check it before going near the browser:
 
 ```sh
