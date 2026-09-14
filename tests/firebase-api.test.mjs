@@ -27,16 +27,19 @@ async function issue(uid) {
 before(async () => {
     ({auth,db}=firebaseServices());
     for(const [name,role,email,verified] of [
-        ['student',null,'student@tesaban6.ac.th',true],['nurse','nurse','nurse@tesaban6.ac.th',true],
+        // `retired` ถือ role 'nurse' ที่ถูกยกเลิก 2026-09-14 — ต้องถูกปฏิบัติเหมือนนักเรียน ไม่ใช่ staff
+        // `revocable` เป็นครูจริงที่มีไว้ให้เทสถอดสิทธิ์โดยเฉพาะ จะได้ไม่ไปถอดครูที่เทสอื่นใช้อยู่
+        ['student',null,'student@tesaban6.ac.th',true],['retired','nurse','retired@tesaban6.ac.th',true],
         ['teacher','teacher','teacher@tesaban6.ac.th',true],['admin','admin','admin@tesaban6.ac.th',true],
-        ['external','nurse','external@elsewhere.test',true],['unverified','admin','unverified@tesaban6.ac.th',false]
+        ['revocable','teacher','revocable@tesaban6.ac.th',true],
+        ['external','teacher','external@elsewhere.test',true],['unverified','admin','unverified@tesaban6.ac.th',false]
     ]) {
         const uid='api-'+name;
         await auth.createUser({uid,email,emailVerified:verified,displayName:'First Surname'});
         if(role)await db.doc('roles/'+uid).set({role});
         tokens.set(name,await issue(uid));
     }
-    await db.doc('students/api-student').set({active:true,studentNo:'private-number',allergyFlags:{drawer2:true},updatedBy:'private-nurse',futureSecret:'must-not-leak'});
+    await db.doc('students/api-student').set({active:true,studentNo:'private-number',allergyFlags:{drawer2:true},updatedBy:'private-staff',futureSecret:'must-not-leak'});
     broker=createServer(socket=>{
         const parser=packet.parser();socket.on('data',chunk=>parser.parse(chunk));
         const send=data=>socket.write(packet.generate(data));
@@ -64,14 +67,14 @@ test('actual ID tokens produce anonymous 401, student 403 and staff ACK success'
     const body={action:'open',drawer:1,id:'c-api-auth-test'};
     assert.equal((await invoke(command,null,body)).status,401);
     assert.equal((await invoke(command,'invalid-token',body)).status,401);
-    for(const user of ['student','external','unverified']) assert.equal((await invoke(command,tokens.get(user),body)).status,403);
+    for(const user of ['student','external','unverified','retired']) assert.equal((await invoke(command,tokens.get(user),body)).status,403);
     assert.equal(published,0);
-    for(const user of ['nurse','teacher','admin']){
+    for(const user of ['teacher','admin']){
         const response=await invoke(command,tokens.get(user),{...body,id:'c-auth-'+user});
         assert.equal(response.status,200,user+' must reach existing ACK path');
         assert.equal(response.data.ack.event,'drawer_opened');
     }
-    assert.equal(published,3);
+    assert.equal(published,2);
 });
 
 test('own-profile projection never leaks clinical fields or studentNo',async()=>{
@@ -93,12 +96,15 @@ test('expired, wrong audience/issuer and revoked tokens fail before publishing',
     await auth.revokeRefreshTokens('api-student');
     assert.equal((await invoke(command,tokens.get('student'),{action:'open',drawer:1})).status,401);
     tokens.set('student',await issue('api-student'));
-    assert.equal(published,3);
+    assert.equal(published,2);
 });
 
 test('deleting a role takes effect on the next command with the same valid token',async()=>{
-    await db.doc('roles/api-nurse').delete();
-    assert.equal((await invoke(command,tokens.get('nurse'),{action:'buzzer',state:'on',id:'c-no-role-now'})).status,403);
+    // พิสูจน์ทั้งสองด้าน: ก่อนถอดต้องผ่านจริง ไม่งั้น 403 หลังถอดอาจมาจากสาเหตุอื่นตั้งแต่แรก
+    assert.equal((await invoke(command,tokens.get('revocable'),{action:'open',drawer:1,id:'c-before-revoke'})).status,200);
+    assert.equal(published,3);
+    await db.doc('roles/api-revocable').delete();
+    assert.equal((await invoke(command,tokens.get('revocable'),{action:'buzzer',state:'on',id:'c-no-role-now'})).status,403);
     assert.equal(published,3);
 });
 

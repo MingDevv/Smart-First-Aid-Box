@@ -13,7 +13,7 @@
 (() => {
     const inAppBrowser = /Line\/|FBAN|FBAV|Instagram/i.test(navigator.userAgent);
     const openBrowserCopy = 'เบราว์เซอร์ในแอปไม่รองรับการเข้าสู่ระบบ Google กรุณาเปิดลิงก์นี้ใน Safari/Chrome';
-    const ROLE_TH = { nurse: 'ครูพยาบาล', teacher: 'ครู', admin: 'ผู้ดูแลระบบ', student: 'นักเรียน' };
+    const ROLE_TH = { teacher: 'ครู', admin: 'ผู้ดูแลระบบ', student: 'นักเรียน' };
 
     // โลโก้ Google ตัวจริงตามชุดสีทางการ ไม่ใช่ไอคอนวาดเอง และไม่ใช่ emoji
     // แนวทางแบรนด์ของ Google กำหนดว่าปุ่มต้องมีโลโก้นี้ พื้นขาว ขอบเทา และข้อความว่า "ลงชื่อเข้าใช้ด้วย Google"
