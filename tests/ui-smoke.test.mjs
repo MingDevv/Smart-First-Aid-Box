@@ -544,3 +544,19 @@ for (const dependency of [
 }
 
 console.log(`UI smoke checks passed for ${htmlFiles.length} HTML pages.`);
+
+// ทุกรูปที่หน้าเว็บอ้างถึงต้องมีไฟล์จริง
+//
+// ผมเกือบลบ images/tagline.webp ทิ้งทั้งที่หน้าจอตู้ยังใช้อยู่ (2026-09-14)
+// รูปที่หายไม่ทำให้เทสไหนแดงเลย มันแค่กลายเป็นกรอบว่างบนจอตู้ที่ไม่มีใครเฝ้า
+{
+    const pages = htmlFiles;
+    for (const file of pages) {
+        const html = await readFile(file, 'utf8');
+        for (const match of html.matchAll(/src="([^"]*images\/[^"]+)"/g)) {
+            const rel = match[1].replace(/^(\.\.\/|\/)/, '');
+            assert.ok(existsSync(new URL('../' + rel, import.meta.url)),
+                `${file} อ้างถึง ${rel} ซึ่งไม่มีไฟล์อยู่จริง`);
+        }
+    }
+}

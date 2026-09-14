@@ -1266,10 +1266,14 @@
 }
 .home-hero-mascot img {
     display: block;
-    width: min(100%, 420px);
+    /* เล็กกว่าเดิมเล็กน้อยตามที่ Bank ขอ เพราะของเดิมเกือบชนหัวเรื่องด้านบน
+       เพดานเป็น % ของความสูงจอด้วย ไม่ใช่ความกว้างอย่างเดียว จอเตี้ยจะได้ไม่ชนเหมือนกัน */
+    width: min(100%, 560px);
+    max-height: 34vh;
     height: auto;
     margin-inline: auto;
+    object-fit: contain;
 }
 @media (min-width: 900px) {
-    .home-hero-mascot img { margin-inline: 0; }
+    .home-hero-mascot img { margin-inline: 0; max-height: 40vh; }
 }
