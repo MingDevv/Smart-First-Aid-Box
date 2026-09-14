@@ -312,10 +312,10 @@ test('local HTTP adapter executes the real notify handler with no provider crede
     const server = await createLocalServer({ controller, mode: 'real' });
     const origin = await listen(server);
     t.after(() => close(server));
-    for (const [path, body, expected] of [['notify', { message: 'synthetic test' }, 'LINE_CHANNEL_ACCESS_TOKEN']]) {
+    for (const [path, body, expected, status] of [['notify', { message: 'synthetic test' }, 'sos_event_required', 400]]) {
         const response = await fetch(`${origin}/api/${path}`, { method: 'POST',
             headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-        assert.equal(response.status, 500);
+        assert.equal(response.status, status);
         const result = await response.json();
         assert.equal(result.success, false);
         assert.ok(result.error.includes(expected));

@@ -1,4 +1,5 @@
 import { authorize, apiHeaders } from '../lib/auth.js';
+import { persistSchoolSos } from '../lib/web-sos.js';
 
 export async function sendSchoolSos(token) {
     const channel = process.env.LINE_CHANNEL_ACCESS_TOKEN?.trim();
@@ -26,7 +27,7 @@ const DEDUPE_WINDOW_MS = 120000;
 const GLOBAL_WINDOW_MS = 60000;
 const GLOBAL_MAX_ATTEMPTS = 10;
 
-export function createNotifyHandler({ authorizeRequest = authorize, send = sendSchoolSos, now = Date.now } = {}) {
+export function createNotifyHandler({ authorizeRequest = authorize, send = persistSchoolSos, now = Date.now } = {}) {
     const deliveries = new Map();
     let globalWindow = { count: 0, until: 0 };
     return async function handler(req, res) {
@@ -59,7 +60,7 @@ export function createNotifyHandler({ authorizeRequest = authorize, send = sendS
             delivery = { until: time + DEDUPE_WINDOW_MS, settled: false };
             // Reserve before LINE starts so concurrent requests share its actual outcome.
             deliveries.set(uid, delivery);
-            delivery.result = Promise.resolve().then(() => send(identity?.token ?? null))
+            delivery.result = Promise.resolve().then(() => send(identity?.token ?? null, { dedupeKey: uid }))
                 .then(result => result?.success === true, () => false)
                 .then(success => {
                     delivery.settled = true;

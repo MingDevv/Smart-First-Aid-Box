@@ -1,4 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
+import { CabinetOutbox } from './outbox.mjs';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const ID = /^[a-zA-Z0-9_-]{8,64}$/;
@@ -14,7 +15,7 @@ export class LocalController {
     // เหมือนของจริง (นัยวัดได้: หนึ่ง POST = หนึ่ง /open ทั้งใน demo และ unset)
     // หน้าเว็บที่โหลดค้างไว้ตอนเป็น Real ก็ยังยิงได้หลังผู้ดูแลสลับเป็น Demo แล้ว
     // การตรวจ Host/Origin ไม่ช่วย เพราะคนยิงเป็น client ที่ถูกต้องใน origin เดียวกัน
-    constructor({ esp32Url = '', serial = null, database, timeoutMs, pollMs = 200, mode = 'unset' }) {
+    constructor({ esp32Url = '', serial = null, database, timeoutMs, pollMs = 200, mode = 'unset', cabinetId = 'box1' }) {
         this.mode = mode === 'real' || mode === 'demo' ? mode : 'unset';
         // 2026-09-12: the cabinet's ESP32 is gone; the Pi talks to the micro:bit over USB
         // through edge/microbit-serial.mjs, which answers the very same four requests.
@@ -39,8 +40,20 @@ export class LocalController {
                 id TEXT PRIMARY KEY, drawer INTEGER NOT NULL, state TEXT NOT NULL,
                 created_at TEXT NOT NULL, confirmed_at TEXT, response TEXT
             );`);
+        this.outbox = new CabinetOutbox(this.db, cabinetId);
         // A process may die after sending /open. Never replay a persisted pending command.
         this.db.exec("UPDATE commands SET state = 'uncertain' WHERE state = 'pending'");
+        this.db.exec('BEGIN IMMEDIATE');
+        try {
+            // Migrate physical history, never replay its old LINE notifications.
+            const historical = !this.db.prepare("SELECT 1 FROM sync_state WHERE id = 'journal_migrated'").get();
+            for (const row of this.db.prepare(`SELECT commands.* FROM commands LEFT JOIN outbox ON commands.id = outbox.id
+                WHERE commands.state != 'pending' AND outbox.id IS NULL`).all()) {
+                this.outbox.record(row, row.response ? JSON.parse(row.response) : null, { historical });
+            }
+            this.db.prepare("INSERT OR IGNORE INTO sync_state (id, value) VALUES ('journal_migrated', '1')").run();
+            this.db.exec('COMMIT');
+        } catch (error) { this.db.exec('ROLLBACK'); throw error; }
     }
 
     async request(path, timeoutMs = 1500) {
@@ -123,6 +136,9 @@ export class LocalController {
             uncertain.body.uncertain = true;
             return uncertain;
         }
+        if (this.db.prepare('SELECT 1 FROM outbox WHERE id = ?').get(command.id)) {
+            return this.failure(409, command.id, 'Event ID already belongs to another journal entry');
+        }
         if (!this.origin) return this.failure(503, command.id, 'ยังไม่ได้ตั้งค่าการเชื่อมต่อ micro:bit บน Pi');
         if (command.action === 'open' && this.activeOpens.size) return this.failure(409, command.id, 'ตู้กำลังทำงาน กรุณารอ');
         // Enforced here, not only in the UI: a reload, a new student or a second browser tab
@@ -148,8 +164,14 @@ export class LocalController {
     }
 
     finish(command, result, state) {
-        this.db.prepare('UPDATE commands SET state = ?, confirmed_at = ?, response = ? WHERE id = ?')
-            .run(state, state === 'confirmed' ? new Date().toISOString() : null, JSON.stringify(result), command.id);
+        this.db.exec('BEGIN IMMEDIATE');
+        try {
+            this.db.prepare('UPDATE commands SET state = ?, confirmed_at = ?, response = ? WHERE id = ?')
+                .run(state, state === 'confirmed' ? new Date().toISOString() : null, JSON.stringify(result), command.id);
+            this.outbox.record(this.db.prepare('SELECT * FROM commands WHERE id = ?').get(command.id), result);
+            this.db.exec('COMMIT');
+        } catch (error) { this.db.exec('ROLLBACK'); throw error; }
+        this.outbox.onNew();
         return result;
     }
 

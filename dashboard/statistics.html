@@ -47,6 +47,8 @@
     <link rel="stylesheet" href="../css/auth.css">
     <script src="../js/auth.js" defer></script>
     <script src="../js/auth-ui.js" defer></script>
+    <link rel="stylesheet" href="../css/dashboard-data.css">
+    <script src="../js/dashboard-data.js" defer></script>
 </head>
 <body data-auth-required="staff" class="dashboard-body">
     <div class="dashboard-shell">
@@ -71,7 +73,17 @@
 
         <main class="dashboard-main animate-fade-in">
             <header class="dashboard-topbar"><div class="dashboard-greeting"><h1>ประวัติและสถิติ</h1><p>Smart First Aid Box</p></div><button class="dashboard-action" type="button" onclick="AuthService.signOut()">ออกจากระบบ</button></header>
-            <section class="db-card shared-unavailable" role="status"><h2>ยังไม่มีข้อมูลจากส่วนกลาง</h2><p>ประวัติจากตู้ยังไม่เชื่อมเข้าระบบส่วนกลาง จึงยังแสดงหรือส่งออกสถิติไม่ได้</p><p>โหมดของตู้กำหนดโดยผู้ดูแลที่ตัวเครื่อง</p><a href="/dashboard">กลับภาพรวม</a></section>
+            <section class="db-card sync-panel" aria-label="Shared cabinet data">
+                <p id="data-status" role="status" aria-live="polite">Loading shared cabinet data…</p>
+                <button id="data-refresh" class="dashboard-action" type="button">Refresh data</button>
+            </section>
+            <section class="db-card sync-panel" id="history">
+                <h2>Cabinet history and statistics</h2><p id="stats-summary"></p>
+                <label for="history-kind">Event type</label>
+                <select id="history-kind"><option value="dispense">Dispenses</option><option value="sos">SOS</option></select>
+                <div class="table-wrapper" id="history-table"></div>
+                <button type="button" class="dashboard-action" id="history-more" hidden>Load older records</button>
+            </section>
         </main>
     </div>
 </body>

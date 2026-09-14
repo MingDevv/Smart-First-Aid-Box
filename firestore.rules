@@ -10,10 +10,11 @@ service cloud.firestore {
     function role() {
       return get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role;
     }
-    function clinical() { return school() && role() in ['nurse', 'admin']; }
+    function clinical() { return staff(); }
     function staff() { return school() && role() in ['nurse', 'teacher', 'admin']; }
     match /roles/{uid} { allow read: if clinical(); }
-    match /students/{uid} { allow read: if clinical(); }
+    // Student and photo payloads are exposed only by explicit server projections.
+    match /students/{uid} { allow read: if false; }
     match /dispenses/{eventId} {
       allow read: if school() && (resource.data.uid == request.auth.uid || clinical());
     }
@@ -22,7 +23,7 @@ service cloud.firestore {
     match /badges/{badgeId} { allow read: if clinical(); }
     match /revocations/{rev} { allow read: if clinical(); }
     match /keys/{kid} { allow read: if clinical(); }
-    match /photos/{eventId} { allow read: if clinical(); }
+    match /photos/{eventId} { allow read: if false; }
     match /sos/{eventId} { allow read: if clinical(); }
     match /{document=**} { allow read, write: if false; }
   }

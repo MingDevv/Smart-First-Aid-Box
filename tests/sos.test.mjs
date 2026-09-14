@@ -56,7 +56,7 @@ function browser({ demoMode = false, fetch = async () => reply({ success: false 
     return { service, context, notices, mocks, prompts, elements, storage, localStorage };
 }
 
-test('actual no-credentials notify response stays failure through the browser helper', async () => {
+test('missing local journal stays failure through the browser helper', async () => {
     const keys = ['LINE_NOTIFY_TOKEN', 'LINE_TOKEN', 'Line Token', 'LINE_CHANNEL_ACCESS_TOKEN', 'LINE_GROUP_ID', 'LINE_USER_ID'];
     const saved = keys.map(key => process.env[key]);
     keys.forEach(key => { delete process.env[key]; });
@@ -68,7 +68,7 @@ test('actual no-credentials notify response stays failure through the browser he
     } finally {
         keys.forEach((key, i) => { if (saved[i] === undefined) delete process.env[key]; else process.env[key] = saved[i]; });
     }
-    assert.equal(status, 500);
+    assert.equal(status, 503);
     assert.equal(body.success, false);
     const b = browser({ fetch: async () => reply(body, status) });
     assert.equal((await b.service.sendLineNotification('synthetic test')).success, false);
@@ -211,4 +211,20 @@ test('all four cloud SOS callers deliver without demanding a sign-in first', asy
         assert.equal(calls,1,`${file}: เรียกครูต้องถึง API แม้ยังไม่ล็อกอิน`);
         assert.equal(b.prompts.length,0,file);
     }
+});
+
+test('queued SOS never claims LINE delivery in either the toast or cabinet overlay', async () => {
+    const b = browser({fetch:async()=>reply({success:true,mode:'queued',lineDelivered:false},202),
+        buzzer:async()=>({success:true,mode:'pi-local'})});
+    const kiosk = await read('js/kiosk-app.js');
+    const start = kiosk.indexOf('    async function sendSos()');
+    const end = kiosk.indexOf('    function onIdleWarning',start);
+    assert.ok(start>=0 && end>start);
+    vm.runInContext('let sosBusy=false; const el=id=>document.getElementById(id); const storage=()=>null;'+kiosk.slice(start,end),b.context);
+    await b.context.sendSos();
+    assert.match(b.notices.at(-1).message,/delivery is pending/);
+    assert.notEqual(b.notices.at(-1).type,'success');
+    assert.match(b.elements.get('sos-overlay-text').textContent,/LINE delivery pending/);
+    assert.doesNotMatch(b.elements.get('sos-overlay-text').textContent,/แจ้ง LINE ถึงครูแล้ว/);
+    assert.notEqual(b.elements.get('sos-overlay-title').textContent,'เรียกครูแล้ว');
 });
