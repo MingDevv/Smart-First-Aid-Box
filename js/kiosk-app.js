@@ -215,7 +215,16 @@
         try {
             // ขอ {video:true} ตรงๆ ไม่ใช้ facingMode — กล้อง USB/CSI บน Pi มักไม่รายงาน
             // ด้านหน้า-หลัง แล้วจะถูกปฏิเสธด้วย OverconstrainedError เสียเที่ยวหนึ่ง
-            const granted = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            //
+            // ความละเอียดต้องขอ ไม่งั้น Chromium หยิบ 640x480 ให้ ซึ่งบนตู้ออกมามืดและรายละเอียดหาย
+            // (วัดบนกล้องจริง 2026-09-14: ค่ากล้องเดิมทุกตัว เปลี่ยนแค่ความละเอียด แล้ว 1280x720
+            // สว่างและคมกว่า 640x480 ชัดเจน ส่วนการดัน brightness/gain แทนทำให้ภาพขาวโพลนใช้ไม่ได้)
+            // ใช้ ideal ไม่ใช่ exact/min — ideal เป็นค่าที่อยากได้เฉยๆ จึงไม่ทำให้เกิด
+            // OverconstrainedError แบบที่คอมเมนต์ข้างบนระวังไว้ กล้องที่ทำไม่ได้จะลดให้เอง
+            const granted = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+                audio: false
+            });
             // ผู้ใช้อาจกดกลับไปแล้วระหว่างรอสิทธิ์กล้อง สตรีมที่เพิ่งได้มาต้องถูกปิดทันที
             // ไม่ใช่ปล่อยให้ไปเกาะ video ที่ซ่อนอยู่แล้วไฟกล้องติดค้างทั้งที่ไม่มีใครใช้
             if (isStale(token)) {
@@ -347,16 +356,46 @@
         if (isStale(token)) return;
 
         session.setAiResult(result);
-        // ไม่มั่นใจพอ หรือระบุไม่ได้ ⇒ ไม่เดาให้ ให้คนเลือกเอง
-        // และห้ามเขียนเลขช่องยาของแผลที่ระบุไม่ได้ (ของเดิมใช้ `drawer || 1` ⇒ โชว์ "ช่องที่ 1")
-        if (result.woundId === 'unknown' || !KIOSK_WOUND_IDS.includes(result.woundId) ||
-            Number(result.confidence) < AI_MIN_CONFIDENCE) {
-            goSelect('ยังบอกไม่ชัดว่าเป็นแผลแบบไหน เลือกเองได้เลย');
-            return;
+        goAiResult(result);
+    }
+
+    // ผลที่ AI เขียนต้องขึ้นจอเสมอ ไม่ว่าจะระบุแผลได้หรือไม่
+    //
+    // ของเดิมเก็บผลไว้ใน session แล้วเด้งไป goConfirm()/goSelect() ทันที ⇒ `description` กับ
+    // `reasoning` ไม่เคยถูก render ที่ไหนเลยบนหน้าตู้ (ฝั่งมือถือแสดงครบมาตลอด) · รอบที่ระบุ
+    // ไม่ได้คือรอบที่ข้อความสำคัญที่สุด เพราะเหตุผลที่ AI ให้อาจเป็นเรื่องที่ต้องไปหาครู
+    // ไม่ใช่แค่ "ไม่รู้"
+    function goAiResult(result) {
+        // ไม่มั่นใจพอ หรือระบุไม่ได้ ⇒ ไม่เดาให้ และห้ามเขียนเลขช่องยาของแผลที่ระบุไม่ได้
+        // (ของเดิมใช้ `drawer || 1` ⇒ โชว์ "ช่องที่ 1" ให้แผลที่ไม่รู้ว่าแผลอะไร)
+        const usable = KIOSK_WOUND_IDS.includes(result.woundId) &&
+            Number(result.confidence) >= AI_MIN_CONFIDENCE;
+        const wound = usable ? WOUND_DATA[result.woundId] : null;
+
+        el('airesult-title').textContent = wound ? wound.name_th : 'ยังบอกไม่ชัดว่าเป็นแผลแบบไหน';
+        el('airesult-lead').textContent = wound
+            ? `ตู้จะเปิดช่องที่ ${wound.drawer} ให้ ${wound.items.length} อย่าง ถ้ากดว่าใช่`
+            : 'เลือกประเภทแผลเองได้เลย หรือถ่ายใหม่ให้เห็นแผลชัดขึ้น';
+
+        const photo = el('airesult-photo');
+        if (session.state.photo) photo.src = session.state.photo;
+        else photo.removeAttribute('src');
+
+        // textContent ไม่ใช่ innerHTML — ข้อความก้อนนี้มาจากโมเดลผ่านอินเทอร์เน็ต
+        el('airesult-desc').textContent = result.description || 'AI ไม่ได้ให้คำอธิบายมา';
+        const reasoning = el('airesult-reasoning');
+        reasoning.textContent = result.reasoning || '';
+        reasoning.hidden = !result.reasoning;
+
+        const accept = el('airesult-accept');
+        accept.hidden = !usable;
+        if (usable) {
+            session.setMethod('ai-scan');
+            session.setWound(result.woundId);
+            // เปลี่ยนแผล = เปลี่ยนรายการของ คำตอบเดิมเรื่องแพ้ยาใช้ไม่ได้แล้ว (กติกาเดียวกับ pick-wound)
+            allergyAnswer = null;
         }
-        session.setMethod('ai-scan');
-        session.setWound(result.woundId);
-        goConfirm();
+        showView('airesult');
     }
 
     function cancelAnalyze() {
@@ -855,6 +894,8 @@
             allergyAnswer = target.dataset.answer;
             refreshConfirmGate();
         },
+        // ปุ่มนี้ถูกซ่อนเมื่อ AI ระบุไม่ได้ แต่ยังตรวจซ้ำตรงนี้ ไม่เชื่อว่าปุ่มถูกซ่อนไว้แล้ว
+        'airesult-accept': () => { if (currentWound()) goConfirm(); },
         'confirm-back': () => goSelect(),
         'dispense': dispense,
         // ดูวิธีทำแผลโดยไม่สั่งอะไรเลย ต้องใช้ได้แม้ตู้ออฟไลน์ตั้งแต่ต้น
@@ -879,7 +920,7 @@
     // ── เริ่มทำงาน ──────────────────────────────────────────────────────
 
     function init() {
-        ['start', 'scan', 'select', 'confirm', 'dispensing', 'collect', 'steps', 'done', 'problem']
+        ['start', 'scan', 'airesult', 'select', 'confirm', 'dispensing', 'collect', 'steps', 'done', 'problem']
             .forEach(name => { views[name] = el(`view-${name}`); });
 
         session = KioskSession.create({

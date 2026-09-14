@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import vm from 'node:vm';
 import { LocalController } from '../edge/controller.mjs';
-import { createLocalServer } from '../edge/server.mjs';
+import { createLocalServer, CLOUD_ANALYZE_ERROR_MSG } from '../edge/server.mjs';
+import { USER_ERROR_MSG as CLOUD_USER_ERROR_MSG } from '../api/analyze.js';
 
 const command = { action: 'open', drawer: 1, id: 'c-edge-test-0001' };
 const ack = body => ({ success: true, protocol: 2, event: 'drawer_opened', id: body.id, drawer: body.drawer });
@@ -302,9 +303,8 @@ test('เคลียร์ด้วย edge/resolve.mjs ตัวจริง�
     assert.equal((await cli(['--check-cabinet', command.id])).code, 1, 'ใบที่เคลียร์แล้วต้องเคลียร์ซ้ำไม่ได้');
 });
 
-test('local HTTP adapter executes real analyze and notify handlers with no provider credentials', async t => {
-    const keys = ['LINE_NOTIFY_TOKEN', 'LINE_TOKEN', 'Line Token', 'LINE_CHANNEL_ACCESS_TOKEN',
-        'GEMINI_API_KEY', 'GEMINI_KEY', 'Gemini Key'];
+test('local HTTP adapter executes the real notify handler with no provider credentials', async t => {
+    const keys = ['LINE_NOTIFY_TOKEN', 'LINE_TOKEN', 'Line Token', 'LINE_CHANNEL_ACCESS_TOKEN'];
     const saved = new Map(keys.map(k => [k, process.env[k]]));
     keys.forEach(k => delete process.env[k]);
     t.after(() => saved.forEach((value, key) => { if (value !== undefined) process.env[key] = value; }));
@@ -312,8 +312,7 @@ test('local HTTP adapter executes real analyze and notify handlers with no provi
     const server = await createLocalServer({ controller, mode: 'real' });
     const origin = await listen(server);
     t.after(() => close(server));
-    for (const [path, body, expected] of [['notify', { message: 'synthetic test' }, 'LINE_CHANNEL_ACCESS_TOKEN'],
-        ['analyze', { image: 'synthetic test' }, 'ระบบ AI วิเคราะห์แผลขัดข้อง']]) {
+    for (const [path, body, expected] of [['notify', { message: 'synthetic test' }, 'LINE_CHANNEL_ACCESS_TOKEN']]) {
         const response = await fetch(`${origin}/api/${path}`, { method: 'POST',
             headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
         assert.equal(response.status, 500);
@@ -322,6 +321,67 @@ test('local HTTP adapter executes real analyze and notify handlers with no provi
         assert.ok(result.error.includes(expected));
         assert.notEqual(result.error, 'Local service error');
     }
+});
+
+// ตู้ส่งการวิเคราะห์ต่อขึ้นคลาวด์ ไม่ได้รันโมเดลเองและไม่ได้ถือคีย์ — เทสจึงต้องพิสูจน์สองอย่าง
+// ที่ต่างกัน: ตอนคลาวด์ตอบ ต้องส่งต่อ "ตามจริง" (429 ยังเป็น 429) และตอนไปไม่ถึง ต้องล้มด้วย
+// ประโยคเดียวกับฝั่งคลาวด์ เพราะหน้าตู้ใช้ประโยคนั้นพาไปเลือกแผลเอง
+test('cabinet analyze forwards to the cloud verbatim and needs no Gemini key on the Pi', async t => {
+    const keys = ['GEMINI_API_KEY', 'GEMINI_KEY', 'Gemini Key'];
+    const saved = new Map([...keys, 'SFAB_CLOUD_BASE'].map(k => [k, process.env[k]]));
+    keys.forEach(k => delete process.env[k]);
+    t.after(() => saved.forEach((value, key) => {
+        if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }));
+
+    const seen = [];
+    const cloud = createServer(async (req, res) => {
+        const chunks = [];
+        for await (const chunk of req) chunks.push(chunk);
+        seen.push({ url: req.url, body: JSON.parse(Buffer.concat(chunks).toString()) });
+        res.writeHead(429, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'ขออภัย คุณใช้งานเกินจำนวนครั้งที่กำหนด' }));
+    });
+    process.env.SFAB_CLOUD_BASE = await listen(cloud);
+    t.after(() => close(cloud));
+
+    const { controller } = await fixture(t, () => ready);
+    const server = await createLocalServer({ controller, mode: 'real' });
+    const origin = await listen(server);
+    t.after(() => close(server));
+
+    const photo = { image: 'data:image/png;base64,synthetic' };
+    const response = await fetch(`${origin}/api/analyze`, { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(photo) });
+    assert.equal(seen.length, 1, 'ต้องยิงขึ้นคลาวด์ครั้งเดียว');
+    assert.equal(seen[0].url, '/api/analyze');
+    assert.deepEqual(seen[0].body, photo, 'ภาพต้องถูกส่งต่อครบ ไม่ถูกแปลงระหว่างทาง');
+    assert.equal(response.status, 429, 'สถานะของต้นทางต้องไม่ถูกยุบเป็นความล้มเหลวก้อนเดียว');
+    assert.equal((await response.json()).error, 'ขออภัย คุณใช้งานเกินจำนวนครั้งที่กำหนด');
+});
+
+test('cabinet analyze falls back to the shared message when the cloud is unreachable', async t => {
+    const saved = process.env.SFAB_CLOUD_BASE;
+    process.env.SFAB_CLOUD_BASE = 'http://127.0.0.1:1';   // ปฏิเสธการเชื่อมต่อทันที = เน็ตนอกล่ม
+    t.after(() => { if (saved === undefined) delete process.env.SFAB_CLOUD_BASE; else process.env.SFAB_CLOUD_BASE = saved; });
+    const { controller } = await fixture(t, () => ready);
+    const server = await createLocalServer({ controller, mode: 'real' });
+    const origin = await listen(server);
+    t.after(() => close(server));
+    const response = await fetch(`${origin}/api/analyze`, { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: 'x' }) });
+    assert.equal(response.status, 502);
+    const result = await response.json();
+    assert.equal(result.success, false);
+    assert.equal(result.error, CLOUD_ANALYZE_ERROR_MSG);
+});
+
+// edge/server.mjs จงใจเขียนประโยคนี้ซ้ำแทนที่จะ import จาก api/analyze.js เพื่อไม่ให้เส้นทาง
+// จอสัมผัสพึ่งไฟล์ของ Vercel ตอนบูต (กติกาเดียวกับที่ PR #17 ถอด `import mqtt` ออก)
+// ราคาของการเขียนซ้ำคือค่าเพี้ยนได้ เทสข้อนี้คือสิ่งที่จ่ายราคานั้นแทน
+test('the cabinet fallback sentence matches the cloud one', () => {
+    assert.equal(CLOUD_ANALYZE_ERROR_MSG, CLOUD_USER_ERROR_MSG,
+        'แก้ข้อความที่ api/analyze.js แล้วต้องแก้ที่ edge/server.mjs ด้วย');
 });
 
 test('local server serves all kiosk routes, suppresses MQTT, and protects source and command origins', async t => {
