@@ -4,7 +4,7 @@ import { test } from 'node:test';
 test('validation and rate-limit refusals are retry-safe without starting MQTT', async () => {
     const api = await import('../api/command.js?retry-contract');
     const invoke = body => new Promise((resolve, reject) => {
-        Promise.resolve(api.default({ method: 'POST', headers: {}, body }, {
+        Promise.resolve(api.createCommandHandler(async () => ({role:'nurse'}))({ method: 'POST', headers: {}, body }, {
             setHeader() {}, status(code) { this.code = code; return this; },
             json(body) { resolve({ status: this.code, body }); }
         })).catch(reject);

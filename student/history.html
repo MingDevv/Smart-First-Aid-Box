@@ -69,8 +69,11 @@
         .empty-icon .material-symbols-rounded { font-size: 30px; }
     </style>
     <link rel="stylesheet" href="../css/student-responsive.css">
+    <link rel="stylesheet" href="../css/auth.css">
+    <script src="../js/auth.js" defer></script>
+    <script src="../js/auth-ui.js" defer></script>
 </head>
-<body class="history-body">
+<body data-auth-required="school" class="history-body">
     <header class="app-header">
         <button class="header-back" type="button" onclick="location.href='/student/'" aria-label="กลับหน้าแรก"><span class="material-symbols-rounded">arrow_back</span></button>
         <h1 class="header-title">ประวัติการใช้งานตู้ยา</h1>
@@ -128,80 +131,11 @@
     <script src="../js/storage.js"></script>
     <script src="../js/notification.js"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            const rowsContainer = document.getElementById("history-rows");
-            const tableContainer = document.getElementById("table-container");
-            const emptyState = document.getElementById("empty-state");
-
-            function formatThaiDate(isoString) {
-                const date = new Date(isoString);
-                return date.toLocaleDateString('th-TH', {
-                    day: 'numeric',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                }) + ' น.';
-            }
-
-            function escapeHtml(str) {
-                if (typeof str !== 'string') return '';
-                return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-            }
-
-            function renderHistory() {
-                rowsContainer.innerHTML = "";
-                const logs = StorageService.getHistory();
-                document.getElementById('history-total').textContent = String(logs.length);
-                document.getElementById('history-ai-total').textContent = String(logs.filter(log => String(log.method || '').toLowerCase().includes('ai')).length);
-                document.getElementById('history-latest').textContent = logs.length
-                    ? new Date(logs[0].timestamp || logs[0].created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
-                    : '—';
-
-                if (logs.length === 0) {
-                    tableContainer.style.display = "none";
-                    emptyState.style.display = "block";
-                    return;
-                }
-
-                tableContainer.style.display = "block";
-                emptyState.style.display = "none";
-
-                logs.forEach(log => {
-                    const row = document.createElement("tr");
-                    row.className = "animate-fade-in";
-                    
-                    let itemsHtml = "";
-                    const itemsArray = Array.isArray(log.itemsUsed) ? log.itemsUsed : (log.itemsUsed ? String(log.itemsUsed).split(', ') : []);
-                    if (itemsArray.length > 0) {
-                        itemsHtml = `
-                            <div class="items-used-cell">
-                                ${itemsArray.map(item => `<span class="item-chip">${escapeHtml(item)}</span>`).join('')}
-                            </div>
-                        `;
-                    } else {
-                        itemsHtml = `<span style="color:var(--text-muted); font-size:12px;">ไม่ได้ระบุ</span>`;
-                    }
-
-                    const safeStudentId = escapeHtml(log.studentId || '');
-                    const safeStudentName = escapeHtml(log.studentName || '');
-                    const safeStudentClass = escapeHtml(log.studentClass || '');
-                    const safeWoundDisplay = escapeHtml(log.woundNameTh || 'มีดบาด / แผลถลอก');
-                    const safeMethod = escapeHtml(log.method || 'เลือกเอง');
-
-                    const studentDisplay = safeStudentId ? `รหัส ${safeStudentId}<br><span style="font-size:11px; color:var(--text-muted);">${safeStudentName} (${safeStudentClass})</span>` : 'นักเรียนทั่วไป';
-
-                    row.innerHTML = `
-                        <td data-label="วันเวลา">${formatThaiDate(log.timestamp || log.created_at)}</td>
-                        <td data-label="ผู้ใช้งาน" style="font-weight:600; color:var(--primary);">${studentDisplay}</td>
-                        <td data-label="ประเภทบาดแผล" style="font-weight:600;">${safeWoundDisplay}<br><span style="font-size:10px; color:var(--text-muted); font-weight:normal;">(${safeMethod})</span></td>
-                        <td data-label="เวชภัณฑ์">${itemsHtml}</td>
-                    `;
-                    rowsContainer.appendChild(row);
-                });
-            }
-
-            // Initial render
-            renderHistory();
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('table-container').style.display = 'none';
+            document.getElementById('empty-state').style.display = 'block';
+            document.getElementById('empty-state').textContent = 'ประวัติจากตู้ยังไม่เชื่อมเข้าระบบส่วนกลาง';
+            for (const id of ['history-total', 'history-ai-total', 'history-latest']) document.getElementById(id).textContent = '—';
         });
     </script>
 </body>

@@ -69,8 +69,11 @@
         @media (min-width: 461px) { .scan-app { border-inline: 1px solid oklch(1 0 0 / 0.10); box-shadow: 0 28px 70px -40px #000; } }
     </style>
     <link rel="stylesheet" href="../css/student-responsive.css">
+    <link rel="stylesheet" href="../css/auth.css">
+    <script src="../js/auth.js" defer></script>
+    <script src="../js/auth-ui.js" defer></script>
 </head>
-<body class="scan-body">
+<body data-auth-required="school" class="scan-body">
     <div class="scan-app">
         <section id="input-section">
             <header class="scan-header">
@@ -182,7 +185,10 @@
         let selectedBase64 = null;
         let analyzedWoundId = null;
 
-        document.addEventListener('DOMContentLoaded', startCamera);
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.SFAB_RUNTIME?.transport === 'pi-local') startCamera();
+            else AuthService.subscribe(state => { if (state.status === 'ready') startCamera(); else stopCamera(); });
+        });
 
         function showToast(message, type = 'info') {
             if (window.NotificationService && typeof NotificationService.showToast === 'function') {
