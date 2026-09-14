@@ -18,7 +18,7 @@ export class CabinetSync {
         const response = await this.fetchImpl(this.origin + path, { method, headers: { ...headers, 'Content-Type': 'application/octet-stream' },
             ...(method === 'POST' ? { body } : {}), signal: AbortSignal.timeout(15000), redirect: 'error' });
         const text = await response.text();
-        if (text.length > 256 * 1024) throw new Error('Sync response too large');
+        if (text.length > 2 * 1024 * 1024) throw new Error('Sync response too large');
         if (!response.ok && response.status !== 304) throw new Error('Sync request failed');
         const etag = response.headers.get('etag') || '';
         if (!equalMac(response.headers.get('x-sfab-signature'),

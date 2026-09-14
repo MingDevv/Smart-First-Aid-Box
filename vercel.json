@@ -13,6 +13,10 @@
   "trailingSlash": false,
   "rewrites": [
     {
+      "source": "/dashboard/students",
+      "destination": "/dashboard/students.html"
+    },
+    {
       "source": "/dashboard",
       "destination": "/dashboard/index.html"
     },

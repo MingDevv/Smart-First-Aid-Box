@@ -107,7 +107,7 @@
                         <th style="width: 25%;">วันเวลา</th>
                         <th style="width: 25%;">ผู้ใช้งาน (นักเรียน)</th>
                         <th style="width: 25%;">ประเภทบาดแผล</th>
-                        <th style="width: 25%;">เวชภัณฑ์ที่เบิกใช้</th>
+                        <th style="width: 25%;">สถานะ</th>
                     </tr>
                 </thead>
                 <tbody id="history-rows">
@@ -130,13 +130,6 @@
     <!-- Scripts -->
     <script src="../js/storage.js"></script>
     <script src="../js/notification.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('table-container').style.display = 'none';
-            document.getElementById('empty-state').style.display = 'block';
-            document.getElementById('empty-state').textContent = 'ประวัติจากตู้ยังไม่เชื่อมเข้าระบบส่วนกลาง';
-            for (const id of ['history-total', 'history-ai-total', 'history-latest']) document.getElementById(id).textContent = '—';
-        });
-    </script>
+    <script src="../js/student-history.js"></script>
 </body>
 </html>

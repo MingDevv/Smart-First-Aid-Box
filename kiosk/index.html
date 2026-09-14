@@ -76,6 +76,23 @@
     </div>
 
     <main class="kiosk-main">
+        <section class="view" id="view-welcome" aria-label="เริ่มใช้งาน">
+            <h1 class="view-title">ตู้ปฐมพยาบาลอัจฉริยะ</h1>
+            <p class="view-lead">เตรียมบัตรนักเรียนที่มี QR ก่อนเริ่ม</p>
+            <button class="btn btn-primary btn-major" type="button" data-action="scan-card">กดเพื่อเริ่มใช้งาน</button>
+        </section>
+        <section class="view" id="view-card" aria-label="สแกนบัตรนักเรียน" hidden>
+            <h1 class="view-title">สแกน QR บนบัตรนักเรียน</h1>
+            <div class="camera-frame"><video id="card-video" playsinline muted autoplay></video></div>
+            <p id="card-hint" class="view-lead" role="status">ยกบัตรให้อยู่ในกรอบ</p>
+            <button class="btn" type="button" data-action="go-start">กลับหน้าแรก</button>
+        </section>
+        <section class="view" id="view-greeting" aria-label="ยืนยันนักเรียน" hidden>
+            <h1 id="student-greeting" class="view-title"></h1>
+            <p class="view-lead">พร้อมแล้วไปเลือกวิธีดูแลแผลกัน</p>
+            <button class="btn btn-primary btn-major" type="button" data-action="card-continue">เริ่มดูแลแผล</button>
+            <button class="btn" type="button" data-action="go-start">ไม่ใช่ฉัน / กลับหน้าแรก</button>
+        </section>
 
         <!-- 1 · เริ่ม ─────────────────────────────────────────────────── -->
         <section class="view" id="view-start" aria-label="เริ่มใช้งาน">
@@ -370,6 +387,7 @@
 <script src="../js/api-bridge.js"></script>
 <!-- เฉพาะของหน้าตู้ -->
 <script src="../js/kiosk-session.js"></script>
-<script src="../js/kiosk-app.js"></script>
+<script src="../js/qr-sdk.js"></script>
+    <script src="../js/kiosk-app.js"></script>
 </body>
 </html>

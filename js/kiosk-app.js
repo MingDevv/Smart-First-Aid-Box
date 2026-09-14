@@ -43,6 +43,10 @@
     let hardware = { connected: false, ready: false, mode: 'checking' };
     let statusTimer = null;
     let stream = null;
+    let qrTimer = null;
+    let studentIdentity = null;
+    let identityReset = Promise.resolve();
+    const qrEnabled = () => isPiLocal() && !!el("view-welcome");
     let photoReady = false;
     let analyzeAbort = null;
     let stepIndex = 0;
@@ -116,7 +120,7 @@
     // แสดง view เดียว ปิดที่เหลือ — ไม่แตะ style.display เพราะ CSS ใช้ [hidden]
     function showView(name) {
         Object.keys(views).forEach(key => {
-            views[key].hidden = key !== name;
+            if (views[key]) views[key].hidden = key !== name;
         });
         if (session) session.setView(name);
         // ปุ่มเรียกครูอยู่ทุกหน้า รวมหน้าที่กำลังรอตู้ — ออดกับลิ้นชักเป็นคนละคำสั่ง
@@ -198,9 +202,45 @@
         statusTimer = setInterval(pollHardware, STATUS_POLL_MS);
     }
 
+    function clearStudentIdentity() {
+        studentIdentity = null;
+        if (el('student-greeting')) el('student-greeting').textContent = '';
+        if (qrEnabled()) identityReset = fetch('/api/local/student', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'clear' }) }).catch(() => {});
+    }
+    async function scanCardFrame(token) {
+        if (isStale(token) || session.state.view !== 'card') return;
+        const video = el('card-video');
+        try {
+            if (video.videoWidth) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 640; canvas.height = Math.round(640 * video.videoHeight / video.videoWidth);
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = window.SfabQr.decode(frame.data, frame.width, frame.height);
+                if (code) {
+                    await identityReset;
+                    if (isStale(token) || session.state.view !== 'card') return;
+                    const response = await fetch('/api/local/student', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }), signal: AbortSignal.timeout(5000) });
+                    const matched = await response.json();
+                    if (isStale(token) || session.state.view !== 'card') return;
+                    if (response.ok) {
+                        studentIdentity = matched;
+                        stopCamera();
+                        el('student-greeting').textContent = 'สวัสดี ' + matched.givenName + ' ' + matched.surname;
+                        showView('greeting');
+                        return;
+                    }
+                    el('card-hint').textContent = 'ไม่พบบัตรนี้ในตู้ กรุณาลองอีกครั้งหรือเรียกครู';
+                }
+            }
+        } catch { if (!isStale(token)) el('card-hint').textContent = 'ยังอ่านบัตรไม่ได้ กรุณาลองอีกครั้งหรือเรียกครู'; }
+        if (!isStale(token) && session.state.view === 'card') qrTimer = setTimeout(() => scanCardFrame(token), 250);
+    }
+
     // ── กล้อง ───────────────────────────────────────────────────────────
 
-    async function startCamera() {
+    async function startCamera(purpose = "wound") {
         stopCamera();
         photoReady = false;
         el('scan-preview').hidden = true;
@@ -209,6 +249,7 @@
         el('scan-hint').textContent = 'กำลังเปิดกล้อง';
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            if (purpose === 'card') { el('card-hint').textContent = 'เครื่องนี้ไม่มีกล้อง กรุณาเรียกครู'; return; }
             return cameraUnavailable('เครื่องนี้ไม่มีกล้องที่ใช้ได้');
         }
         const token = currentGeneration();
@@ -232,17 +273,19 @@
                 return;
             }
             stream = granted;
-            const video = el('scan-video');
+            const video = el(purpose === 'card' ? 'card-video' : 'scan-video');
             video.srcObject = stream;
             // autoplay ที่เงียบๆ ไม่ทำงาน หน้าตาเหมือนกล้องเสีย จึงสั่ง play เองและจับ error
             await video.play();
             if (isStale(token)) return stopCamera();
+            if (purpose === 'card') { scanCardFrame(token); return; }
             el('scan-capture').disabled = false;
             el('scan-hint').textContent = 'ให้แสงส่องถึงแผล อย่าให้เงามือบัง';
         } catch (error) {
             if (isStale(token)) return;
             console.warn('[Kiosk] camera failed:', error && error.name);
-            cameraUnavailable('เปิดกล้องไม่ได้');
+            if (purpose === 'card') el('card-hint').textContent = 'เปิดกล้องไม่ได้ กรุณาเรียกครู';
+            else cameraUnavailable('เปิดกล้องไม่ได้');
         }
     }
 
@@ -255,6 +298,9 @@
     }
 
     function stopCamera() {
+        clearTimeout(qrTimer);
+        qrTimer = null;
+        if (el('card-video')) el('card-video').srcObject = null;
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
             stream = null;
@@ -465,6 +511,7 @@
 
     // ซ่อนทางสแกนแผลทั้งเส้นเมื่อไม่มีกล้อง แล้วให้หน้าเลือกแผลเป็นหน้าแรกแทน
     async function configureEntryPoint() {
+        if (qrEnabled()) { landingView = 'welcome'; showView('welcome'); return; }
         const camera = await hasCamera();
         const scanCard = document.querySelector('[data-action="go-scan"]');
         if (camera) {
@@ -543,6 +590,7 @@
     // เหตุผลเดียวที่ห้ามจ่าย คืนเป็นข้อความ หรือ null ถ้าจ่ายได้
     // แยกจากการวาดหน้าจอ เพื่อให้ dispense() เรียกซ้ำได้ตอนกดจริง ไม่ใช่เชื่อสถานะปุ่ม
     function dispenseBlockReason() {
+        if (qrEnabled() && !studentIdentity) return 'กรุณาสแกนบัตรนักเรียนก่อนเริ่มใช้งาน';
         const wound = currentWound();
         if (!wound) return 'ยังไม่ได้เลือกประเภทแผล';
         const known = matchedAllergies(wound);
@@ -615,7 +663,7 @@
 
         let result;
         try {
-            result = await ApiBridge.openCompartment(wound.id);
+            result = await ApiBridge.openCompartment(wound.id, studentIdentity?.sessionId);
         } catch (error) {
             console.error('[Kiosk] dispense threw:', error);
             // โยน error ออกมา = ไม่รู้ว่าส่งไปถึงตู้หรือยัง ⇒ ถือว่าไม่แน่นอน ห้ามลองใหม่
@@ -760,9 +808,10 @@
         el('overlay-sos').hidden = true;
         const store = storage();
         if (store) store.logoutStudent();
+        clearStudentIdentity();
         el('scan-lead').textContent = 'ถือให้นิ่ง แล้วกดปุ่มถ่ายภาพ';
         if (landingView === 'select') goSelect();
-        else showView('start');
+        else showView(qrEnabled() ? 'welcome' : 'start');
     }
 
     // ── เรียกครู ────────────────────────────────────────────────────────
@@ -857,6 +906,8 @@
 
     const ACTIONS = {
         'go-start': () => resetToStart('back'),
+        'scan-card': () => { invalidateAsyncWork(); showView('card'); el('card-hint').textContent = 'ยก QR บนบัตรให้อยู่ในกรอบ'; startCamera('card'); },
+        'card-continue': () => { if (studentIdentity) showView('start'); },
         'go-scan': () => { showView('scan'); startCamera(); },
         'go-select': () => goSelect(),
         'capture': capturePhoto,
@@ -897,7 +948,7 @@
     // ── เริ่มทำงาน ──────────────────────────────────────────────────────
 
     function init() {
-        ['start', 'scan', 'airesult', 'select', 'confirm', 'dispensing', 'collect', 'steps', 'done', 'problem']
+        ['welcome', 'card', 'greeting', 'start', 'scan', 'airesult', 'select', 'confirm', 'dispensing', 'collect', 'steps', 'done', 'problem']
             .forEach(name => { views[name] = el(`view-${name}`); });
 
         session = KioskSession.create({
@@ -923,7 +974,8 @@
                 if (!el('overlay-idle').hidden) stayActive();
             }, { passive: true }));
 
-        showView('start');
+        clearStudentIdentity();
+        showView(qrEnabled() ? 'welcome' : 'start');
         session.start();
         startStatusPolling();
         // ตรวจกล้องแล้วค่อยตัดสินว่าหน้าแรกคือหน้าไหน ทำหลัง render แรกเพื่อไม่ให้จอว่าง

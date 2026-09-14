@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="th"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ทะเบียนนักเรียน | SFAB</title>
+<link rel="stylesheet" href="../css/global.css"><link rel="stylesheet" href="../css/students.css"><link rel="stylesheet" href="../css/auth.css">
+<script src="../js/auth.js" defer></script><script src="../js/auth-ui.js" defer></script><script src="../js/qr-sdk.js" defer></script><script src="../js/students.js" defer></script></head>
+<body data-auth-required="staff"><main class="roster-shell">
+<header><a href="/dashboard">กลับหน้าครู</a><p class="eyebrow">SMART FIRST AID BOX</p><h1>ทะเบียนนักเรียน</h1><p>ข้อมูลนักเรียน ประวัติการแพ้ และบัตรสำหรับใช้งานตู้</p></header>
+<p id="roster-status" role="status" aria-live="polite">กำลังตรวจสอบบัญชี</p>
+<section class="roster-panel"><div class="roster-toolbar"><h2>รายชื่อนักเรียน</h2><button id="reload" type="button">โหลดใหม่</button><button id="export" type="button">ส่งออก CSV (มีข้อมูลการแพ้)</button></div><label>ค้นหาเลขประจำตัว ชื่อ ชั้น หรือห้อง<input id="search" type="search" autocomplete="off"></label><div class="table-scroll"><table><thead><tr><th>เลขประจำตัว</th><th>ชื่อ–นามสกุล</th><th>ชั้น / ห้อง</th><th>จัดการ</th></tr></thead><tbody id="roster-rows"></tbody></table></div></section>
+<section class="roster-panel"><h2 id="editor-title">เพิ่มหรือแก้ไขนักเรียน</h2><p>ใช้เลขประจำตัวเดิมเพื่อแก้ไขข้อมูล ชื่อและนามสกุลแยกช่องกัน ช่องการแพ้ที่ว่างหมายถึงยังไม่มีข้อมูล</p><form id="student-form" class="roster-form">
+<label>เลขประจำตัวนักเรียน<input name="studentId" required maxlength="32" pattern="[A-Za-z0-9_-]{1,32}"></label>
+<label>ชื่อ<input name="givenName" required maxlength="160"></label><label>นามสกุล<input name="surname" required maxlength="160"></label>
+<label>ชั้น (เช่น ม.3)<input name="classLevel" required maxlength="160"></label><label>ห้อง<input name="room" required maxlength="160"></label>
+<label>อีเมลโรงเรียน (ถ้ามี)<input name="schoolEmail" type="email" maxlength="160" placeholder="student@tesaban6.ac.th"></label>
+<label>ประวัติการแพ้ยา<textarea name="drugAllergies" maxlength="2000"></textarea></label><label>ประวัติการแพ้อาหาร<textarea name="foodAllergies" maxlength="2000"></textarea></label>
+<div><button type="submit">ตรวจสอบก่อนบันทึก</button> <button id="new-student" type="button">ล้างแบบฟอร์ม</button></div></form></section>
+<section class="roster-panel"><h2>นำเข้า CSV</h2><p>UTF-8 ไม่เกิน 1 MiB และ 200 คนต่อไฟล์ ทะเบียนรองรับ 500 คน เลขประจำตัวต้องไม่ซ้ำ ตรวจสอบผลก่อนยืนยันทุกครั้ง</p><button id="template" type="button">ดาวน์โหลดตัวอย่าง 3 คน (ข้อมูลสมมติ)</button><label>เลือกไฟล์ CSV<input id="csv-file" type="file" accept=".csv,text/csv"></label><button id="preview-csv" type="button">ตรวจสอบไฟล์</button></section>
+<section id="import-preview" class="roster-panel" hidden><h2>ตรวจสอบก่อนบันทึก</h2><p id="preview-summary"></p><div id="preview-rows" class="table-scroll"></div><button id="confirm-import" type="button">ยืนยันบันทึกข้อมูลตามรายการนี้</button><button id="cancel-import" type="button">ยกเลิก</button></section>
+<section id="student-history" class="roster-panel" hidden><h2 id="history-title"></h2><div id="history-records"></div><button id="history-more" type="button" hidden>โหลดประวัติเพิ่ม</button></section>
+<dialog id="card-dialog"><section id="print-card"><p>บัตรใช้งานตู้ปฐมพยาบาล</p><h2 id="card-name"></h2><p id="card-class"></p><canvas id="card-qr" aria-label="QR สำหรับสแกนที่ตู้เท่านั้น"></canvas><p>ใช้สแกนที่ตู้เท่านั้น · ไม่ใช้เข้าสู่ระบบบนมือถือ</p></section><p>บัตรที่พิมพ์ใช้ได้หลังตู้ซิงก์รายชื่อแล้ว หากบัตรหาย ให้ออกบัตรใหม่ บัตรเดิมจะหยุดใช้ได้เมื่อตู้ซิงก์ครั้งถัดไป</p><button id="print" type="button">พิมพ์บัตร</button><button id="replace-card" type="button">ออกบัตรใหม่แทนบัตรที่หาย</button><button id="close-card" type="button">ปิด</button></dialog>
+</main></body></html>

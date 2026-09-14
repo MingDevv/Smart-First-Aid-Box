@@ -1,3 +1,4 @@
+import { MAX_STUDENTS, rosterProjection } from '../lib/students.js';
 import { firebaseServices } from '../lib/firebase-admin.js';
 import { authenticateCabinet, digest, EVENT_ID } from '../lib/cabinet-protocol.js';
 import { inventoryProjection } from '../lib/cabinet-events.js';
@@ -11,6 +12,8 @@ export function createSyncHandler({ services = firebaseServices, env = process.e
             const auth = authenticateCabinet(req, '', '/api/sync', env, now());
             const { db } = services();
             const [stock, cabinet] = await db.getAll(db.doc(`inventory/${auth.cabinetId}`), db.doc(`cabinets/${auth.cabinetId}`));
+            const students = await db.collection('students').limit(MAX_STUDENTS + 1).get();
+            if (students.size > MAX_STUDENTS) throw new Error('roster_limit');
             const requests = cabinet.data()?.clearRequests;
             // Read-only cache contract for WP4; no role, roster, allergy or photo data in WP2.
             const clearing = Array.isArray(requests) ? requests.filter(item => EVENT_ID.test(item?.commandId) &&
@@ -18,7 +21,7 @@ export function createSyncHandler({ services = firebaseServices, env = process.e
                 typeof item.checkedBy === 'string' && item.checkedBy.length <= 128 &&
                 typeof item.checkedAt === 'string' && Number.isFinite(Date.parse(item.checkedAt)))
                 .slice(0, 20).map(({ commandId, decisionId, checkedBy, checkedAt }) => ({ commandId, decisionId, checkedBy, checkedAt })) : [];
-            const bundle = { version: 1, cabinetId: auth.cabinetId, inventory: inventoryProjection(stock.data()), clearing };
+            const bundle = { version: 1, cabinetId: auth.cabinetId, inventory: inventoryProjection(stock.data()), clearing, roster: rosterProjection(students.docs.map(doc => doc.data())) };
             const etag = `"${digest(JSON.stringify(bundle))}"`;
             return signedResponse(res, auth, req.headers['if-none-match'] === etag ? 304 : 200, bundle, etag);
         } catch (error) { return cabinetFailure(res, error); }
