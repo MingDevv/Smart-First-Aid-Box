@@ -156,7 +156,9 @@
             setView(view) {
                 state.view = view;
                 // อ่านคำแนะนำใช้เวลานานกว่าเลือกเมนู ให้เวลาต่างกันตามแผน §4
-                session.setIdleMode(view === 'steps' ? 'reading' : 'interactive');
+                // หน้าถ่ายรูปใบหน้าอยู่ฝั่งเดียวกับการอ่าน: คนที่ยืนจัดท่าให้กล้องไม่ได้แตะจอเลย
+                // จึงไม่มีอะไรไปต่ออายุนาฬิกา แล้วรอบถูกรีเซ็ตกลางการถ่ายด้วยงบ 60 วินาที
+                session.setIdleMode(['steps', 'face'].includes(view) ? 'reading' : 'interactive');
                 return state.view;
             },
 

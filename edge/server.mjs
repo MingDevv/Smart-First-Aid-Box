@@ -1,4 +1,5 @@
 import { StudentSession } from './student-session.mjs';
+import { CabinetPhotos, MAX_BASE64 as PHOTO_MAX_BASE64 } from './photos.mjs';
 import { createServer } from 'node:http';
 import { readFile, realpath, mkdir } from 'node:fs/promises';
 import { dirname, extname, join, resolve, sep } from 'node:path';
@@ -100,7 +101,11 @@ export function normalizeMode(raw) {
     return 'unset';
 }
 
-export async function createLocalServer({ controller, root = ROOT, mode = process.env.SFAB_MODE } = {}) {
+// `photos`/`sync` เป็นตัวเลือกโดยตั้งใจ — เทสจำนวนมากเรียก createLocalServer({controller, mode})
+// ตรงๆ การบังคับให้ส่งเข้ามาจะทำให้เทสที่ไม่เกี่ยวกับรูปพังทั้งแถว · ไม่ส่ง = ตู้ยังใช้คิวรูป
+// ของตัวเองได้ (สร้างจาก db เดียวกับสมุดคำสั่ง) แค่ไม่มีใครมาปลุกให้อัปขึ้นคลาวด์
+export async function createLocalServer({ controller, root = ROOT, mode = process.env.SFAB_MODE,
+    photos = new CabinetPhotos(controller.outbox.db), sync = null } = {}) {
     // ฉีดเสมอทั้งสามค่า รวม unset — การมีค่าฉีดอยู่คือสัญญาณว่า "เครื่องนี้เป็นคนกำหนด"
     // เบราว์เซอร์จึงต้องไม่ตกกลับไปอ่าน localStorage ไม่ว่าค่าจะเป็นอะไร
     const deviceMode = normalizeMode(mode);
@@ -108,7 +113,7 @@ export async function createLocalServer({ controller, root = ROOT, mode = proces
     const webRoot = await realpath(root);
     const routing = JSON.parse(await readFile(join(webRoot, 'vercel.json'), 'utf8'));
     const rewrites = new Map(routing.rewrites.map(r => [r.source, r.destination]));
-    const studentSession = new StudentSession(controller.outbox);
+    const studentSession = new StudentSession(controller.outbox, undefined, photos);
     const server = createServer(async (req, res) => {
         res.setHeader('Cache-Control', 'no-store');
         res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -137,6 +142,29 @@ export async function createLocalServer({ controller, root = ROOT, mode = proces
                     if (body.action === 'clear') { studentSession.clear(); return json(res, 200, { success: true }); }
                     const student = studentSession.scan(body.code);
                     return json(res, student ? 200 : 404, student || { error: 'card_not_found' });
+                }
+                // ไม่มีบัตร → ถ่ายรูปใบหน้าไว้ให้ครูดู แล้วเปิดรอบให้ใช้ตู้ได้
+                //
+                // **ทำไมต้องผ่านตู้ ไม่ให้เบราว์เซอร์ยิง `/api/photo` เอง**: ปลายทางนั้นบังคับ
+                // ลายเซ็น HMAC จาก SFAB_CABINET_SECRET ซึ่งต้องไม่มีวันไปโผล่ในหน้าเว็บ
+                //
+                // **ทำไมตอบ 200 ทั้งที่ยังไม่ได้อัปขึ้นคลาวด์**: ตู้ต้องใช้งานได้ตอนเน็ตล่ม
+                // รูปเข้าคิวบนตู้ก่อน แล้วรอบ sync เป็นคนส่งขึ้นไป · การรอผลอัปโหลดตรงนี้
+                // จะทำให้เด็กที่ลืมบัตรใช้ตู้ไม่ได้เลยเมื่อเน็ตล่ม ซึ่งเป็นกรณีที่ฟีเจอร์นี้มีไว้เพื่อ
+                if (pathname === '/api/local/photo') {
+                    if (req.method !== 'POST') return json(res, 405, { error: 'POST required' });
+                    if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') return json(res, 415, { error: 'JSON required' });
+                    // เพดานต้องสูงกว่า base64 เต็มเพดานบวกกรอบ JSON ไม่งั้นรูปที่ถูกต้องโดน 413
+                    const body = await readJson(req, PHOTO_MAX_BASE64 + 4096);
+                    if (!photos.store(body.eventId, body.jpegBase64)) {
+                        return json(res, 400, { error: 'invalid_photo' });
+                    }
+                    const round = studentSession.beginPhotoRound(body.eventId);
+                    if (!round) return json(res, 400, { error: 'invalid_photo' });
+                    // ปลุกรอบ sync ให้ลองส่งเดี๋ยวนี้ แต่ไม่รอผล — คำตอบของ 200 นี้แปลว่า
+                    // "ตู้รับรูปไว้แล้วและเปิดรอบให้" ไม่ใช่ "ครูได้รับรูปแล้ว"
+                    sync?.wake();
+                    return json(res, 200, { sessionId: round.sessionId });
                 }
                 if (pathname !== '/api/command' && !['/api/analyze', '/api/notify'].includes(pathname)) {
                     return json(res, 404, { success: false, error: 'Not found' });
@@ -211,14 +239,18 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     if (serial) await serial.open();
     const controller = new LocalController({
         esp32Url: process.env.SFAB_ESP32_URL || '', serial, database, mode: deviceMode, cabinetId: process.env.SFAB_CABINET_ID || 'box1' });
-    const server = await createLocalServer({ controller, mode: deviceMode });
-    const port = Number(process.env.SFAB_PORT || 8787);
-    if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid SFAB_PORT');
-    server.listen(port, '127.0.0.1', () => console.log(`Pi kiosk: http://localhost:${port}/kiosk`));
+    // ลำดับนี้บังคับ: คิวรูป → ตัวส่ง → เซิร์ฟเวอร์ · เซิร์ฟเวอร์ต้องถือ `sync` ไว้เพื่อปลุกให้
+    // ส่งรูปทันทีที่เด็กถ่ายเสร็จ ไม่ใช่รอรอบถัดไปอีก 60 วินาที · ทั้งสองตัวใช้ db ก้อนเดียวกับ
+    // สมุดคำสั่ง จะได้ไม่มีไฟล์ที่สองให้ลืมสำรองหรือลืมลบ
+    const photos = new CabinetPhotos(controller.outbox.db);
     // Optional: with MQTT_URL in the unit's environment the Pi also serves the cloud path
     // (Vercel → broker → here), taking the seat the ESP32 used to hold. Same controller,
     // same gates; without MQTT_URL the cabinet is touchscreen-only exactly as before.
-    const sync = startCabinetSync(process.env, controller);
+    const sync = startCabinetSync(process.env, controller, photos);
+    const server = await createLocalServer({ controller, mode: deviceMode, photos, sync });
+    const port = Number(process.env.SFAB_PORT || 8787);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid SFAB_PORT');
+    server.listen(port, '127.0.0.1', () => console.log(`Pi kiosk: http://localhost:${port}/kiosk`));
     const cloud = await startCloudBridge(process.env, controller);
     // An idle keep-alive socket does NOT hold close() open. Measured on this server, node
     // v26.8.2: one parked keep-alive connection held open, close() WITHOUT

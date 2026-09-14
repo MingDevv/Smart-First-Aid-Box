@@ -25,6 +25,19 @@
     const PHOTO_MAX_EDGE = 800;
     const PHOTO_QUALITY = 0.85;
 
+    // รูปใบหน้าของคนที่ไม่มีบัตร — เล็กกว่ารูปแผลเพราะปลายทางคือการ์ด LINE ที่ครูดูบนมือถือ
+    // ไม่ใช่โมเดลที่ต้องเห็นรายละเอียดผิวหนัง · เพดานฝั่งเซิร์ฟเวอร์คือ 340 KiB ของ base64
+    // (api/photo.js MAX_BASE64) ⇒ 640 px ที่คุณภาพ 0.8 อยู่ห่างเพดานอย่างสบาย
+    const FACE_MAX_EDGE = 640;
+    const FACE_QUALITY = 0.8;
+
+    // ตรวจไม่ผ่านกี่ครั้งถึงจะยอมให้ส่งรูปนั้นไปเลย
+    //
+    // lib/face-check.js เป็นสถิติของภาพ ไม่ใช่การรู้จำใบหน้า และเกณฑ์ของมัน **ยังไม่เคยจูน
+    // กับแสงจริงหน้าตู้** ⇒ การวนให้ถ่ายใหม่ไม่รู้จบกับเด็กที่กำลังเจ็บ แย่กว่าการรับรูปที่
+    // คะแนนไม่ผ่าน · สิ่งที่ยับยั้งคนมากดเล่นคือ "รูปไปถึงครู" ไม่ใช่ตัวเกณฑ์
+    const FACE_MAX_ATTEMPTS = 3;
+
     const STATUS_POLL_MS = 5000;
     const DONE_RETURN_MS = 8000;
 
@@ -76,6 +89,16 @@
     const qrEnabled = () => isPiLocal() && !!el("view-welcome");
     let photoReady = false;
     let analyzeAbort = null;
+    // รูปใบหน้าของรอบนี้ เก็บแยกจาก session.state.photo โดยตั้งใจ — ช่องนั้นเป็นของรูปแผล
+    // ที่ถูกส่งไป /api/analyze และถูก render บนหน้าผล AI ⇒ ถ้าใช้ช่องเดียวกัน หน้าเด็กจะถูก
+    // ส่งไปให้ Gemini อ่านว่าเป็นแผล แล้วโผล่บนจอในฐานะรูปแผล
+    let faceAttempts = 0;
+    // id ของคำสั่งรอบนี้ ต้องถูกกำหนดตั้งแต่ก่อนถ่ายรูป ไม่ใช่ตอนกดรับอุปกรณ์
+    //
+    // คีย์ของรูปในคลาวด์คือ `photos/{cabinetId}~{eventId}` และ eventId ต้องเป็น **ตัวเดียวกับ
+    // id ของคำสั่งเปิดลิ้นชัก** เพราะฝั่งเซิร์ฟเวอร์เอา id ของเหตุการณ์ไปเปิดหารูป
+    // ของเดิม ApiBridge สร้าง id เองข้างใน openCompartment ⇒ ตอนถ่ายรูปยังไม่มีใครรู้ค่านี้
+    let roundCommandId = null;
     let stepIndex = 0;
     let dispenseStartedAt = 0;
     let dispenseTicker = null;
@@ -267,17 +290,39 @@
 
     // ── กล้อง ───────────────────────────────────────────────────────────
 
+    // กล้องตัวเดียว สามงาน: อ่าน QR บนบัตร · ถ่ายแผล · ถ่ายใบหน้าคนที่ไม่มีบัตร
+    //
+    // ของเดิมแตกทางด้วย `purpose === 'card'` กระจายอยู่สี่จุด และทุก `else` เขียนลงองค์ประกอบ
+    // ของหน้าถ่ายแผลแบบตายตัว ⇒ การเพิ่มงานที่สามโดยไม่รวมศูนย์ตรงนี้ จะได้ผลแบบ: เฟรมใบหน้า
+    // ไปขึ้นใน #scan-video · ปุ่มถ่ายแผลถูกเปิดขณะอยู่หน้าถ่ายใบหน้า · และกล้องที่เปิดไม่ได้
+    // ไปเขียนข้อความลง scan-hint/scan-lead ที่ไม่มีใครเห็นอยู่ตอนนั้น
+    const CAMERA_UI = {
+        card: { video: 'card-video', hint: 'card-hint', noCamera: 'เครื่องนี้ไม่มีกล้อง กรุณาเรียกครู', failed: 'เปิดกล้องไม่ได้ กรุณาเรียกครู' },
+        face: { video: 'face-video', preview: 'face-preview', hint: 'face-hint', capture: 'face-capture',
+            noCamera: 'เครื่องนี้ไม่มีกล้อง กรุณาเรียกครูพยาบาล', failed: 'เปิดกล้องไม่ได้ กรุณาเรียกครูพยาบาล',
+            ready: 'มองตรงมาที่กล้อง ให้เห็นหน้าชัดๆ' },
+        wound: { video: 'scan-video', preview: 'scan-preview', hint: 'scan-hint', capture: 'scan-capture',
+            ready: 'ให้แสงส่องถึงแผล อย่าให้เงามือบัง' }
+    };
+
     async function startCamera(purpose = "wound") {
         stopCamera();
         photoReady = false;
-        el('scan-preview').hidden = true;
-        el('scan-video').hidden = false;
-        el('scan-capture').disabled = true;
-        el('scan-hint').textContent = 'กำลังเปิดกล้อง';
+        const ui = CAMERA_UI[purpose] || CAMERA_UI.wound;
+        if (ui.preview) {
+            const preview = el(ui.preview);
+            preview.removeAttribute('src');
+            preview.hidden = true;
+        }
+        el(ui.video).hidden = false;
+        if (ui.capture) el(ui.capture).disabled = true;
+        el(ui.hint).textContent = 'กำลังเปิดกล้อง';
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            if (purpose === 'card') { el('card-hint').textContent = 'เครื่องนี้ไม่มีกล้อง กรุณาเรียกครู'; return; }
-            return cameraUnavailable('เครื่องนี้ไม่มีกล้องที่ใช้ได้');
+            // หน้าถ่ายแผลมีทางออกของตัวเอง (ไปเลือกแผลเอง) ที่หน้าอื่นไม่มี
+            if (purpose === 'wound') return cameraUnavailable('เครื่องนี้ไม่มีกล้องที่ใช้ได้');
+            el(ui.hint).textContent = ui.noCamera;
+            return;
         }
         const token = currentGeneration();
         try {
@@ -300,19 +345,21 @@
                 return;
             }
             stream = granted;
-            const video = el(purpose === 'card' ? 'card-video' : 'scan-video');
+            const video = el(ui.video);
             video.srcObject = stream;
             // autoplay ที่เงียบๆ ไม่ทำงาน หน้าตาเหมือนกล้องเสีย จึงสั่ง play เองและจับ error
             await video.play();
             if (isStale(token)) return stopCamera();
             if (purpose === 'card') { scanCardFrame(token); return; }
-            el('scan-capture').disabled = false;
-            el('scan-hint').textContent = 'ให้แสงส่องถึงแผล อย่าให้เงามือบัง';
+            el(ui.capture).disabled = false;
+            el(ui.hint).textContent = ui.ready;
         } catch (error) {
             if (isStale(token)) return;
             console.warn('[Kiosk] camera failed:', error && error.name);
-            if (purpose === 'card') el('card-hint').textContent = 'เปิดกล้องไม่ได้ กรุณาเรียกครู';
-            else cameraUnavailable('เปิดกล้องไม่ได้');
+            // ชื่อ error ของเบราว์เซอร์ (NotAllowedError ฯลฯ) อยู่ใน console เท่านั้น
+            // ห้ามขึ้นจอ — จอนี้เด็ก ป.5 อ่าน และคำภาษาอังกฤษไม่ได้บอกว่าต้องทำอะไรต่อ
+            if (purpose === 'wound') cameraUnavailable('เปิดกล้องไม่ได้');
+            else el(ui.hint).textContent = ui.failed;
         }
     }
 
@@ -327,25 +374,32 @@
     function stopCamera() {
         clearTimeout(qrTimer);
         qrTimer = null;
-        if (el('card-video')) el('card-video').srcObject = null;
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
             stream = null;
         }
-        const video = el('scan-video');
-        if (video) video.srcObject = null;
+        // ปล่อยทุกจอที่เคยเกาะสตรีม ไม่ใช่เฉพาะจอที่คิดว่ากำลังใช้อยู่ — เฟรมสุดท้ายที่ค้าง
+        // บน <video> ของรอบก่อนคือหน้าของคนก่อนหน้า
+        Object.values(CAMERA_UI).forEach(ui => {
+            const video = el(ui.video);
+            if (video) video.srcObject = null;
+        });
     }
 
     // ล้างรูปทั้งใน state และใน DOM — snapshot ที่ว่างไม่ได้พิสูจน์ว่าจอไม่ได้ค้างรูปไว้
+    // ครอบรูปใบหน้าด้วย: มันคือของที่ต้องไม่ค้างอยู่บนจอให้คนถัดไปเห็นมากที่สุดในหน้านี้
     function clearPhoto() {
         photoReady = false;
-        const preview = el('scan-preview');
-        if (preview) {
-            preview.removeAttribute('src');
-            preview.hidden = true;
-        }
-        const video = el('scan-video');
-        if (video) video.hidden = false;
+        Object.values(CAMERA_UI).forEach(ui => {
+            if (!ui.preview) return;
+            const preview = el(ui.preview);
+            if (preview) {
+                preview.removeAttribute('src');
+                preview.hidden = true;
+            }
+            const video = el(ui.video);
+            if (video) video.hidden = false;
+        });
     }
 
     function capturePhoto() {
@@ -372,6 +426,93 @@
             preview.hidden = false;
             analyzePhoto(token);
         });
+    }
+
+    // ── ไม่มีบัตร: ถ่ายรูปใบหน้าแทน ─────────────────────────────────────
+    //
+    // ลำดับสำคัญและกลับกันไม่ได้: **รูปต้องขึ้นไปถึงคลาวด์ก่อนเหตุการณ์จะถูก ingest**
+    // เพราะ payload ของ LINE ถูกแช่แข็งตั้งแต่ความพยายามส่งครั้งแรก ⇒ รูปที่มาทีหลัง
+    // ไม่มีทางไปโผล่บนการ์ดใบนั้นได้เลย · และ ingest ถูกยิงทันทีที่ลิ้นชักจบงาน
+    // (controller.finish → outbox.onNew → sync.wake) ⇒ ไม่มีช่องว่างให้ตามส่งทีหลัง
+    // ⇒ จึงต้องถ่ายและอัปก่อนกดรับอุปกรณ์ ไม่ใช่หลัง
+
+    function goFace() {
+        invalidateAsyncWork();
+        faceAttempts = 0;
+        // id ของรอบเกิดตรงนี้ เพราะรูปกับคำสั่งต้องใช้ id เดียวกัน (ดูคอมเมนต์ที่ roundCommandId)
+        roundCommandId = ApiBridge.createCommandId();
+        setNotice(el('face-notice'), el('face-notice-text'), 'info', '');
+        el('face-lead').textContent = 'มองกล้อง แล้วกดปุ่มถ่ายภาพ รูปนี้จะถูกส่งให้ครูพยาบาล';
+        showView('face');
+        startCamera('face');
+    }
+
+    function captureFace() {
+        const video = el('face-video');
+        if (!stream || !video.videoWidth) return;
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(1, FACE_MAX_EDGE / Math.max(video.videoWidth, video.videoHeight));
+        canvas.width = Math.round(video.videoWidth * scale);
+        canvas.height = Math.round(video.videoHeight * scale);
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // ตรวจจากเฟรมที่ย่อแล้ว ซึ่งเป็นเฟรมเดียวกับที่จะส่งจริง — ไม่ใช่เฟรมเต็มที่ตาไม่เห็น
+        const frame = context.getImageData(0, 0, canvas.width, canvas.height);
+        const verdict = window.SfabFaceCheck
+            ? SfabFaceCheck.inspectFrame(frame.data, frame.width, frame.height)
+            : { ok: true, message: '' };
+        faceAttempts += 1;
+        if (!verdict.ok && faceAttempts < FACE_MAX_ATTEMPTS) {
+            // ข้อความมาจาก lib/face-check.js ซึ่งเป็นภาษาไทยล้วนและบอกว่าต้องทำอะไรต่อ
+            el('face-hint').textContent = verdict.message;
+            setNotice(el('face-notice'), el('face-notice-text'), 'warning', verdict.message);
+            return;
+        }
+
+        const dataUrl = canvas.toDataURL('image/jpeg', FACE_QUALITY);
+        stopCamera();
+        video.hidden = true;
+        const preview = el('face-preview');
+        preview.src = dataUrl;
+        preview.hidden = false;
+        el('face-capture').disabled = true;
+        // ครบโควตาแล้วแต่ยังตรวจไม่ผ่าน = ส่งรูปนั้นไปเลย ตามเหตุผลที่ FACE_MAX_ATTEMPTS
+        setNotice(el('face-notice'), el('face-notice-text'), 'info',
+            verdict.ok ? '' : 'รูปอาจไม่ชัด แต่จะส่งให้ครูดูตามนี้');
+        void sendFace(dataUrl, currentGeneration());
+    }
+
+    async function sendFace(dataUrl, token) {
+        el('face-lead').textContent = 'กำลังบันทึกรูป รอสักครู่';
+        el('face-hint').textContent = 'อย่าเพิ่งเดินออกไป';
+        try {
+            // ตัดหัว `data:image/jpeg;base64,` ทิ้ง — ฝั่งเซิร์ฟเวอร์ตรวจว่าเป็น base64 ล้วน
+            // และจะปฏิเสธด้วย 400 ถ้ามีหัวติดไปด้วย
+            const response = await fetch('/api/local/photo', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ eventId: roundCommandId, jpegBase64: dataUrl.split(',')[1] || '' }),
+                signal: AbortSignal.timeout(10000)
+            });
+            const result = await response.json();
+            if (isStale(token)) return;
+            if (!response.ok || !result.sessionId) throw new Error(result.error || 'photo_rejected');
+            // ตัวตนแบบไม่มีบัตร: มีแค่ตั๋วของรอบ ไม่มีชื่อ ไม่มีรหัสนักเรียน เพราะตู้ไม่รู้จักหน้าใคร
+            // และไม่ได้พยายามจะรู้ · ทั้งระบบหลังจากนี้เดินเหมือนรอบที่ใช้บัตรทุกประการ
+            studentIdentity = { sessionId: result.sessionId, noBadge: true };
+            showView('start');
+        } catch (error) {
+            if (isStale(token)) return;
+            console.warn('[Kiosk] face photo failed:', error && error.message);
+            el('face-lead').textContent = 'บันทึกรูปไม่สำเร็จ';
+            setNotice(el('face-notice'), el('face-notice-text'), 'danger',
+                'ตู้ยังบันทึกรูปไม่ได้ ลองถ่ายใหม่อีกครั้ง ถ้ายังไม่ได้ให้กดเรียกครู');
+            el('face-hint').textContent = 'กดถ่ายภาพอีกครั้ง';
+            el('face-capture').disabled = false;
+            el('face-preview').hidden = true;
+            el('face-video').hidden = false;
+            startCamera('face');
+        }
     }
 
     function shrinkPhoto(dataUrl, done) {
@@ -637,7 +778,7 @@
     // เหตุผลเดียวที่ห้ามจ่าย คืนเป็นข้อความ หรือ null ถ้าจ่ายได้
     // แยกจากการวาดหน้าจอ เพื่อให้ dispense() เรียกซ้ำได้ตอนกดจริง ไม่ใช่เชื่อสถานะปุ่ม
     function dispenseBlockReason() {
-        if (qrEnabled() && !studentIdentity) return 'กรุณาสแกนบัตรนักเรียนก่อนเริ่มใช้งาน';
+        if (qrEnabled() && !studentIdentity) return 'สแกนบัตรนักเรียนก่อน หรือถ้าไม่ได้เอาบัตรมา กดปุ่มถ่ายรูปที่หน้าแรก';
         const wound = currentWound();
         if (!wound) return 'ยังไม่ได้เลือกประเภทแผล';
         const known = matchedAllergies(wound);
@@ -716,7 +857,10 @@
 
         let result;
         try {
-            result = await ApiBridge.openCompartment(wound.id, studentIdentity?.sessionId);
+            // รอบที่ไม่มีบัตรต้องใช้ id เดียวกับที่รูปถูกอัปโหลดไว้ ไม่งั้นฝั่งตู้จะหารูปของคำสั่งนี้ไม่เจอ
+            // และปฏิเสธการเปิดลิ้นชัก · รอบที่ใช้บัตรส่ง null ให้ ApiBridge สร้าง id เองเหมือนเดิม
+            result = await ApiBridge.openCompartment(wound.id, studentIdentity?.sessionId,
+                studentIdentity?.noBadge ? roundCommandId : null);
         } catch (error) {
             console.error('[Kiosk] dispense threw:', error);
             // โยน error ออกมา = ไม่รู้ว่าส่งไปถึงตู้หรือยัง ⇒ ถือว่าไม่แน่นอน ห้ามลองใหม่
@@ -857,6 +1001,10 @@
         // บวกเลขรุ่น ปิดกล้อง ยกเลิกการวิเคราะห์ และล้างรูปทั้งใน state และใน DOM
         invalidateAsyncWork();
         allergyAnswer = null;
+        // ของรอบที่ไม่มีบัตร ต้องล้างที่นี่ด้วย เพราะ session.reset() รู้จักแค่ state ของตัวเอง
+        // id ที่ค้างไว้จะทำให้รอบถัดไปไปผูกกับรูปของคนก่อนหน้า ซึ่งแย่กว่าไม่มีรูปเลย
+        faceAttempts = 0;
+        roundCommandId = null;
         el('overlay-idle').hidden = true;
         el('overlay-sos').hidden = true;
         const store = storage();
@@ -967,6 +1115,8 @@
     const ACTIONS = {
         'go-start': () => resetToStart('back'),
         'scan-card': () => { invalidateAsyncWork(); showView('card'); el('card-hint').textContent = 'ยก QR บนบัตรให้อยู่ในกรอบ'; startCamera('card'); },
+        'no-card': goFace,
+        'face-capture': captureFace,
         'card-continue': () => { if (studentIdentity) showView('start'); },
         'go-scan': () => { showView('scan'); startCamera(); },
         'go-select': () => goSelect(),
@@ -1012,7 +1162,7 @@
     // ── เริ่มทำงาน ──────────────────────────────────────────────────────
 
     function init() {
-        ['welcome', 'card', 'greeting', 'start', 'scan', 'airesult', 'select', 'confirm', 'dispensing', 'collect', 'steps', 'done', 'problem']
+        ['welcome', 'card', 'face', 'greeting', 'start', 'scan', 'airesult', 'select', 'confirm', 'dispensing', 'collect', 'steps', 'done', 'problem']
             .forEach(name => { views[name] = el(`view-${name}`); });
 
         session = KioskSession.create({

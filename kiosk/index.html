@@ -82,6 +82,10 @@
             <h1 class="view-title">ตู้ปฐมพยาบาลอัจฉริยะ</h1>
             <p class="view-lead">เตรียมบัตรนักเรียนที่มี QR ก่อนเริ่ม</p>
             <button class="btn btn-primary btn-major" type="button" data-action="scan-card">กดเพื่อเริ่มใช้งาน</button>
+            <!-- ลืมบัตรก็ต้องใช้ตู้ได้ · ของเดิมไม่มีบัตร = ใช้ตู้ไม่ได้เลย
+                 ซึ่งกันคนที่เจ็บจริงออกไปด้วย · ทางนี้ถ่ายรูปหน้าส่งครูแทนบัตร
+                 ปุ่มรองโดยตั้งใจ ไม่ใช่ปุ่มเด่นเท่ากัน — ทางปกติยังควรเป็นการสแกนบัตร -->
+            <button class="btn btn-outline" type="button" data-action="no-card">ไม่ได้เอาบัตรมา</button>
             </div>
             <!-- มาสคอตกับสโลแกน ตัดแยกจากภาพเดียวกันที่ Bank ส่งมา (2026-09-14)
                  ในภาพต้นฉบับข้อความอยู่ซ้ายของมาสคอต Bank ขอให้สลับมาอยู่ขวา
@@ -100,6 +104,40 @@
             <p id="card-hint" class="view-lead" role="status">ยกบัตรให้อยู่ในกรอบ</p>
             <button class="btn" type="button" data-action="go-start">กลับหน้าแรก</button>
         </section>
+        <!-- ไม่มีบัตร → ถ่ายรูปใบหน้าส่งครู ──────────────────────────────
+             รูปนี้ไม่ได้ใช้ระบุว่าเป็นใคร ระบบไม่รู้จักหน้าใครทั้งนั้น · มันคือสิ่งที่ครูได้เห็น
+             บนการ์ด LINE เพื่อจะรู้ว่าใครมาใช้ตู้ตอนที่ไม่มีบัตรมายืนยัน
+             ต้องบอกเด็กตรงๆ ว่ารูปจะถูกส่งให้ครู ก่อนกดถ่าย ไม่ใช่หลังจากนั้น -->
+        <section class="view" id="view-face" aria-label="ถ่ายรูปแทนบัตร" hidden>
+            <div class="view-head">
+                <div>
+                    <h1 class="view-title">ถ่ายรูปให้ครูดูแทนบัตร</h1>
+                    <p class="view-lead" id="face-lead">มองกล้อง แล้วกดปุ่มถ่ายภาพ รูปนี้จะถูกส่งให้ครูพยาบาล</p>
+                </div>
+            </div>
+            <div class="camera-row">
+                <div class="camera-frame">
+                    <video id="face-video" playsinline muted autoplay></video>
+                    <img id="face-preview" alt="รูปที่เพิ่งถ่าย" hidden>
+                    <div class="camera-hint" id="face-hint">กำลังเปิดกล้อง</div>
+                </div>
+                <div class="camera-side">
+                    <button class="btn btn-primary btn-major" type="button" id="face-capture" data-action="face-capture" disabled>
+                        <svg class="icon" aria-hidden="true"><use href="#i-camera"></use></svg>
+                        ถ่ายภาพ
+                    </button>
+                    <button class="btn btn-outline btn-back" type="button" data-action="go-start">
+                        <svg class="icon" aria-hidden="true"><use href="#i-back"></use></svg>
+                        กลับ
+                    </button>
+                </div>
+            </div>
+            <div class="notice" id="face-notice" data-tone="info" hidden>
+                <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
+                <span id="face-notice-text"></span>
+            </div>
+        </section>
+
         <section class="view" id="view-greeting" aria-label="ยืนยันนักเรียน" hidden>
             <h1 id="student-greeting" class="view-title"></h1>
             <p class="view-lead">พร้อมแล้วไปเลือกวิธีดูแลแผลกัน</p>
@@ -401,6 +439,7 @@
 <!-- เฉพาะของหน้าตู้ -->
 <script src="../js/kiosk-session.js"></script>
 <script src="../js/qr-sdk.js"></script>
+<script src="../js/face-check.js"></script>
     <script src="../js/kiosk-app.js"></script>
 </body>
 </html>

@@ -16,3 +16,4 @@ js/firebase-sdk.js
 .firebaserc
 
 js/qr-sdk.js
+js/face-check.js

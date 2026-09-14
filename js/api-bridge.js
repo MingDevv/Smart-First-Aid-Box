@@ -250,7 +250,10 @@ const ApiBridge = {
     },
 
     // Trigger physical box compartment opening (Compartment 1: Cut/Abrasion, Compartment 2: Insect Bite)
-    async openCompartment(woundId, studentSession) {
+    // `presetId` ให้ผู้เรียกกำหนด id ของคำสั่งเองได้ สำหรับรอบที่ต้องผูกของอย่างอื่นเข้ากับ id
+    // นั้นก่อนคำสั่งจะถูกส่ง (รอบไม่มีบัตรอัปรูปใบหน้าไว้ที่คีย์ `{cabinetId}~{id}` ก่อน)
+    // ไม่ส่งมา = สร้างเองเหมือนเดิม
+    async openCompartment(woundId, studentSession, presetId = null) {
         const settings = this.getSettings();
         const isDemo = this.isDemoMode();
         if (!this.isPiLocal() && !window.AuthService?.isStaff()) {
@@ -263,7 +266,7 @@ const ApiBridge = {
             insect: 2
         };
         const compartmentNum = woundCompartmentMap[woundId] || 1;
-        const commandId = this.createCommandId();
+        const commandId = presetId || this.createCommandId();
 
         // 0. ยังไม่มีใครเลือกโหมด: ห้ามสั่งจริง และห้ามแกล้งทำเป็นว่าจำลองสำเร็จ
         //    เกตนี้ต้องมาก่อนทุกอย่างที่แตะเครือข่าย (Bank เคาะ 2026-09-11)
