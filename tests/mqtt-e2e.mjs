@@ -64,7 +64,7 @@ async function fixture(t, onCommand, status = {}) {
             headers: { 'x-forwarded-for': `test-${++requestNumber}` } };
         const res = { statusCode: 200, setHeader() {}, status(code) { this.statusCode = code; return this; },
             json(body) { resolve({ status: this.statusCode, body }); }, end() { resolve({ status: this.statusCode }); } };
-        Promise.resolve(api.default(req, res)).catch(reject);
+        Promise.resolve(api.createCommandHandler(async () => ({ role: 'nurse' }))(req, res)).catch(reject);
     });
     return { invoke, commands, api, event, async setStatus(change) {
         hardware = { ...hardware, ...change }; await advertise(); await delay(60);

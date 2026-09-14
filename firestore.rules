@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function school() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email is string
+        && request.auth.token.email.matches('^[^@\\s]+@tesaban6[.]ac[.]th$');
+    }
+    function role() {
+      return get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role;
+    }
+    function clinical() { return school() && role() in ['nurse', 'admin']; }
+    function staff() { return school() && role() in ['nurse', 'teacher', 'admin']; }
+    match /roles/{uid} { allow read: if clinical(); }
+    match /students/{uid} { allow read: if clinical(); }
+    match /dispenses/{eventId} {
+      allow read: if school() && (resource.data.uid == request.auth.uid || clinical());
+    }
+    match /cabinets/{cabinetId} { allow read: if staff(); }
+    match /inventory/{cabinetId} { allow read: if clinical(); }
+    match /badges/{badgeId} { allow read: if clinical(); }
+    match /revocations/{rev} { allow read: if clinical(); }
+    match /keys/{kid} { allow read: if clinical(); }
+    match /photos/{eventId} { allow read: if clinical(); }
+    match /sos/{eventId} { allow read: if clinical(); }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

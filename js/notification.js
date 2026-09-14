@@ -99,25 +99,16 @@ const NotificationService = {
             requestBody = { message: JSON.stringify(payload) };
         }
 
-        // โหมดการทำงานอ่านจากที่เดียวกับ ApiBridge เสมอ สองไฟล์นี้ต้องไม่เห็นโหมดต่างกัน
-        // เดิมอ่าน settings.demoMode ตรงๆ ผ่าน window.StorageService ซึ่งไม่มีอยู่จริง
-        // ⇒ กิ่ง demo เป็นโค้ดตายมาตลอด ทุกการเรียกยิงเครือข่ายจริงหมด
-        const settings = window.StorageService?.getSettings() || {};
-        const mode = window.ApiBridge?.operatingMode
-            ? window.ApiBridge.operatingMode(settings)
-            : (window.StorageService?.getOperatingMode ? window.StorageService.getOperatingMode(settings) : 'unset');
-        if (mode === 'demo') {
-            this.showLineMockModal(requestBody.flexMessage || requestBody.message || payload);
-            return { success: true, mode: 'simulation' };
-        }
-        // โหมดยังไม่ได้ตั้ง: **ยังส่งจริง** เพราะการแจ้งเตือนคือการขอความช่วยเหลือจากคน
-        // ไม่ใช่การสั่งฮาร์ดแวร์ เกตห้ามสั่งจริงครอบมอเตอร์กับออด ไม่ควรครอบการเรียกครู
-        // ถ้าส่งไม่สำเร็จ ผลลัพธ์ข้างล่างจะบอกตามจริงอยู่แล้ว ไม่มีการอ้างว่าสำเร็จ
+        const local = window.SFAB_RUNTIME?.transport === 'pi-local';
+        // Only SOS is accepted on the cloud route. Local evidence remains in the Pi journal.
+        if (!local) requestBody = { event: 'sos' };
 
         const controller = new AbortController();
         const deadline = setTimeout(() => controller.abort(), 10000);
         try {
-            const response = await fetch('/api/notify', {
+            const send = local ? fetch : window.AuthService?.authorizedFetch.bind(window.AuthService);
+            if (!send) throw new Error('School sign-in required');
+            const response = await send('/api/notify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody),
@@ -137,6 +128,16 @@ const NotificationService = {
 
     // LINE acceptance and a cabinet ACK are independent evidence; neither proves the other.
     async sendSos(payload) {
+        if (window.SFAB_RUNTIME?.transport !== 'pi-local') {
+            if (window.AuthService?.state?.status !== 'ready') {
+                this.showToast('เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน แล้วกด SOS อีกครั้ง', 'warning');
+                document.getElementById('google-sign-in')?.focus();
+                return { line: { success: false, error: 'sign_in_required' }, buzzer: { success: false, mode: 'not-requested' } };
+            }
+            const line = await this.sendLineNotification({ event: 'sos' });
+            this.showToast(line.success ? 'ส่งคำขอ SOS ผ่าน LINE แล้ว' : 'ยังยืนยันการส่ง LINE ไม่ได้ กรุณาเรียกครูใกล้ที่สุดทันที', line.success ? 'success' : 'danger');
+            return { line, buzzer: { success: false, mode: 'not-requested' } };
+        }
         const results = await Promise.allSettled([
             Promise.resolve().then(() => this.sendLineNotification(payload)),
             Promise.resolve().then(() => window.ApiBridge.triggerBuzzer('on'))
