@@ -5,12 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#078683">
     <title>สถิติการใช้งาน - Smart First Aid Box</title>
-    <script>
-        if (sessionStorage.getItem('dashboard_auth') !== 'true') {
-            window.location.replace('index.html');
-        }
-    </script>
-    <link rel="stylesheet" href="../css/global.css">
+<link rel="stylesheet" href="../css/global.css">
     <link rel="stylesheet" href="../css/dashboard.css">
     <!-- Chart.js CDN -->
     <script src="../js/vendor/chart.umd.min.js"></script>
@@ -49,8 +44,11 @@
         .report-chart-grid .db-card { min-width: 0; }
         @media (max-width: 1100px) { .report-chart-grid { grid-template-columns: 1fr; } }
     </style>
+    <link rel="stylesheet" href="../css/auth.css">
+    <script src="../js/auth.js" defer></script>
+    <script src="../js/auth-ui.js" defer></script>
 </head>
-<body class="dashboard-body">
+<body data-auth-required="staff" class="dashboard-body">
     <div class="dashboard-shell">
         <aside class="dashboard-sidebar">
             <a class="sidebar-brand" href="../">
@@ -71,267 +69,9 @@
         </aside>
 
         <main class="dashboard-main animate-fade-in">
-            <header class="dashboard-topbar">
-                <div class="dashboard-greeting">
-                    <h1 id="page-title">สถิติและประวัติ</h1>
-                    <p id="page-desc">ภาพรวมการใช้งานและรายการเบิกเวชภัณฑ์ที่บันทึกไว้</p>
-                </div>
-                <div class="dashboard-actions">
-                    <button class="dashboard-action primary" type="button" onclick="exportCSV()"><span class="material-symbols-rounded" aria-hidden="true">download</span>ส่งออก CSV</button>
-                    <button class="dashboard-action" type="button" onclick="logout()" aria-label="ออกจากระบบ"><span class="material-symbols-rounded" aria-hidden="true">logout</span></button>
-                </div>
-            </header>
-
-            <section class="report-chart-grid" id="charts-section" aria-label="กราฟสถิติการใช้งาน">
-                <article class="db-card">
-                    <div class="db-card-header"><h2><span class="material-symbols-rounded" aria-hidden="true">donut_large</span> สัดส่วนประเภทบาดแผล</h2></div>
-                    <div class="chart-container"><canvas id="woundTypeChart"></canvas></div>
-                </article>
-                <article class="db-card">
-                    <div class="db-card-header"><h2><span class="material-symbols-rounded" aria-hidden="true">show_chart</span> การใช้งานแยกตามวัน</h2></div>
-                    <div class="chart-container"><canvas id="timelineChart"></canvas></div>
-                </article>
-            </section>
-
-            <section class="db-card" id="history">
-                <div class="db-card-header"><h2><span class="material-symbols-rounded" aria-hidden="true">history</span> ประวัติการรักษาทั้งหมด</h2></div>
-                <div class="table-wrapper">
-                    <table class="db-table">
-                        <thead><tr><th>วันเวลา</th><th>ประเภทบาดแผล</th><th>วิธีการป้อน</th><th>เวชภัณฑ์ยาที่เบิก</th></tr></thead>
-                        <tbody id="logs-table-body"></tbody>
-                    </table>
-                </div>
-            </section>
-
-            <footer class="app-footer"><p>© 2026 CRMS6 · Smart First Aid Box</p></footer>
+            <header class="dashboard-topbar"><div class="dashboard-greeting"><h1>ประวัติและสถิติ</h1><p>Smart First Aid Box</p></div><button class="dashboard-action" type="button" onclick="AuthService.signOut()">ออกจากระบบ</button></header>
+            <section class="db-card shared-unavailable" role="status"><h2>ยังไม่มีข้อมูลจากส่วนกลาง</h2><p>ประวัติจากตู้ยังไม่เชื่อมเข้าระบบส่วนกลาง จึงยังแสดงหรือส่งออกสถิติไม่ได้</p><p>โหมดของตู้กำหนดโดยผู้ดูแลที่ตัวเครื่อง</p><a href="/dashboard">กลับภาพรวม</a></section>
         </main>
     </div>
-
-    <!-- Scripts -->
-    <script src="../js/storage.js"></script>
-    <script>
-        // Check Authentication status
-        if (sessionStorage.getItem('dashboard_auth') !== 'true') {
-            location.href = 'index.html';
-        }
-
-        function logout() {
-            sessionStorage.removeItem('dashboard_auth');
-            location.href = 'index.html';
-        }
-
-        document.addEventListener("DOMContentLoaded", () => {
-            const updateSidebarState = () => {
-                const showHistory = location.hash === '#history';
-                const histLink = document.getElementById('history-nav-link');
-                const statLink = document.getElementById('statistics-nav-link');
-                const chartsSec = document.getElementById('charts-section');
-                const pageTitle = document.getElementById('page-title');
-                const pageDesc = document.getElementById('page-desc');
-
-                if (histLink) histLink.classList.toggle('active', showHistory);
-                if (statLink) statLink.classList.toggle('active', !showHistory);
-
-                if (showHistory) {
-                    if (chartsSec) chartsSec.style.display = 'none';
-                    if (pageTitle) pageTitle.textContent = 'ประวัติการรักษา';
-                    if (pageDesc) pageDesc.textContent = 'บันทึกการเบิกเวชภัณฑ์และข้อมูลการปฐมพยาบาลทั้งหมด';
-                } else {
-                    if (chartsSec) chartsSec.style.display = 'grid';
-                    if (pageTitle) pageTitle.textContent = 'สถิติการใช้งาน';
-                    if (pageDesc) pageDesc.textContent = 'วิเคราะห์ภาพรวมการใช้งานและสัดส่วนประเภทบาดแผล';
-                }
-            };
-            updateSidebarState();
-            window.addEventListener('hashchange', updateSidebarState);
-
-            const history = StorageService.getHistory();
-            
-            // Build logs database table
-            const tableBody = document.getElementById("logs-table-body");
-            tableBody.innerHTML = "";
-
-            if (history.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding: 24px; font-size:13px;">ไม่มีบันทึกข้อมูลประวัติการรักษา</td></tr>`;
-            } else {
-                history.forEach(log => {
-                    const row = document.createElement("tr");
-                    const date = new Date(log.timestamp || log.created_at || Date.now()).toLocaleDateString('th-TH', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
-                    const itemsText = Array.isArray(log.itemsUsed) ? log.itemsUsed.join(", ") : (log.itemsUsed || '-');
-                    
-                    row.innerHTML = `
-                        <td>${date} น.</td>
-                        <td style="font-weight:700; color:var(--primary);">${log.woundNameTh || 'ไม่ระบุบาดแผล'}</td>
-                        <td>${log.method || '-'}</td>
-                        <td style="color:var(--text-muted);">${itemsText}</td>
-                    `;
-                    tableBody.appendChild(row);
-                });
-            }
-
-            // Check if demo mode is enabled in URL or toggle
-            const urlParams = new URLSearchParams(window.location.search);
-            const showDemo = urlParams.get('demo') === 'true';
-
-            // --- Chart 1: Wound Type Distribution ---
-            const woundCounts = {};
-            history.forEach(log => {
-                const name = log.woundNameTh || 'ไม่ระบุประเภท';
-                woundCounts[name] = (woundCounts[name] || 0) + 1;
-            });
-
-            const woundLabels = Object.keys(woundCounts);
-            const woundValues = Object.values(woundCounts);
-            
-            let cleanLabels = woundLabels;
-            let cleanValues = woundValues;
-            let chart1TitleSuffix = "";
-
-            if (history.length === 0) {
-                if (showDemo) {
-                    cleanLabels = ["มีดบาด / แผลถลอก", "แมลงสัตว์กัดต่อย"];
-                    cleanValues = [3, 2];
-                    chart1TitleSuffix = " (ตัวอย่าง DEMO)";
-                } else {
-                    cleanLabels = ["ยังไม่มีประวัติบันทึก"];
-                    cleanValues = [0];
-                }
-            }
-
-            const ctx1 = document.getElementById('woundTypeChart').getContext('2d');
-            new Chart(ctx1, {
-                type: 'doughnut',
-                data: {
-                    labels: cleanLabels,
-                    datasets: [{
-                        data: cleanValues,
-                        backgroundColor: history.length === 0 && !showDemo ? ['#CBD5E1'] : [
-                            '#078683', '#59C7AE', '#E66A4F', '#F0A05A', '#6AA8A4', '#819694'
-                        ],
-                        borderWidth: 1,
-                        borderColor: '#FFFFFF'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: {
-                                color: '#1E293B',
-                                font: { family: 'IBM Plex Sans Thai', size: 12 }
-                            }
-                        },
-                        title: {
-                            display: showDemo,
-                            text: 'โหมดแสดงข้อมูลตัวอย่าง (DEMO)',
-                            color: '#D97706',
-                            font: { family: 'IBM Plex Sans Thai', size: 11 }
-                        }
-                    }
-                }
-            });
-
-            // --- Chart 2: Timeline Case Frequency ---
-            const dateCounts = {};
-            history.forEach(log => {
-                const dateStr = new Date(log.timestamp || log.created_at || Date.now()).toLocaleDateString('th-TH', {day:'numeric', month:'short'});
-                dateCounts[dateStr] = (dateCounts[dateStr] || 0) + 1;
-            });
-
-            const dateLabels = Object.keys(dateCounts).reverse();
-            const dateValues = Object.values(dateCounts).reverse();
-
-            let cleanDateLabels = dateLabels;
-            let cleanDateValues = dateValues;
-
-            if (history.length === 0) {
-                if (showDemo) {
-                    cleanDateLabels = ["10 ส.ค.", "11 ส.ค.", "12 ส.ค."];
-                    cleanDateValues = [2, 4, 3];
-                } else {
-                    cleanDateLabels = ["ไม่มีข้อมูล"];
-                    cleanDateValues = [0];
-                }
-            }
-
-            const ctx2 = document.getElementById('timelineChart').getContext('2d');
-            new Chart(ctx2, {
-                type: 'line',
-                data: {
-                    labels: cleanDateLabels,
-                    datasets: [{
-                        label: history.length === 0 && !showDemo ? 'ไม่มีข้อมูลประวัติ' : 'จำนวนเคสปฐมพยาบาล',
-                        data: cleanDateValues,
-                        borderColor: history.length === 0 && !showDemo ? '#94A3B8' : '#078683',
-                        backgroundColor: history.length === 0 && !showDemo ? 'rgba(148, 163, 184, 0.1)' : 'rgba(7, 134, 131, 0.08)',
-                        fill: true,
-                        tension: 0.3
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            grid: { color: '#E2E8F0' },
-                            ticks: { color: '#64748B', precision: 0 },
-                            beginAtZero: true
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: { color: '#64748B' }
-                        }
-                    },
-                    plugins: {
-                        legend: { display: false }
-                    }
-                }
-            });
-        });
-
-        function exportCSV() {
-            const history = StorageService.getHistory();
-
-            if (history.length === 0) {
-                alert('ไม่มีข้อมูลประวัติการรักษาสำหรับส่งออก');
-                return;
-            }
-
-            // BOM for Thai characters in Excel
-            let csvContent = '\uFEFF';
-
-            // CSV Header
-            csvContent += 'ลำดับ,วันเวลา,ประเภทบาดแผล,วิธีการระบุ,เวชภัณฑ์ที่ใช้\n';
-
-            // CSV Rows
-            history.forEach((log, index) => {
-                const dateStr = new Date(log.timestamp).toLocaleString('th-TH', {
-                    day: 'numeric', month: 'short', year: 'numeric',
-                    hour: '2-digit', minute: '2-digit'
-                });
-                const items = log.itemsUsed ? log.itemsUsed.join(' / ') : '-';
-                const method = log.method || '-';
-                const woundName = log.woundNameTh || '-';
-
-                // Escape commas in fields
-                csvContent += `${index + 1},"${dateStr}","${woundName}","${method}","${items}"\n`;
-            });
-
-            // Create download
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            const fileName = `smart-first-aid-report-${new Date().toISOString().split('T')[0]}.csv`;
-            link.setAttribute('href', url);
-            link.setAttribute('download', fileName);
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        }
-    </script>
 </body>
 </html>

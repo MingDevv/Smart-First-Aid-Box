@@ -3,13 +3,10 @@
 // ทำไมต้องผ่านเซิร์ฟเวอร์แทนที่จะให้เบราว์เซอร์ publish เอง:
 //   JavaScript ในเบราว์เซอร์เปิดอ่านได้หมด ใครกด View Source ก็เห็นรหัส broker
 //   แล้วสั่งเปิดตู้ยาได้จากที่ไหนก็ได้ รหัสที่ publish ได้จึงต้องอยู่ใน env ของ Vercel
-//   เท่านั้น ส่วนเบราว์เซอร์ถือแค่รหัสที่ subscribe ได้ (ดู js/mqtt-bridge.js)
-//
-// ⚠️ ข้อจำกัดที่ต้องรู้: endpoint นี้ยังไม่มีระบบยืนยันตัวตน เพราะหน้า kiosk เป็นหน้า
-//   สาธารณะที่ไม่มีการล็อกอิน — ความลับอะไรก็ตามที่ใส่ลงในหน้านั้นก็เปิดอ่านได้อยู่ดี
-//   ตอนนี้จึงกันด้วย rate limit สองชั้นเท่านั้น ถ้าจะเปิดใช้จริงนอกโรงเรียน
-//   ต้องเพิ่มการยืนยันตัวตนก่อน (ดู MQTT_SETUP.md หัวข้อ "ข้อจำกัดด้านความปลอดภัย")
+//   Server-only credentials; browser requests use Firebase ID tokens.
+// Cloud status and commands require a verified school account and a current staff role.
 import mqtt from 'mqtt';
+import { authorize, accessFailure, apiHeaders } from '../lib/auth.js';
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const MAX_REQUESTS_PER_IP = 10;
@@ -296,13 +293,16 @@ const WOUND_COMPARTMENT_MAP = {
     insect: 2
 };
 
-export default async function handler(req, res) {
-    const origin = req.headers.origin || '*';
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+export function createCommandHandler(authorizeRequest = authorize) {
+return async function handler(req, res) {
+    apiHeaders(res, 'GET, POST, OPTIONS');
 
     if (req.method === 'OPTIONS') return res.status(200).end();
+    if (!['GET', 'POST'].includes(req.method)) {
+        return res.status(405).json({ success: false, error: 'Method Not Allowed', retrySafe: true });
+    }
+    try { await authorizeRequest(req, { staffOnly: true }); }
+    catch (error) { return accessFailure(res, error); }
 
     // localStorage ไม่ใช่แหล่งจริงว่าขาลง MQTT ใช้ได้หรือไม่ — ให้ server รายงานเอง
     if (req.method === 'GET') {
@@ -429,7 +429,9 @@ export default async function handler(req, res) {
                 : 'ยังไม่ได้ส่งคำสั่ง เชื่อมต่อ MQTT ไม่สำเร็จ กรุณาตรวจการตั้งค่า'
         });
     }
+};
 }
+export default createCommandHandler();
 
 // ให้ integration harness ปิด socket ที่ warm cache ถืออยู่เพื่อให้ process จบสะอาด
 export async function closeMqttClientForTests() {
