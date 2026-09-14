@@ -161,7 +161,12 @@ test('dashboard stop waits for off completion, prevents double click, and expose
 });
 
 
-test('public home SOS sends no request before school sign-in and focuses the sign-in control', async () => {
+// การเรียกครูต้องไม่ถูกเกตด้วยการล็อกอิน (Bank 2026-09-14)
+//
+// WP1 เคยใส่เกตไว้ทุกตัวเรียก แล้วเด็กที่ยังไม่ล็อกอินกดเรียกครูไม่ได้เลย ซึ่งขัดกับกฎเดิมในวิกิข้อ 9
+// ที่ว่า SOS/ออด/คู่มือ/LINE ไม่ถูกเกตด้วยตัวตน โหมด นาฬิกา หรือเน็ต · ตัวตนกลายเป็นของแถมที่ทำให้
+// ข้อความมีชื่อ ไม่ใช่เงื่อนไขก่อนส่ง
+test('home SOS reaches the teacher whether or not the student signed in', async () => {
     const html = await read('index.html');
     const start = html.indexOf('        async function triggerHomeSos()');
     const dispatch = html.slice(start, html.indexOf('    </script>', start));
@@ -172,39 +177,27 @@ test('public home SOS sends no request before school sign-in and focuses the sig
         b.context.confirm = () => { confirms++; return true; };
         vm.runInContext(dispatch, b.context);
         await b.context.triggerHomeSos();
-        if (status === 'ready') {
-            assert.equal(calls,1);
-            assert.equal(confirms,1);
-        } else {
-            assert.equal(calls,0,'anonymous home SOS must not attempt network delivery');
-            assert.equal(confirms,0,'explain sign-in before asking to send');
-            assert.match(b.notices.at(-1).message,/เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน แล้วกด SOS อีกครั้ง/);
-            assert.equal(b.prompts.length,1,'ต้องเปิดกล่องลงชื่อเข้าใช้ให้เลย ไม่ใช่แค่ toast แล้วปล่อยทิ้ง');
-        }
+        assert.equal(calls,1,`${status}: เรียกครูต้องส่งถึงเสมอ`);
+        assert.equal(confirms,1,`${status}: ยังต้องถามยืนยันก่อนส่ง`);
+        assert.equal(b.prompts.length,0,`${status}: ห้ามเด้งกล่องล็อกอินมาขวางการเรียกครู`);
     }
 });
 
 
-test('shared cloud SOS requires school sign-in before any delivery, including future callers', async () => {
+test('shared cloud SOS delivers for anonymous callers too, and never blocks on identity', async () => {
     for (const status of ['loading', 'signed-out', 'forbidden', 'unavailable', undefined]) {
-        let calls=0,buzzers=0;
+        let calls=0;
         const b=browser({local:false,authStatus:status,
-            fetch:async()=>{calls++;return reply({success:true});},
-            buzzer:async()=>{buzzers++;return {success:true};}});
+            fetch:async()=>{calls++;return reply({success:true});}});
         if(status===undefined)delete b.context.window.AuthService;
         const result=await b.service.sendSos({event:'sos'});
-        assert.equal(calls,0,'shared anonymous SOS must not attempt network delivery');
-        assert.equal(buzzers,0);
-        assert.equal(result.line.success,false);
-        assert.equal(result.line.error,'sign_in_required');
-        assert.equal(result.buzzer.mode,'not-requested');
-        assert.match(b.notices.at(-1).message,/เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน แล้วกด SOS อีกครั้ง/);
-        assert.equal(b.notices.at(-1).type,'warning');
-        assert.equal(b.prompts.length,1,'ต้องเปิดกล่องลงชื่อเข้าใช้ให้เลย ไม่ใช่แค่ toast แล้วปล่อยทิ้ง');
+        assert.equal(calls,1,`${status}: ต้องยิงถึง API จริง`);
+        assert.equal(result.line.success,true,String(status));
+        assert.equal(b.prompts.length,0,`${status}: ห้ามเด้งกล่องล็อกอิน`);
     }
 });
 
-test('all four cloud SOS callers use sign-in guidance instead of a delivery failure', async () => {
+test('all four cloud SOS callers deliver without demanding a sign-in first', async () => {
     for (const [file,name] of [['index.html','triggerHomeSos'],['student/index.html','triggerSOS'],
         ['student/kiosk.html','triggerKioskSos'],['student/wound-select.html','triggerSelectSos']]) {
         const html=await read(file);
@@ -212,11 +205,10 @@ test('all four cloud SOS callers use sign-in guidance instead of a delivery fail
         assert.notEqual(start,-1);
         const dispatch=html.slice(start,html.indexOf('    </script>',start));
         let calls=0;
-        const b=browser({local:false,authStatus:'signed-out',fetch:async()=>{calls++;return reply({success:false},401);}});
+        const b=browser({local:false,authStatus:'signed-out',fetch:async()=>{calls++;return reply({success:true});}});
         vm.runInContext(dispatch,b.context);
         await b.context[name]();
-        assert.equal(calls,0,`${file}: anonymous SOS must not contact the API`);
-        assert.match(b.notices.at(-1).message,/เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน แล้วกด SOS อีกครั้ง/,file);
-        assert.equal(b.prompts.length,1,file);
+        assert.equal(calls,1,`${file}: เรียกครูต้องถึง API แม้ยังไม่ล็อกอิน`);
+        assert.equal(b.prompts.length,0,file);
     }
 });

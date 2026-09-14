@@ -87,11 +87,7 @@
     <script src="js/api-bridge.js"></script>
     <script>
         async function triggerHomeSos() {
-            if (window.SFAB_RUNTIME?.transport !== 'pi-local' && window.AuthService?.state?.status !== 'ready') {
-                NotificationService.showToast('เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน แล้วกด SOS อีกครั้ง', 'warning');
-                window.AuthUI?.promptSignIn('กรุณาเข้าสู่ระบบด้วยบัญชีโรงเรียนก่อนใช้งาน');
-                return;
-            }
+            // ไม่เกตการเรียกครูด้วยการล็อกอิน (Bank 2026-09-14)
             if (!confirm('ต้องการส่งสัญญาณเรียกครูพยาบาลด่วนใช่หรือไม่?')) return;
 
             const button = document.getElementById('home-sos-button');

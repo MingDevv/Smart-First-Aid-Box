@@ -106,8 +106,11 @@ const NotificationService = {
         const controller = new AbortController();
         const deadline = setTimeout(() => controller.abort(), 10000);
         try {
-            const send = local ? fetch : window.AuthService?.authorizedFetch.bind(window.AuthService);
-            if (!send) throw new Error('School sign-in required');
+            // เรียกครูต้องส่งได้แม้ยังไม่ล็อกอิน (Bank 2026-09-14) · ถ้าล็อกอินอยู่ให้แนบ token ไปด้วย
+            // เพื่อให้ข้อความถึงครูมีชื่อ · ถ้าไม่ ก็ยิงตรงแล้วฝั่งเซิร์ฟเวอร์จะบอกว่า "ไม่ทราบชื่อ"
+            // `authorizedFetch` โยนทิ้งเมื่อไม่มี currentUser จึงเรียกได้เฉพาะตอน ready เท่านั้น
+            const signedIn = window.AuthService?.state?.status === 'ready';
+            const send = local || !signedIn ? fetch : window.AuthService.authorizedFetch.bind(window.AuthService);
             const response = await send('/api/notify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -129,11 +132,8 @@ const NotificationService = {
     // LINE acceptance and a cabinet ACK are independent evidence; neither proves the other.
     async sendSos(payload) {
         if (window.SFAB_RUNTIME?.transport !== 'pi-local') {
-            if (window.AuthService?.state?.status !== 'ready') {
-                this.showToast('เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน แล้วกด SOS อีกครั้ง', 'warning');
-                window.AuthUI?.promptSignIn('กรุณาเข้าสู่ระบบด้วยบัญชีโรงเรียนก่อนใช้งาน');
-                return { line: { success: false, error: 'sign_in_required' }, buzzer: { success: false, mode: 'not-requested' } };
-            }
+            // ไม่เกตการเรียกครูด้วยการล็อกอิน (Bank 2026-09-14) — เด็กที่เจ็บจนล็อกอินไม่ไหวต้องเรียกครูได้
+            // ตัวตนเป็นของแถมที่ทำให้ข้อความมีชื่อ ฝั่งเซิร์ฟเวอร์รับทั้งแบบมีและไม่มี token
             const line = await this.sendLineNotification({ event: 'sos' });
             this.showToast(line.success ? 'ส่งคำขอ SOS ผ่าน LINE แล้ว' : 'ยังยืนยันการส่ง LINE ไม่ได้ กรุณาเรียกครูใกล้ที่สุดทันที', line.success ? 'success' : 'danger');
             return { line, buzzer: { success: false, mode: 'not-requested' } };
