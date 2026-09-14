@@ -104,10 +104,7 @@ const ApiBridge = {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), timeoutMs);
         try {
-            const send = url === '/api/command' && !this.isPiLocal()
-                ? window.AuthService?.authorizedFetch.bind(window.AuthService) : fetch;
-            if (!send) throw new Error('School sign-in required');
-            const response = await send(url, { ...options, signal: controller.signal });
+            const response = await fetch(url, { ...options, signal: controller.signal });
             const data = await response.json();
             if (controller.signal.aborted) throw new Error('Response deadline exceeded');
             return { response, data };
@@ -197,9 +194,17 @@ const ApiBridge = {
     // 'demo' | 'real' | 'unset'. Single source of truth, shared with NotificationService.
     // Falls back to the module's own reading when StorageService is absent (tests, vm harnesses)
     // so the two can never drift into disagreeing about what mode the cabinet is in.
-    operatingMode() {
-        const mode = window.SFAB_RUNTIME?.mode;
-        return this.isPiLocal() && ['demo', 'real', 'unset'].includes(mode) ? mode : 'unset';
+    operatingMode(settings) {
+        // ค่าที่บริการบน Pi ฉีดมาชนะเสมอ ต้องตรวจก่อน StorageService เพราะฟังก์ชันนี้ถูก
+        // เรียกได้ในบริบทที่ไม่มี StorageService (vm harness) และคำตอบต้องตรงกันทุกที่
+        const injected = window.SFAB_RUNTIME?.mode;
+        if (injected === 'demo' || injected === 'real' || injected === 'unset') return injected;
+        const s = settings || this.getSettings();
+        if (window.StorageService?.getOperatingMode) return window.StorageService.getOperatingMode(s);
+        if (!s.modeProvisionedAt) return 'unset';
+        if (s.demoMode === true || s.demoMode === 'true') return 'demo';
+        if (s.demoMode === false || s.demoMode === 'false') return 'real';
+        return 'unset';
     },
 
     isDemoMode(settings) {
@@ -217,9 +222,19 @@ const ApiBridge = {
     // Check if the hardware (ESP32 controller connected to micro:bit) is online
     async getHardwareStatus() {
         const settings = this.getSettings();
-        if (!this.isPiLocal() && !window.AuthService?.isStaff()) {
-            return { connected: false, ready: false, mode: 'unauthorized' };
+        const isDemo = this.isDemoMode(settings);
+
+        // ยังไม่ได้ตั้งโหมด = ตู้ใช้งานไม่ได้ ต้องรายงานแบบนั้น ไม่ใช่ไปถามสถานะจริงมาโชว์ว่า
+        // "พร้อม" ข้างปุ่มที่จะปฏิเสธทุกครั้ง — ป้ายกับพฤติกรรมต้องพูดตรงกัน
+        if (this.operatingMode(settings) === 'unset') {
+            return { connected: false, ready: false, mode: 'unprovisioned',
+                error: 'ตู้ยังไม่ได้ตั้งโหมดการทำงาน' };
         }
+
+        if (isDemo) {
+            return { connected: true, mode: 'simulation' };
+        }
+
         if (this.isPiLocal()) {
             try {
                 const response = await this.fetchWithTimeout('/api/local/status', {}, 2500);
@@ -252,10 +267,7 @@ const ApiBridge = {
     // Trigger physical box compartment opening (Compartment 1: Cut/Abrasion, Compartment 2: Insect Bite)
     async openCompartment(woundId) {
         const settings = this.getSettings();
-        const isDemo = this.isDemoMode();
-        if (!this.isPiLocal() && !window.AuthService?.isStaff()) {
-            return { success: false, mode: 'unauthorized', retrySafe: true, error: 'เฉพาะครูที่ได้รับสิทธิ์เท่านั้น' };
-        }
+        const isDemo = this.isDemoMode(settings);
         const woundCompartmentMap = {
             cut_abrasion: 1,
             abrasion: 1,
@@ -267,7 +279,7 @@ const ApiBridge = {
 
         // 0. ยังไม่มีใครเลือกโหมด: ห้ามสั่งจริง และห้ามแกล้งทำเป็นว่าจำลองสำเร็จ
         //    เกตนี้ต้องมาก่อนทุกอย่างที่แตะเครือข่าย (Bank เคาะ 2026-09-11)
-        if (this.isPiLocal() && this.operatingMode() === 'unset') return this.unprovisioned(commandId);
+        if (this.operatingMode(settings) === 'unset') return this.unprovisioned(commandId);
 
         // 1. ถ้าเปิดโหมดสาธิต (Demo ON): จำลองการสั่งจ่ายยาสำเร็จทันที ไม่ต้องส่งสัญญาณฮาร์ดแวร์จริง
         if (isDemo) {
@@ -297,7 +309,11 @@ const ApiBridge = {
             return { success: true, mode: 'mqtt', compartment: mqttResult.compartment || compartmentNum };
         }
 
-        // Cloud failure never falls back to browser LAN dispatch.
+        // Only an explicitly unconfigured cloud path may dispatch via LAN.
+        // Timeout/refusal after publishing must not start a second attempt on another transport.
+        if (mqttResult.mqttConfigured === false && this.isHardwareConfigured(settings)) {
+            return this.sendLanOpen(settings.esp32Url.trim(), compartmentNum, commandId);
+        }
 
         // ปิดโหมดสาธิตอยู่และส่งสัญญาณฮาร์ดแวร์จริงไม่สำเร็จ -> คืนค่าความล้มเหลวตามจริง!
         return {
@@ -311,13 +327,25 @@ const ApiBridge = {
 
     // Trigger Buzzer Siren for SOS emergencies
     async triggerBuzzer(state) {
+        const settings = this.getSettings();
+        const isDemo = this.isDemoMode(settings);
         const commandId = this.createCommandId();
+
+        // ออดคือฮาร์ดแวร์เหมือนกัน โหมดที่ยังไม่ได้ตั้งจึงสั่งไม่ได้
+        // แต่ NotificationService.sendSos รายงานผล LINE แยกจากผลออด การขอความช่วยเหลือ
+        // จึงยังถึงครูได้ และหน้าจอจะบอกตรงๆ ว่าเสียงที่ตู้ยังยืนยันไม่ได้
+        if (this.operatingMode(settings) === 'unset') return this.unprovisioned(commandId);
+
+        if (isDemo) {
+            console.log(`[ApiBridge Demo ON] ESP32 Siren: ${state.toUpperCase()}`);
+            return { success: true, mode: 'simulation' };
+        }
+
         if (this.isPiLocal()) {
             return this.sendLocalCommand({ action: 'buzzer', state: state === 'on' ? 'on' : 'off', id: commandId });
         }
-        if (!window.AuthService?.isStaff()) {
-            return { success: false, mode: 'unauthorized', retrySafe: true, error: 'เฉพาะครูที่ได้รับสิทธิ์เท่านั้น' };
-        }
+
+        // ปิดโหมดสาธิตอยู่ -> ส่งสัญญาณจริงผ่าน MQTT / LAN
         const mqttResult = await this.sendMqttCommand({
             action: 'buzzer',
             state: state === 'on' ? 'on' : 'off',
@@ -326,6 +354,11 @@ const ApiBridge = {
         });
         if (mqttResult.success) return { success: true, mode: 'mqtt' };
 
+        if (mqttResult.mqttConfigured === false && this.isHardwareConfigured(settings)) {
+            return this.sendLanCommand(settings.esp32Url.trim(), {
+                action: 'buzzer', state: state === 'on' ? 'on' : 'off', id: commandId
+            });
+        }
 
         return { success: false, mode: 'mqtt', retrySafe: mqttResult.retrySafe === true, error: mqttResult.error || 'ไม่สามารถส่งสัญญาณไซเรนไปยังอุปกรณ์ได้' };
     }

@@ -244,6 +244,12 @@ for (const [name, html] of [
         `${name} must not fall back to the legacy top-tab dashboard layout`
     );
 }
+assert.match(
+    medicineManagementHtml,
+    /class=["']med-item-image["']/,
+    'Medicine management must carry the Care Kit product imagery into its generated stock rows'
+);
+
 const historyHtml = await readFile(path.join(rootDir, 'student', 'history.html'), 'utf8');
 assert.match(
     historyHtml,

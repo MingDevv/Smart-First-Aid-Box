@@ -5,7 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#078683">
     <title>บริหารจัดการคลังยา - Smart First Aid Box</title>
-<link rel="stylesheet" href="../css/global.css">
+    <script>
+        if (sessionStorage.getItem('dashboard_auth') !== 'true') {
+            window.location.replace('index.html');
+        }
+    </script>
+    <link rel="stylesheet" href="../css/global.css">
     <link rel="stylesheet" href="../css/dashboard.css">
     <style>
         .stock-control {
@@ -78,11 +83,8 @@
             text-decoration: underline;
         }
     </style>
-    <link rel="stylesheet" href="../css/auth.css">
-    <script src="../js/auth.js" defer></script>
-    <script src="../js/auth-ui.js" defer></script>
 </head>
-<body data-auth-required="staff" class="dashboard-body">
+<body class="dashboard-body">
     <div class="dashboard-shell">
         <aside class="dashboard-sidebar">
             <a class="sidebar-brand" href="../">
@@ -103,9 +105,504 @@
         </aside>
 
         <main class="dashboard-main animate-fade-in">
-            <header class="dashboard-topbar"><div class="dashboard-greeting"><h1>คลังและการตั้งค่าตู้</h1><p>Smart First Aid Box</p></div><button class="dashboard-action" type="button" onclick="AuthService.signOut()">ออกจากระบบ</button></header>
-            <section class="db-card shared-unavailable" role="status"><h2>ยังไม่มีข้อมูลจากส่วนกลาง</h2><p>ข้อมูลคลังและการตั้งค่าจากส่วนกลางยังไม่พร้อมใช้งาน กรุณาติดต่อครูพยาบาลเพื่อตรวจจำนวนของจริง</p><p>โหมดของตู้กำหนดโดยผู้ดูแลที่ตัวเครื่อง</p><a href="/dashboard">กลับภาพรวม</a></section>
+            <header class="dashboard-topbar">
+                <div class="dashboard-greeting">
+                    <h1 id="page-title">คลังเวชภัณฑ์</h1>
+                    <p id="page-desc">ตรวจสต็อก วันหมดอายุ และการเชื่อมต่อของตู้</p>
+                </div>
+                <div class="dashboard-actions">
+                    <button id="btn-add-med" class="dashboard-action primary" type="button" onclick="openAddModal()"><span class="material-symbols-rounded" aria-hidden="true">add</span>เพิ่มเวชภัณฑ์</button>
+                    <button class="dashboard-action" type="button" onclick="logout()" aria-label="ออกจากระบบ"><span class="material-symbols-rounded" aria-hidden="true">logout</span></button>
+                </div>
+            </header>
+
+            <section class="db-card" id="inventory-section">
+                <div class="db-card-header">
+                    <h2><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span> รายการสต็อกยาและเวชภัณฑ์</h2>
+                </div>
+                <div class="med-list" id="medicine-list-container"></div>
+            </section>
+
+            <section class="db-card" id="settings">
+                <div class="db-card-header">
+                    <h2><span class="material-symbols-rounded" aria-hidden="true">settings</span> ตั้งค่าระบบฮาร์ดแวร์และรหัสผ่าน</h2>
+                </div>
+            
+                <form id="config-form" class="config-form-grid" onsubmit="saveSystemConfig(event)">
+                <div class="form-group">
+                    <label class="form-label" for="cfg-esp-url">IP / URL ควบคุมกล่องพยาบาล (ESP32)</label>
+                    <input type="text" id="cfg-esp-url" class="form-input" placeholder="เช่น http://192.168.1.100">
+                </div>
+
+                <div class="form-group">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <label class="form-label" for="cfg-pin" style="margin-bottom:0;">รหัส PIN เข้าใช้ Dashboard ของครู (4 หลัก)</label>
+                        <button type="button" class="toggle-btn" onclick="toggleInputVisibility('cfg-pin')">แสดง/ซ่อน</button>
+                    </div>
+                    <input type="password" id="cfg-pin" class="form-input" style="margin-top:6px;" inputmode="numeric" autocomplete="new-password" maxlength="4" placeholder="PIN 4 หลัก">
+                </div>
+
+                <div class="form-group" style="grid-column: 1 / -1; background: var(--surface); padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                    <!-- สองตัวเลือกที่ต้องเลือกเอง ไม่ใช่ checkbox — checkbox มีแค่สองสถานะ
+                         แต่โหมดมีสาม และ "ไม่ติ๊ก" ของ checkbox อ่านได้ว่า false เสมอ
+                         ทำให้การกดบันทึกฟอร์มนี้เพื่อแก้ค่าอื่นไปตั้งโหมดเป็น "ใช้งานจริง" ให้เงียบๆ -->
+                    <fieldset style="border: 0; padding: 0; margin: 0;">
+                        <legend style="font-weight: 600; font-size: 14px; padding: 0; margin-bottom: 4px;">โหมดการทำงานของตู้</legend>
+                        <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 10px;">ต้องเลือกหนึ่งอย่างก่อนใช้งาน ถ้ายังไม่เลือก ตู้จะไม่สั่งอะไรเลย</p>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 8px;">
+                                <input type="radio" name="cfg-mode" id="cfg-mode-demo" value="demo" onchange="onModeChoice('demo')" style="accent-color: var(--primary);">
+                                โหมดสาธิต — จำลองการเปิดตู้ ไม่สั่งฮาร์ดแวร์จริง
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 8px;">
+                                <input type="radio" name="cfg-mode" id="cfg-mode-real" value="real" onchange="onModeChoice('real')" style="accent-color: var(--primary);">
+                                ใช้งานจริง — สั่งตู้จริง
+                            </label>
+                        </div>
+                        <p id="mode-source-note" style="font-size:12px; color:var(--text-muted); margin:10px 0 0;" hidden></p>
+                    </fieldset>
+                    <div id="demo-status-row" style="margin-top: 10px; font-size: 12px; display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px; background: rgba(0,0,0,0.03);">
+                        <span id="demo-status-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#94A3B8; flex-shrink:0;"></span>
+                        <span id="demo-status-text" style="color: var(--text-muted);">โหมดสาธิต: ปิดอยู่ — ระบบจะส่งสัญญาณฮาร์ดแวร์จริง</span>
+                    </div>
+                </div>
+
+                <hr style="border:0; border-top:1px solid var(--border-color); margin: 20px 0;">
+                <h4 style="font-size: 14px; margin-bottom: 4px;"><span class="material-symbols-rounded" aria-hidden="true">sensors</span> การเชื่อมต่อ MQTT</h4>
+                <p style="font-size: 12px; color:var(--text-muted); margin-bottom: 16px;">
+                    ใช้บัญชีที่ตั้งสิทธิ์ให้ <strong>subscribe ได้อย่างเดียว</strong> เพราะทุกอย่างในหน้านี้เปิดอ่านได้จากเบราว์เซอร์
+                    ส่วนรหัสที่สั่งเปิดตู้ยาได้ต้องอยู่ในตัวแปรสภาพแวดล้อมบน Vercel เท่านั้น
+                </p>
+
+                <div class="form-group">
+                    <label class="form-label" for="cfg-mqtt-url">MQTT WebSocket URL (ต้องขึ้นต้นด้วย wss://)</label>
+                    <input type="text" id="cfg-mqtt-url" class="form-input" placeholder="wss://your-cluster.example/mqtt">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="cfg-mqtt-user">ชื่อผู้ใช้ MQTT (สิทธิ์อ่านอย่างเดียว)</label>
+                    <input type="text" id="cfg-mqtt-user" class="form-input" placeholder="web-viewer">
+                </div>
+
+                <div class="form-group">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <label class="form-label" for="cfg-mqtt-pass" style="margin-bottom:0;">รหัสผ่าน MQTT (สิทธิ์อ่านอย่างเดียว)</label>
+                        <button type="button" class="toggle-btn" onclick="toggleInputVisibility('cfg-mqtt-pass')">แสดง/ซ่อน</button>
+                    </div>
+                    <input type="password" id="cfg-mqtt-pass" class="form-input" style="margin-top:6px;" autocomplete="new-password">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="cfg-mqtt-topic">Base Topic (ต้องตรงกับ ESP32 และ Vercel)</label>
+                    <input type="text" id="cfg-mqtt-topic" class="form-input" placeholder="crms6/firstaidbox/box1">
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="margin-top: 10px;"><span class="material-symbols-rounded" aria-hidden="true">save</span> บันทึกการตั้งค่าระบบ</button>
+            </form>
+            </section>
+
+            <footer class="app-footer"><p>© 2026 CRMS6 · Smart First Aid Box</p></footer>
         </main>
     </div>
+
+    <!-- Add/Edit Medicine Modal -->
+    <div class="modal" id="med-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-content animate-slide-up">
+            <h3 style="margin-bottom: 16px;" id="modal-title">เพิ่มรายการเวชภัณฑ์</h3>
+            <input type="hidden" id="med-id">
+
+            <div class="form-group">
+                <label class="form-label" for="med-name">ชื่อเวชภัณฑ์</label>
+                <input type="text" id="med-name" class="form-input" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="med-qty">จำนวนสต็อก</label>
+                <input type="number" id="med-qty" class="form-input" min="0" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="med-unit">หน่วยนับ</label>
+                <input type="text" id="med-unit" class="form-input" placeholder="เช่น ชิ้น, ขวด, ซอง" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="med-exp">วันหมดอายุ (EXP)</label>
+                <input type="date" id="med-exp" class="form-input" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="med-min">สต็อกขั้นต่ำที่ต้องแจ้งเตือน</label>
+                <input type="number" id="med-min" class="form-input" min="1" required>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top: 20px;">
+                <button class="btn btn-outline" type="button" onclick="closeModal()">ยกเลิก</button>
+                <button class="btn btn-primary" type="button" onclick="submitMedForm()">ตกลง</button>
+            </div>
+            
+            <button id="delete-med-btn" class="btn btn-danger" type="button" style="margin-top: 12px; font-size:12px; padding:8px;" onclick="deleteCurrentMed()"><span class="material-symbols-rounded" aria-hidden="true">delete</span> ลบรายการนี้</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/storage.js"></script>
+    <script src="../js/notification.js"></script>
+    <script>
+        // Check Auth
+        if (sessionStorage.getItem('dashboard_auth') !== 'true') {
+            location.href = 'index.html';
+        }
+
+        function logout() {
+            sessionStorage.removeItem('dashboard_auth');
+            location.href = 'index.html';
+        }
+
+        const medContainer = document.getElementById("medicine-list-container");
+        const modal = document.getElementById("med-modal");
+
+        function escapeHtml(str) {
+            if (typeof str !== 'string') return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        function medicineImage(name) {
+            const value = String(name || '').toLowerCase();
+            if (value.includes('น้ำเกลือ')) return '../images/med_saline.webp';
+            if (value.includes('เบตาดีน') || value.includes('antiseptic')) return '../images/med_betadine.webp';
+            if (value.includes('คาลา') || value.includes('calamine')) return '../images/med_calamine.webp';
+            if (value.includes('เย็น') || value.includes('cold')) return '../images/med_icepack.webp';
+            return '../images/med_bandage.webp';
+        }
+
+        // Load Stock Data
+        function renderMedicines() {
+            medContainer.innerHTML = "";
+            const medicines = StorageService.getMedicines();
+            const now = new Date();
+
+            medicines.forEach(med => {
+                const isLow = med.qty <= med.minQty;
+                
+                // Expiry checks
+                const expDate = new Date(med.exp);
+                const isExpired = expDate <= now;
+                const threeMonths = 90 * 24 * 60 * 60 * 1000;
+                const isNearExpiry = !isExpired && (expDate - now) < threeMonths;
+
+                let statusBadgeHtml = "";
+                if (isExpired) {
+                    statusBadgeHtml = `<span class="status-badge status-expired">หมดอายุ</span>`;
+                } else if (isNearExpiry) {
+                    statusBadgeHtml = `<span class="status-badge status-warning">ใกล้หมดอายุ</span>`;
+                }
+
+                const item = document.createElement("div");
+                item.className = "med-item";
+                
+                const thaiDate = new Date(med.exp).toLocaleDateString('th-TH', {year:'numeric', month:'short', day:'numeric'});
+                const safeName = escapeHtml(med.name);
+                const safeUnit = escapeHtml(med.unit);
+
+                item.innerHTML = `
+                    <img class="med-item-image" src="${medicineImage(med.name)}" alt="" aria-hidden="true">
+                    <div class="med-info" style="cursor:pointer;">
+                        <div class="med-name">
+                            <span>${safeName}</span>
+                            ${statusBadgeHtml}
+                        </div>
+                        <div class="med-expiry">หมดอายุ: ${thaiDate}</div>
+                    </div>
+                    <div class="stock-control">
+                        <button class="stock-control-btn btn-minus">-</button>
+                        <div class="med-stock">
+                            <span class="med-qty ${isLow ? 'low-stock' : ''}">${med.qty}</span>
+                            <span style="font-size:11px; color:#94A3B8;">${safeUnit}</span>
+                        </div>
+                        <button class="stock-control-btn btn-plus">+</button>
+                    </div>
+                `;
+
+                // Safe event listeners without JSON in inline attributes (BUG-04 Fix)
+                item.querySelector('.med-info').addEventListener('click', () => openEditModal(med));
+                item.querySelector('.btn-minus').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    updateQty(med.id, -1);
+                });
+                item.querySelector('.btn-plus').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    updateQty(med.id, 1);
+                });
+
+                medContainer.appendChild(item);
+            });
+        }
+
+        // Quick update quantity
+        function updateQty(id, change) {
+            const medicines = StorageService.getMedicines();
+            const med = medicines.find(m => m.id === id);
+            if (med) {
+                const newQty = Math.max(0, med.qty + change);
+                StorageService.updateMedicine(id, { qty: newQty });
+                renderMedicines();
+            }
+        }
+
+        // Modal Operations
+        function openAddModal() {
+            document.getElementById("modal-title").innerText = "เพิ่มรายการเวชภัณฑ์";
+            document.getElementById("med-id").value = "";
+            document.getElementById("med-name").value = "";
+            document.getElementById("med-qty").value = "";
+            document.getElementById("med-unit").value = "";
+            document.getElementById("med-exp").value = "";
+            document.getElementById("med-min").value = "5";
+            document.getElementById("delete-med-btn").style.display = "none";
+            modal.style.display = "flex";
+        }
+
+        function openEditModal(med) {
+            document.getElementById("modal-title").innerText = "แก้ไขรายการเวชภัณฑ์";
+            document.getElementById("med-id").value = med.id;
+            document.getElementById("med-name").value = med.name;
+            document.getElementById("med-qty").value = med.qty;
+            document.getElementById("med-unit").value = med.unit;
+            document.getElementById("med-exp").value = med.exp;
+            document.getElementById("med-min").value = med.minQty;
+            document.getElementById("delete-med-btn").style.display = "block";
+            modal.style.display = "flex";
+        }
+
+        function closeModal() {
+            modal.style.display = "none";
+        }
+
+        // Add/Update Submit
+        function submitMedForm() {
+            const id = document.getElementById("med-id").value;
+            const name = document.getElementById("med-name").value;
+            const qty = Number(document.getElementById("med-qty").value);
+            const unit = document.getElementById("med-unit").value;
+            const exp = document.getElementById("med-exp").value;
+            const minQty = Number(document.getElementById("med-min").value);
+
+            if (!name || isNaN(qty) || !unit || !exp || isNaN(minQty)) {
+                NotificationService.showToast("กรุณากรอกข้อมูลให้ครบถ้วน", "danger");
+                return;
+            }
+
+            const data = { name, qty, unit, exp, minQty };
+
+            if (id) {
+                // Update
+                StorageService.updateMedicine(id, data);
+                NotificationService.showToast("อัปเดตข้อมูลสำเร็จ!", "success");
+            } else {
+                // Add
+                StorageService.addMedicine(data);
+                NotificationService.showToast("เพิ่มเวชภัณฑ์ยาใหม่สำเร็จ!", "success");
+            }
+
+            closeModal();
+            renderMedicines();
+        }
+
+        // Delete item
+        function deleteCurrentMed() {
+            const id = document.getElementById("med-id").value;
+            if (id && confirm("คุณแน่ใจว่าต้องการลบรายการเวชภัณฑ์นี้ออกจากตู้ยา?")) {
+                StorageService.deleteMedicine(id);
+                NotificationService.showToast("ลบเวชภัณฑ์เรียบร้อยแล้ว", "success");
+                closeModal();
+                renderMedicines();
+            }
+        }
+
+        // Config form saving
+        // สามสถานะ ไม่ใช่สอง — 'unset' คือยังไม่มีใครเลือก ตู้จะไม่ยอมสั่งอะไรเลยจนกว่าจะเลือก
+        function updateDemoStatusBadge(mode) {
+            const state = mode === true ? 'demo' : mode === false ? 'real' : mode;
+            const dot = document.getElementById('demo-status-dot');
+            const text = document.getElementById('demo-status-text');
+            const palette = { demo: 'oklch(0.79 0.18 145)', real: '#94A3B8', unset: 'oklch(0.64 0.17 30)' };
+            const copy = {
+                demo: 'โหมดสาธิต: เปิดอยู่ — จำลองการเปิดตู้ยา ไม่ได้สั่งฮาร์ดแวร์จริง',
+                real: 'โหมดสาธิต: ปิดอยู่ — ระบบจะสั่งฮาร์ดแวร์จริง',
+                unset: 'ยังไม่ได้เลือกโหมด — ตู้จะไม่สั่งอะไรเลยจนกว่าครูจะเลือกสาธิตหรือใช้งานจริง'
+            };
+            if (dot) dot.style.background = palette[state] || palette.unset;
+            if (text) {
+                text.style.color = state === 'demo' ? 'oklch(0.50 0.15 145)'
+                    : state === 'unset' ? 'oklch(0.52 0.16 30)' : 'var(--text-muted)';
+                text.textContent = copy[state] || copy.unset;
+            }
+            // ยังไม่เลือก = ไม่ติ๊กทั้งคู่ ต้องมองออกว่ายังไม่ได้เลือก ไม่ใช่ดูเหมือนเลือก "ใช้งานจริง"
+            const demoRadio = document.getElementById('cfg-mode-demo');
+            const realRadio = document.getElementById('cfg-mode-real');
+            if (demoRadio) demoRadio.checked = state === 'demo';
+            if (realRadio) realRadio.checked = state === 'real';
+            // เครื่องที่ผู้ดูแลตั้งโหมดมาแล้ว ห้ามมีปุ่มที่ดูเหมือนแก้ได้แต่แก้ไม่ได้จริง
+            // เดิมกดแล้วเขียน localStorage ลงไปจริง แต่ป้ายเด้งกลับ ⇒ ผู้ใช้เข้าใจว่าไม่มีอะไรเกิด
+            // ทั้งที่มีค่าขัดแย้งถูกเก็บไว้ รอวันที่คอนฟิกหาย แล้วมันจะมีผลขึ้นมาเอง
+            const managed = StorageService.modeSource() === 'device';
+            [demoRadio, realRadio].forEach(r => { if (r) r.disabled = managed; });
+            const note = document.getElementById('mode-source-note');
+            if (note) {
+                note.hidden = !managed;
+                note.textContent = 'โหมดนี้ตั้งจากตัวเครื่องโดยผู้ดูแล แก้จากหน้านี้ไม่ได้ — '
+                    + 'เปลี่ยนได้ที่ไอคอน "ตั้งเป็นโหมดสาธิต / ตั้งเป็นใช้งานจริง" บนเดสก์ท็อปของตู้';
+            }
+        }
+
+        // เรียกจากการเลือกโหมดโดยตรงเท่านั้น — นี่คือจุดเดียวที่ตั้งโหมดถาวรได้
+        // ต้องผ่าน saveSettings เพราะมันเป็นคนประทับ modeProvisionedAt ให้
+        function onModeChoice(choice) {
+            // เครื่องที่ถูกจัดการจากตัวเครื่อง ต้องไม่เขียนค่าเงาลง localStorage เลย
+            if (StorageService.modeSource() === 'device') {
+                updateDemoStatusBadge(StorageService.getOperatingMode());
+                if (window.NotificationService) {
+                    NotificationService.showToast('เครื่องนี้ตั้งโหมดจากตัวเครื่อง เปลี่ยนจากหน้านี้ไม่ได้ — ใช้ไอคอนบนเดสก์ท็อปของตู้', 'warning');
+                }
+                return;
+            }
+            const isDemo = choice === 'demo';
+            try {
+                StorageService.saveSettings({ demoMode: isDemo });
+            } catch (e) {
+                console.error('[Mode] settings write failed:', e);
+                if (window.NotificationService) {
+                    NotificationService.showToast('บันทึกโหมดไม่สำเร็จ กรุณาลองใหม่', 'danger');
+                }
+            }
+            // อ่านค่าที่บันทึกลงไปจริงมาแสดง ไม่ใช่แสดงค่าที่ตั้งใจจะบันทึก
+            // ถ้าเขียนไม่สำเร็จ หน้าจอจะยังบอกความจริงว่ายังไม่ได้ตั้ง
+            const saved = StorageService.getOperatingMode();
+            updateDemoStatusBadge(saved);
+            if (window.NotificationService) {
+                if (saved === 'demo') {
+                    NotificationService.showToast('ตั้งเป็นโหมดสาธิตแล้ว — จำลองการเปิดตู้ ไม่สั่งฮาร์ดแวร์จริง', 'success');
+                } else if (saved === 'real') {
+                    NotificationService.showToast('ตั้งเป็นใช้งานจริงแล้ว — ระบบจะสั่งฮาร์ดแวร์จริง', 'warning');
+                } else {
+                    NotificationService.showToast('ยังไม่ได้ตั้งโหมด ตู้จะยังไม่สั่งอะไร', 'danger');
+                }
+            }
+        }
+
+        function loadSystemConfig() {
+            const settings = StorageService.getSettings();
+            const espElem = document.getElementById("cfg-esp-url");
+            const pinElem = document.getElementById("cfg-pin");
+            if (espElem) espElem.value = settings.esp32Url || settings.esp8266Url || "http://192.168.1.100";
+            if (pinElem) pinElem.value = settings.dashboardPin || "1234";
+
+            const mqttUrlElem = document.getElementById("cfg-mqtt-url");
+            const mqttUserElem = document.getElementById("cfg-mqtt-user");
+            const mqttPassElem = document.getElementById("cfg-mqtt-pass");
+            const mqttTopicElem = document.getElementById("cfg-mqtt-topic");
+
+            if (mqttUrlElem) mqttUrlElem.value = settings.mqttWsUrl || "";
+            if (mqttUserElem) mqttUserElem.value = settings.mqttUsername || "";
+            if (mqttPassElem) mqttPassElem.value = settings.mqttPassword || "";
+            if (mqttTopicElem) mqttTopicElem.value = settings.mqttBaseTopic || "crms6/firstaidbox/box1";
+
+            // อ่านจาก getOperatingMode แหล่งเดียวกับที่ ApiBridge ใช้ตัดสินใจจริง
+            // ไม่อ่าน settings.demoMode ตรงๆ เพราะค่า true ที่ไม่มีตราประทับ = ยังไม่ได้ตั้ง
+            updateDemoStatusBadge(StorageService.getOperatingMode(settings));
+        }
+
+        function saveSystemConfig(event) {
+            event.preventDefault();
+            const settings = StorageService.getSettings();
+            const esp32Url = (document.getElementById("cfg-esp-url")?.value || "").trim();
+            const dashboardPin = (document.getElementById("cfg-pin")?.value || "1234").trim();
+
+            if (dashboardPin.length !== 4 || isNaN(Number(dashboardPin))) {
+                NotificationService.showToast("รหัส PIN แดชบอร์ดต้องเป็นตัวเลข 4 หลัก", "danger");
+                return;
+            }
+
+            const mqttWsUrl = (document.getElementById("cfg-mqtt-url")?.value || "").trim();
+            const mqttUsername = (document.getElementById("cfg-mqtt-user")?.value || "").trim();
+            const mqttPassword = (document.getElementById("cfg-mqtt-pass")?.value || "").trim();
+            const mqttBaseTopic = (document.getElementById("cfg-mqtt-topic")?.value || "crms6/firstaidbox/box1").trim();
+
+            // ws:// จากหน้า https จะถูกเบราว์เซอร์บล็อกเงียบ ๆ แบบเดียวกับ http:// ดักไว้ตั้งแต่ตอนกรอก
+            // จะได้ไม่ต้องไปนั่งหาสาเหตุว่าทำไมต่อไม่ติดทั้งที่ค่าดูถูกทุกอย่าง
+            if (mqttWsUrl && !mqttWsUrl.startsWith("wss://")) {
+                NotificationService.showToast("MQTT WebSocket URL ต้องขึ้นต้นด้วย wss:// เท่านั้น", "danger");
+                return;
+            }
+
+            StorageService.saveSettings({
+                ...settings,
+                esp32Url,
+                dashboardPin,
+                mqttWsUrl,
+                mqttUsername,
+                mqttPassword,
+                mqttBaseTopic
+            });
+
+            // ฟอร์มนี้ไม่แตะโหมดเลย โหมดตั้งได้จากตัวเลือกด้านบนเท่านั้น
+            // เดิมมันส่ง demoMode ของ checkbox ที่ไม่ได้ติ๊กมาด้วยทุกครั้ง ⇒ แค่กดบันทึก
+            // ค่า MQTT ก็ตั้งตู้เป็น "ใช้งานจริง" ให้เงียบๆ ทั้งที่ไม่มีใครเลือก
+            updateDemoStatusBadge(StorageService.getOperatingMode());
+            NotificationService.showToast("บันทึกการตั้งค่าระบบเรียบร้อยแล้ว", "success");
+        }
+
+
+        // Toggle inputs password/text
+        function toggleInputVisibility(id) {
+            const elem = document.getElementById(id);
+            if (elem.type === "password") {
+                elem.type = "text";
+            } else {
+                elem.type = "password";
+            }
+        }
+
+        function updateTabVisibility() {
+            const showSettings = location.hash === '#settings';
+            const invLink = document.getElementById('inventory-nav-link');
+            const setLink = document.getElementById('settings-nav-link');
+            if (invLink) invLink.classList.toggle('active', !showSettings);
+            if (setLink) setLink.classList.toggle('active', showSettings);
+
+            const inventorySec = document.getElementById('inventory-section');
+            const settingsSec = document.getElementById('settings');
+            const pageTitle = document.getElementById('page-title');
+            const pageDesc = document.getElementById('page-desc');
+            const addBtn = document.getElementById('btn-add-med');
+
+            if (inventorySec) inventorySec.style.display = showSettings ? 'none' : 'block';
+            if (settingsSec) settingsSec.style.display = showSettings ? 'block' : 'none';
+
+            if (showSettings) {
+                if (pageTitle) pageTitle.textContent = 'ตั้งค่าระบบ';
+                if (pageDesc) pageDesc.textContent = 'กำหนดค่าฮาร์ดแวร์ ESP32, MQTT และรหัสผ่านเข้าแดชบอร์ด';
+                if (addBtn) addBtn.style.display = 'none';
+            } else {
+                if (pageTitle) pageTitle.textContent = 'คลังเวชภัณฑ์';
+                if (pageDesc) pageDesc.textContent = 'ตรวจสต็อก วันหมดอายุ และการเชื่อมต่อของตู้';
+                if (addBtn) addBtn.style.display = 'inline-flex';
+            }
+        }
+
+        // On Load
+        document.addEventListener("DOMContentLoaded", () => {
+            updateTabVisibility();
+            renderMedicines();
+            loadSystemConfig();
+            if (location.hash === '#add') openAddModal();
+        });
+
+        window.addEventListener('hashchange', () => {
+            updateTabVisibility();
+            if (location.hash === '#add') openAddModal();
+        });
+    </script>
 </body>
 </html>
