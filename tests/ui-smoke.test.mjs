@@ -77,24 +77,35 @@ assert.doesNotMatch(
     /stat-med-count|stat-total-usage/,
     'Landing page must not execute the removed statistics UI'
 );
-assert.match(
+// เกตเดิมบังคับให้หน้าแรกมีลิงก์ไป student/kiosk พร้อมข้อความว่า "with a real link"
+// แต่ลิงก์ที่ทำให้มันเขียวถูกเขียนเป็น `style="display:none;" aria-hidden="true"`
+// ⇒ เกตผ่านมาตลอดโดยที่ไม่มีผู้ใช้คนไหนเคยเห็นหรือกดมันได้เลย · เปลี่ยนเป็นตรวจสิ่งที่ตั้งใจจริง
+// คือหน้าแรกต้องไม่มีลิงก์ที่ซ่อนไว้จนกดไม่ได้ ซึ่งเป็นสิ่งที่เกตเดิมควรจะกันตั้งแต่ต้น
+assert.doesNotMatch(
     landingHtml,
-    /<a\b[^>]*class=["'][^"']*menu-item-btn[^"']*["'][^>]*href=["']student\/kiosk["']/i,
-    'Landing page must expose the existing touchscreen kiosk mode with a real link'
+    /<a\b[^>]*(?:aria-hidden=["']true["']|style=["'][^"']*display\s*:\s*none)/i,
+    'Landing page must not carry links nobody can see or reach'
 );
 assert.match(
     landingHtml,
     /href=["']css\/home\.css["']/i,
     'Landing page must load the shared Care Kit home styling'
 );
+// หน้าแรกกับ /student ใช้การออกแบบชุดเดียวกัน ⇒ พาดหัวและภาพฮีโร่ต้องตรงกัน
+// ตรวจเทียบกับไฟล์จริงของ /student ไม่ใช่ฝังสตริงไว้ที่นี่ ไม่งั้นแก้หน้าหนึ่งแล้วอีกหน้าค้าง
+// โดยไม่มีอะไรร้อง ซึ่งคือสภาพที่ทำให้สองหน้านี้หน้าตาต่างกันมาตั้งแต่ต้น
+const studentHomeHtml = await readFile(path.join(rootDir, 'student', 'index.html'), 'utf8');
+for (const pattern of [/<h1 class="home-title">([\s\S]*?)<\/h1>/, /<figure class="home-hero-mascot">[\s\S]*?<\/figure>/]) {
+    const fromStudent = studentHomeHtml.match(pattern);
+    assert.ok(fromStudent, `student/index.html must still contain ${pattern}`);
+    assert.ok(
+        landingHtml.includes(fromStudent[0].replace(/\.\.\/images\//g, 'images/')),
+        'Landing page hero must stay identical to the student home hero'
+    );
+}
 assert.match(
     landingHtml,
-    /เจ็บตรงไหน\?<br>สแกนแผลได้เลย/,
-    'Landing page must use the Claude Design Care Kit hero copy'
-);
-assert.match(
-    landingHtml,
-    /class=["'][^"']*home-action[^"']*primary-action[^"']*["'][^>]*href=["']student\/wound-scan["']/i,
+    /class=["'][^"']*home-action[^"']*primary-action[^"']*["'][^>]*href=["']\/?student\/wound-scan["']/i,
     'Landing page must make AI wound scanning the primary Care Kit action'
 );
 assert.match(
