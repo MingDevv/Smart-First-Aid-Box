@@ -1,7 +1,6 @@
-// WP1b — การให้สิทธิ์ครูพยาบาลต้องเป็นของ admin เท่านั้น และต้องล็อกตัวเองออกไม่ได้
+// การให้สิทธิ์ครูพยาบาลต้องเป็นของ admin เท่านั้น และต้องล็อกตัวเองออกไม่ได้
 //
-// ก่อนมีไฟล์นี้ `roles/` เขียนได้ทางเดียวคือ Admin SDK จากเครื่องใครสักคน ⇒ ระบบมีครูพยาบาล
-// ได้แค่คนที่ Khai ไปเขียนให้ · เทสชุดนี้ปักกฎที่ UI โกหกได้ไว้ที่ฝั่งเซิร์ฟเวอร์
+// เทสชุดนี้ปักกฎไว้ที่ฝั่งเซิร์ฟเวอร์ เพราะ UI โกหกได้
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createRolesHandler } from '../api/roles.js';
@@ -42,7 +41,7 @@ const invoke = async (handler, method, body) => {
 };
 
 test('only an admin may read or change who has access', async () => {
-    // Bank 2026-09-14: ครูทำทุกอย่างได้เหมือน admin **ยกเว้น** การตั้งสิทธิ์บัญชี
+    // ครูทำทุกอย่างได้เหมือน admin **ยกเว้น** การตั้งสิทธิ์บัญชี
     for (const role of ['student', 'teacher']) {
         const { handler, written } = harness({ actorRole: role });
         assert.equal((await invoke(handler, 'GET')).status, 403, role);
@@ -60,7 +59,7 @@ test('granting requires a verified school account that has signed in at least on
     for (const [body, expected] of [
         [{ email: 'someone@gmail.com', role: 'teacher' }, 'school_email_required'],
         [{ email: TEACHER.email, role: 'superuser' }, 'unknown_role'],
-        // `nurse` ถูกยกเลิก 2026-09-14 — ต้องถูกปฏิเสธเหมือนบทบาทที่ไม่มีอยู่จริง ไม่ใช่ยอมรับเงียบๆ
+        // `nurse` ถูกยกเลิกแล้ว — ต้องถูกปฏิเสธเหมือนบทบาทที่ไม่มีอยู่จริง ไม่ใช่ยอมรับเงียบๆ
         [{ email: TEACHER.email, role: 'nurse' }, 'unknown_role'],
         [{ email: 'ghost@tesaban6.ac.th', role: 'teacher' }, 'never_signed_in']
     ]) {
@@ -98,7 +97,7 @@ test('revoking deletes the document instead of storing the word student', async 
     assert.equal(written.length, 0);
 });
 
-// ระบบที่ถอดสิทธิ์ admin คนสุดท้ายได้ จะกลับไปอยู่ในสภาพที่ไฟล์นี้เกิดมาเพื่อเลิก
+// ถ้าถอดสิทธิ์ admin คนสุดท้ายได้ จะไม่เหลือใครตั้งสิทธิ์ให้ใครอีก — ต้องกลับไปแก้ `roles/` ด้วย Admin SDK เท่านั้น
 test('an admin cannot demote themselves and lock everyone out', async () => {
     const { handler, written, deleted } = harness();
     for (const role of ['student', 'teacher']) {

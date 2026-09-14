@@ -1,6 +1,6 @@
 // JS/NOTIFICATION.JS
 const NotificationService = {
-    // Helper function to escape HTML special characters to prevent XSS (SEC-01, SEC-02)
+    // Helper function to escape HTML special characters to prevent XSS
     escapeHtml(str) {
         if (typeof str !== 'string') return '';
         return str
@@ -95,7 +95,7 @@ const NotificationService = {
         const controller = new AbortController();
         const deadline = setTimeout(() => controller.abort(), 10000);
         try {
-            // เรียกครูต้องส่งได้แม้ยังไม่ล็อกอิน (Bank 2026-09-14) · ถ้าล็อกอินอยู่ให้แนบ token ไปด้วย
+            // เรียกครูต้องส่งได้แม้ยังไม่ล็อกอิน · ถ้าล็อกอินอยู่ให้แนบ token ไปด้วย
             // เพื่อให้ข้อความถึงครูมีชื่อ · ถ้าไม่ ก็ยิงตรงแล้วฝั่งเซิร์ฟเวอร์จะบอกว่า "ไม่ทราบชื่อ"
             // `authorizedFetch` โยนทิ้งเมื่อไม่มี currentUser จึงเรียกได้เฉพาะตอน ready เท่านั้น
             const signedIn = window.AuthService?.state?.status === 'ready';
@@ -110,8 +110,8 @@ const NotificationService = {
             if (!controller.signal.aborted && response.ok && result?.success === true) {
                 // โหมดสาธิตไม่เคยนับเป็นสำเร็จ — ห้ามบอกเด็กว่าเรียกครูแล้วทั้งที่ไม่มีใครถูกเรียก
                 // แต่ต้องแยกออกจาก "ระบบล่ม" ด้วย ไม่งั้นตอนสาธิตหน้างานจอจะขึ้นว่าแจ้งครูไม่ได้
-                // ทั้งที่ตั้งใจให้เป็นแบบนั้น · ของเดิมกลบโหมดสาธิตเป็น success:false เฉยๆ
-                // ทำให้สาขา simulation ที่เขียนไว้ข้างล่างไม่เคยถูกเรียกใช้เลย
+                // ทั้งที่ตั้งใจให้เป็นแบบนั้น ⇒ ต้องคืน mode:'simulation' ติดไปกับ success:false
+                // ไม่งั้นสาขา simulation ใน sendSos จะไม่มีทางถูกเรียกใช้
                 if (result.mode === 'simulation') return { success: false, mode: 'simulation' };
                 return result;
             }
@@ -126,7 +126,7 @@ const NotificationService = {
     // LINE acceptance and a cabinet ACK are independent evidence; neither proves the other.
     async sendSos(payload, options = {}) {
         if (window.SFAB_RUNTIME?.transport !== 'pi-local') {
-            // ไม่เกตการเรียกครูด้วยการล็อกอิน (Bank 2026-09-14) — เด็กที่เจ็บจนล็อกอินไม่ไหวต้องเรียกครูได้
+            // ไม่เกตการเรียกครูด้วยการล็อกอิน — เด็กที่เจ็บจนล็อกอินไม่ไหวต้องเรียกครูได้
             // ตัวตนเป็นของแถมที่ทำให้ข้อความมีชื่อ ฝั่งเซิร์ฟเวอร์รับทั้งแบบมีและไม่มี token
             const line = await this.sendLineNotification(options);
             this.showToast(line.success ? 'ส่งคำขอ SOS ผ่าน LINE แล้ว' : 'ยังยืนยันการส่ง LINE ไม่ได้ กรุณาเรียกครูใกล้ที่สุดทันที', line.success ? 'success' : 'danger');
@@ -141,7 +141,7 @@ const NotificationService = {
             this.showToast('โหมดสาธิต: จำลอง SOS เท่านั้น ไม่มีการส่ง LINE หรือเปิดเสียงจริง', 'info');
         } else {
             // เกณฑ์เดียวกับจอตู้: สำเร็จ = บันทึกคำขอไว้แล้ว ไม่ใช่ LINE ตอบกลับแล้ว
-            // หลัง WP2 ตู้ไม่ยิง LINE เอง มันลงบันทึกแล้วให้คลาวด์ส่งต่อ ⇒ queued คือทางปกติที่สำเร็จ
+            // ตู้ไม่ยิง LINE เอง มันลงบันทึกแล้วให้คลาวด์ส่งต่อ ⇒ queued คือทางปกติที่สำเร็จ
             const called = line?.success === true && line.mode !== 'simulation';
             const buzzerConfirmed = buzzer?.success === true && buzzer.mode !== 'simulation';
             // "ยังไม่ได้ตั้งโหมด" ต่างจาก "ตู้ไม่ตอบ" อย่างสิ้นเชิง — อย่างแรกครูแก้ได้ในสิบวินาที

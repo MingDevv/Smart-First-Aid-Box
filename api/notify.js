@@ -7,7 +7,7 @@ export async function sendSchoolSos(token) {
     const channel = process.env.LINE_CHANNEL_ACCESS_TOKEN?.trim();
     const group = process.env.LINE_GROUP_ID?.trim();
     if (!channel || !group) return { success: false };
-    // token เป็น null ได้ — การเรียกครูไม่บังคับล็อกอิน (Bank 2026-09-14) · ถ้าล็อกอินอยู่ก็บอกชื่อให้
+    // token เป็น null ได้ — การเรียกครูไม่บังคับล็อกอิน · ถ้าล็อกอินอยู่ก็บอกชื่อให้
     // ถ้าไม่ได้ล็อกอินก็ยังส่ง แต่บอกตามตรงว่าไม่รู้ว่าใคร ครูจะได้รู้ว่าต้องไปดูที่ตู้เอง
     // ชื่อมาจาก token ที่ตรวจแล้วเท่านั้น ไม่เคยมาจากเนื้อคำขอ · ตัดอักขระควบคุมออกกันปลอมบรรทัด
     const firstName = (typeof token?.name === 'string' ? token.name : '')
@@ -39,8 +39,7 @@ export function createNotifyHandler({ authorizeRequest = authorize, send = persi
         apiHeaders(res, 'POST, OPTIONS');
         if (req.method === 'OPTIONS') return res.status(204).end();
         if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'method_not_allowed' });
-        // การเรียกครูไม่ถูกเกตด้วยตัวตน (Bank 2026-09-14 · ตรงกับกฎเดิมในวิกิข้อ 9 ที่ว่า
-        // SOS/ออด/คู่มือ/LINE ไม่ถูกเกตด้วยตัวตน โหมด นาฬิกา หรือเน็ต)
+        // SOS/ออด/คู่มือ/LINE ไม่ถูกเกตด้วยตัวตน โหมด นาฬิกา หรือเน็ต
         // ตัวตนกลายเป็นของแถมที่ทำให้ข้อความมีชื่อ ไม่ใช่เงื่อนไขก่อนส่ง · เด็กที่เจ็บจนล็อกอินไม่ไหว
         // ต้องเรียกครูได้ · กันสแปมด้วยเพดานรวมต่อนาที ซึ่งไม่ต้องรู้ว่าใครก็ทำงานได้
         let identity = null;

@@ -1,10 +1,6 @@
 // ข้อความที่ครูได้รับใน LINE — ต้องอ่านรู้เรื่อง และต้องไม่พาข้อมูลสุขภาพเด็กออกไปด้วย
 //
-// ของเดิมเป็นอังกฤษบรรทัดเดียวที่เขียนให้ตัวเองอ่าน ("Cabinet box1 — confirmed / Drawer 1:
-// cut_abrasion") · Bank: "ตอนนี้ยังเป็นแค่ภาษาอังกฤษ งงๆ อะไรไม่รู้" (2026-09-14)
-//
-// โครงสร้าง Flex ทั้ง 7 แบบผ่าน validator ของ LINE จริงแล้ว (POST /v2/bot/message/validate/push
-// จากบน Pi ที่ถือโทเคนอยู่ · ตัวอย่างที่จงใจให้ผิดถูกปฏิเสธด้วย 400 = validator ทำงานจริง)
+// ไวยากรณ์ของโครงสร้าง Flex ตรวจด้วย validator ของ LINE (POST /v2/bot/message/validate/push)
 // เทสชุดนี้จึงไม่ตรวจไวยากรณ์ซ้ำ แต่ตรวจสิ่งที่ validator ไม่มีทางรู้: ความหมายที่ครูจะอ่านได้
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -45,7 +41,7 @@ test('every cabinet answer has a Thai sentence, so no state can leak out raw', (
     }
 });
 
-// ชื่อนักเรียนเป็นของที่ "ยังไม่มี" ไม่ใช่ของที่ "ไม่มี" — WP3 จะเป็นคนเติม
+// ชื่อนักเรียนเป็นของที่ "ยังไม่มี" ไม่ใช่ของที่ "ไม่มี"
 // การ์ดต้องพร้อมรับมันอยู่แล้ว และระหว่างนี้ต้องบอกตามตรง ไม่ใช่เว้นว่างให้ครูเดา
 test('the student name shows when it is known, and says so plainly when it is not', () => {
     const named = words(sosBubble(SOS, { student: STUDENT }));
@@ -73,7 +69,7 @@ test('a student lookup carries the name out and leaves the health record behind'
     for (const secret of ['เพนิซิลลิน', 'ถั่วลิสง', '12345', 'ความลับ'])
         assert.ok(!rendered.includes(secret), `ข้อมูลสุขภาพ/รหัส "${secret}" ต้องไม่ออกไปกับข้อความ LINE`);
 
-    // วันนี้ตู้ยังส่งตัวตนไม่ได้เลย — uid เป็น null เสมอ ⇒ ต้องไม่ไปอ่าน Firestore โดยเปล่าประโยชน์
+    // ตู้ยังส่งตัวตนไม่ได้ — uid เป็น null เสมอ ⇒ ต้องไม่ไปอ่าน Firestore โดยเปล่าประโยชน์
     let reads = 0;
     const counting = { doc: () => { reads++; return { get: async () => ({ exists: false }) }; } };
     assert.equal(await resolveStudent(counting, { uid: null }), null);
@@ -102,7 +98,7 @@ test('a web SOS says it came from the web, because that changes what the teacher
     assert.match(words(sosBubble(SOS)), /ตู้ที่ 1/);
 });
 
-// `box1` เป็นชื่อที่เครื่องใช้คุยกัน ครูไม่รู้จัก (Bank 2026-09-14)
+// `box1` เป็นชื่อที่เครื่องใช้คุยกัน ครูไม่รู้จัก
 test('the cabinet is named the way a teacher would say it, and an unknown shape is shown as-is', () => {
     assert.equal(cabinetLabel('box1'), 'ตู้ที่ 1');
     assert.equal(cabinetLabel('box12'), 'ตู้ที่ 12');

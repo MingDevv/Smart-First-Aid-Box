@@ -50,7 +50,6 @@ const ApiBridge = {
     // GET may establish MQTT and receive retained hardware metadata (4.5s + 2s).
     MQTT_STATUS_TIMEOUT_MS: 8000,
 
-    // Check if hardware URL is configured and valid
     isHardwareConfigured(settings) {
         if (!settings || !settings.esp32Url) return false;
         const url = settings.esp32Url.trim();
@@ -269,7 +268,7 @@ const ApiBridge = {
         const commandId = presetId || this.createCommandId();
 
         // 0. ยังไม่มีใครเลือกโหมด: ห้ามสั่งจริง และห้ามแกล้งทำเป็นว่าจำลองสำเร็จ
-        //    เกตนี้ต้องมาก่อนทุกอย่างที่แตะเครือข่าย (Bank เคาะ 2026-09-11)
+        //    เกตนี้ต้องมาก่อนทุกอย่างที่แตะเครือข่าย
         if (this.isPiLocal() && this.operatingMode() === 'unset') return this.unprovisioned(commandId);
 
         // 1. ถ้าเปิดโหมดสาธิต (Demo ON): จำลองการสั่งจ่ายยาสำเร็จทันที ไม่ต้องส่งสัญญาณฮาร์ดแวร์จริง

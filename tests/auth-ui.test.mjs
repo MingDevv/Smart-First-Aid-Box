@@ -106,11 +106,11 @@ test('scanner allows a verified student and starts the camera only after school 
 // กล่องต้องอยู่กลางจอ — และมันไม่ได้มาเอง
 //
 // `css/global.css` มี `* { margin: 0 }` ซึ่งล้าง `margin: auto` ที่เบราว์เซอร์ใช้จัดกลาง
-// <dialog> โหมด modal ⇒ ถ้าไม่สั่งเอง กล่องจะตกไปมุมซ้ายบน (เจอบน preview 2026-09-14)
+// <dialog> โหมด modal ⇒ ถ้าไม่สั่งเอง กล่องจะตกไปมุมซ้ายบน
 // เทสนี้เฝ้าการประกาศใน CSS เพราะการจัดกลางเป็นเรื่องของ stylesheet ล้วน ไม่มี DOM ให้ตรวจ
 test('the dialog declares its own centring because the global reset kills margin:auto', async () => {
     // ตัดคอมเมนต์ทิ้งก่อน ไม่งั้นการหา `}` ปิดบล็อกจะไปเจอวงเล็บที่อยู่ในคอมเมนต์แทน
-    // (คอมเมนต์ในบล็อกนี้พูดถึง `* { margin: 0 }` พอดี — เทสรุ่นแรกแดงเพราะเหตุนี้)
+    // (คอมเมนต์ในบล็อกนี้พูดถึง `* { margin: 0 }` พอดี)
     const strip = text => text.replace(/\/\*[\s\S]*?\*\//g, '');
     const css = strip(await readFile(new URL('../css/auth.css', import.meta.url), 'utf8'));
     const global = strip(await readFile(new URL('../css/global.css', import.meta.url), 'utf8'));
@@ -124,7 +124,7 @@ test('the dialog declares its own centring because the global reset kills margin
 
 // ชิปบัญชีลอยอยู่นอกเลย์เอาต์ หน้าจึงไม่มีทางรู้ว่ามันมีอยู่ และมันไปทับปุ่มของหน้า
 //
-// Bank เห็นบนหน้าหลักหลังบ้าน 2026-09-14: ชิปนั่งทับปุ่ม "เติมเวชภัณฑ์" พอดี
+// บนหน้าหลักหลังบ้าน ชิปนั่งทับปุ่ม "เติมเวชภัณฑ์" พอดี
 // ทางแก้มีสองส่วนที่ต้องอยู่ครบคู่กัน ไม่งั้นกลับไปทับเหมือนเดิมโดยไม่มีอะไรเตือน
 test('the floating account chip reserves its own footprint instead of covering page buttons', async () => {
     const css = await readFile(new URL('../css/auth.css', import.meta.url), 'utf8');
