@@ -1,7 +1,5 @@
 {
   "cleanUrls": true,
-  "buildCommand": "npm run build",
-  "outputDirectory": ".",
   "functions": {
     "api/command.js": { "maxDuration": 180 }
   },

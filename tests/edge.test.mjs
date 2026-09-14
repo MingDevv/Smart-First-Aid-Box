@@ -368,7 +368,7 @@ test('Pi browser ignores stored MQTT/LAN settings and fails closed; explicit dem
     // "ยังไม่ตั้งโหมด" ไม่ใช่ "โหมดจริง" และ openCompartment จะตอบ unprovisioned ตั้งแต่ยังไม่ถึง transport
     const settings = { demoMode: false, modeProvisionedAt: '2026-09-11T09:00:00.000Z',
         esp32Url: 'http://must-not-contact.invalid', mqttWsUrl: 'wss://must-not-contact.invalid' };
-    const window = { SFAB_RUNTIME: { transport: 'pi-local', mode: 'real' }, StorageService: { getSettings: () => settings } };
+    const window = { SFAB_RUNTIME: { transport: 'pi-local' }, StorageService: { getSettings: () => settings } };
     const context = vm.createContext({ window, console, AbortController, setTimeout, clearTimeout, Map, Set,
         fetch: async (url, opts) => {
             if (url === '/api/local/status') return { ok: true, json: async () => ({ commandTimeoutMs: 33000 }) };
@@ -388,13 +388,13 @@ test('Pi browser ignores stored MQTT/LAN settings and fails closed; explicit dem
     assert.equal(calls, 2);
     assert.equal((await window.ApiBridge.openCompartment('unsupported')).success, false);
     assert.equal(calls, 2);
-    window.SFAB_RUNTIME.mode = 'demo';
+    settings.demoMode = true;
     assert.equal((await window.ApiBridge.openCompartment('cut')).mode, 'simulation');
     assert.equal(calls, 2);
 
     // โปรไฟล์ที่ยังไม่มีใครเลือกโหมด (ไม่มีตราประทับ) — demoMode:true ที่ติดมากับค่าเริ่มต้นเก่า
     // แยกไม่ออกจากการที่ครูตั้งใจเลือก จึงต้องไม่ถูกนับเป็นโหมดสาธิต และต้องไม่สั่งจริงด้วย
-    window.SFAB_RUNTIME.mode = 'unset';
+    delete settings.modeProvisionedAt;
     for (const demoMode of [true, false]) {
         settings.demoMode = demoMode;
         const blocked = await window.ApiBridge.openCompartment('cut');
@@ -559,17 +559,15 @@ test('เกตโหมดอยู่ที่เซิร์ฟเวอร�
     }
 });
 
-test('P11: local buzzer remains available in demo and unset while opening stays gated', async t => {
+test('ออดก็เป็นฮาร์ดแวร์: demo/unset ต้องไม่ยิง /buzzer (SOS ทาง LINE เป็นข้อยกเว้นคนละชั้น)', async t => {
     for (const mode of ['demo', 'unset']) {
         const { controller, requests } = await fixture(t,
             url => url.pathname === '/status' ? ready : [200, { success: true, protocol: 2,
                 event: 'buzzer_set', id: `c-buzz-${mode}-01`, state: 'on' }], { mode });
         const result = await controller.command({ action: 'buzzer', state: 'on', id: `c-buzz-${mode}-01` });
-        assert.equal(requests.filter(u => u.pathname === '/buzzer').length, 1, `mode=${mode}`);
-        assert.equal(result.status, 200);
-        assert.equal(result.body.ack.event, 'buzzer_set');
-        assert.equal((await controller.command(command)).status, 503);
-        assert.equal(requests.filter(u => u.pathname === '/open').length, 0);
+        assert.equal(requests.filter(u => u.pathname === '/buzzer').length, 0, `mode=${mode}`);
+        assert.equal(result.status, 503);
+        assert.equal(result.body.deviceMode, mode === 'demo' ? 'demo' : 'unset');
     }
 });
 

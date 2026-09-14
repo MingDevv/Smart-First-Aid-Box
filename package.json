@@ -5,33 +5,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "npm run test:ui && node tests/local.test.mjs && node --test tests/kiosk-session.test.mjs && node tests/firmware-command-history.test.mjs && node --test tests/cloud-bridge.test.mjs tests/guide-command.test.mjs tests/sos.test.mjs tests/command-retry.test.mjs && npm run test:edge && npm run test:auth",
+    "test": "npm run test:ui && node tests/local.test.mjs && node --test tests/kiosk-session.test.mjs && node tests/firmware-command-history.test.mjs && node --test tests/cloud-bridge.test.mjs tests/guide-command.test.mjs tests/sos.test.mjs tests/command-retry.test.mjs && npm run test:edge",
     "start:edge": "node edge/server.mjs",
     "test:edge": "node --test tests/edge.test.mjs tests/microbit-serial.test.mjs tests/mqtt-cloud.test.mjs && python3 tests/microbit_protocol_test.py",
     "test:ui": "node tests/ui-smoke.test.mjs",
-    "test:mqtt": "node tests/mqtt-e2e.mjs && node --test tests/mqtt-cloud-e2e.mjs",
-    "build": "node scripts/build-web.mjs",
-    "dev:web": "node scripts/dev-web.mjs",
-    "test:auth": "node --test tests/auth.test.mjs tests/auth-ui.test.mjs",
-    "test:firebase": "node scripts/test-firebase.mjs"
+    "test:mqtt": "node tests/mqtt-e2e.mjs && node --test tests/mqtt-cloud-e2e.mjs"
   },
   "dependencies": {
-    "firebase-admin": "14.4.0",
     "mqtt": "5.15.2"
-  },
-  "devDependencies": {
-    "@firebase/rules-unit-testing": "5.0.2",
-    "esbuild": "0.28.2",
-    "firebase-tools": "15.30.0",
-    "firebase": "12.19.0",
-    "mqtt-packet": "9.0.2"
-  },
-  "overrides": {
-    "gaxios@6.7.1": {
-      "uuid": "11.1.1"
-    }
-  },
-  "engines": {
-    "node": ">=22"
   }
 }

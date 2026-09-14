@@ -97,9 +97,7 @@ export async function createLocalServer({ controller, root = ROOT, mode = proces
                     return json(res, result.status, result.body);
                 }
                 // Reuse optional cloud AI/notification handlers, never the MQTT command handler.
-                // Local SOS remains a loopback-only adapter, independent of cloud login.
-                const { default: handler } = await import(pathname === '/api/notify'
-                    ? new URL('./notify.mjs', import.meta.url) : new URL(`..${pathname}.js`, import.meta.url));
+                const { default: handler } = await import(new URL(`..${pathname}.js`, import.meta.url));
                 res.status = code => { res.statusCode = code; return res; };
                 res.json = body => { json(res, res.statusCode, body); return res; };
                 return await handler(req, res);
