@@ -42,7 +42,7 @@ test('actual school tokens: import twice, dry run writes nothing, export audited
 test('cards, signed minimal offline cache, identified ingest and own-history projection end to end',async()=>{
     const card=await invoke(api,{token:tokens.teacher,method:'POST',body:{action:'card',studentId:rows[0].studentId}});assert.equal(card.status,200);
     const roster=await invoke(api,{token:tokens.teacher});assert.ok(!JSON.stringify(roster.data).includes(card.data.code));
-    const secret='synthetic-wp3-cabinet-secret-only-tests',env={SFAB_CABINET_SECRET:secret,SFAB_CABINET_ID:'wp3box'};
+    const secret='synthetic-wp3-cabinet-secret-only-tests',env={SFAB_CABINET_SECRET:secret,SFAB_CABINET_ID:'wp3box',LINE_GROUP_ID:'synthetic-room',LINE_CHANNEL_ACCESS_TOKEN:'synthetic-never-sent'};
     const sync=createSyncHandler({env});
     const bundle=await invoke(sync,{url:'/api/sync',headers:signedHeaders(secret,'GET','/api/sync','wp3box')});assert.equal(bundle.status,200);const data=JSON.parse(bundle.data);
     const cached=data.roster.find(row=>row.studentId===rows[0].studentId);assert.deepEqual(Object.keys(cached).sort(),['cardHash','givenName','studentId','surname']);assert.equal(cached.cardHash,hash(card.data.code));
@@ -52,7 +52,8 @@ test('cards, signed minimal offline cache, identified ingest and own-history pro
     const identity=session.identify(login.sessionId,'wp3-offline-command');await controller.command({id:'wp3-offline-command',action:'open',drawer:1},identity);
     const events=controller.outbox.pending();assert.equal(events[0].uid,rows[0].studentId);
     const body=JSON.stringify({events,heartbeat:{mode:'real',clockTrust:'untrusted',unresolved:null}});
-    const ingest=createIngestHandler({env,send:async()=>true});const sent=await invoke(ingest,{url:'/api/ingest',method:'POST',body:Buffer.from(body),headers:signedHeaders(secret,'POST','/api/ingest','wp3box',body)});assert.equal(sent.status,200);
+    let linePayload;const ingest=createIngestHandler({env,send:async payload=>{linePayload=payload;return true;}});const sent=await invoke(ingest,{url:'/api/ingest',method:'POST',body:Buffer.from(body),headers:signedHeaders(secret,'POST','/api/ingest','wp3box',body)});assert.equal(sent.status,200);
+    assert.ok(JSON.stringify(linePayload).includes(rows[0].givenName));assert.ok(!JSON.stringify(linePayload).includes(rows[0].drugAllergies));assert.ok(!JSON.stringify(linePayload).includes(rows[0].foodAllergies));
     const own=await invoke(api,{token:tokens.student1,url:'/api/students?action=me&studentId=wp3-002'});assert.equal(own.status,200);assert.equal(own.data.student.studentId,'wp3-001');assert.equal(own.data.history.rows.length,1);assert.equal(own.data.student.cardCode,undefined);
     const other=await invoke(api,{token:tokens.student2,url:'/api/students?action=me&studentId=wp3-001'});assert.equal(other.data.history.rows.length,0);
     for(const action of ['export','history'])assert.equal((await invoke(api,{token:tokens.student1,url:'/api/students?action='+action+'&studentId=wp3-001'})).status,403);

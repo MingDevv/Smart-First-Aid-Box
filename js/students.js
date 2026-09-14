@@ -49,7 +49,7 @@
         const data=await request('',{action:replace?'replace-card':'card',studentId:id});cardId=id;
         $('card-name').textContent=data.student.givenName+' '+data.student.surname;$('card-class').textContent=id+' · '+data.student.classLevel+' / '+data.student.room;
         const generation = revision;
-        await SfabQr.draw($('card-qr'),data.code); if (generation !== revision || !AuthService.isStaff()) { $('card-qr').getContext('2d').clearRect(0,0,280,280); return; } if(!$('card-dialog').open)$('card-dialog').showModal();
+        await SfabQr.draw($('card-qr'),data.code); if (generation !== revision || !AuthService.isStaff()) { $('card-qr').getContext('2d').clearRect(0,0,280,280); return; } if(!$('card-dialog').open){ $('card-dialog').showModal(); $('card-dialog').scrollTop = 0; }
     }
     document.addEventListener('DOMContentLoaded',()=>{
         $('reload').onclick=run(load);$('search').oninput=render;

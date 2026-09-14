@@ -1,6 +1,7 @@
+import { performance } from 'node:perf_hooks';
 import { createHash, randomBytes } from 'node:crypto';
 export class StudentSession {
-    constructor(outbox, now = Date.now) { this.outbox = outbox; this.now = now; this.clear(); }
+    constructor(outbox, now = () => performance.now()) { this.outbox = outbox; this.now = now; this.clear(); }
     clear() { this.current = null; }
     scan(code) {
         this.clear();

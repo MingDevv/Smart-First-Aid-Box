@@ -45,6 +45,7 @@
     let stream = null;
     let qrTimer = null;
     let studentIdentity = null;
+    let identityReset = Promise.resolve();
     const qrEnabled = () => isPiLocal() && !!el("view-welcome");
     let photoReady = false;
     let analyzeAbort = null;
@@ -204,7 +205,7 @@
     function clearStudentIdentity() {
         studentIdentity = null;
         if (el('student-greeting')) el('student-greeting').textContent = '';
-        if (qrEnabled()) void fetch('/api/local/student', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'clear' }) }).catch(() => {});
+        if (qrEnabled()) identityReset = fetch('/api/local/student', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'clear' }) }).catch(() => {});
     }
     async function scanCardFrame(token) {
         if (isStale(token) || session.state.view !== 'card') return;
@@ -218,6 +219,8 @@
                 const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 const code = window.SfabQr.decode(frame.data, frame.width, frame.height);
                 if (code) {
+                    await identityReset;
+                    if (isStale(token) || session.state.view !== 'card') return;
                     const response = await fetch('/api/local/student', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }), signal: AbortSignal.timeout(5000) });
                     const matched = await response.json();
                     if (isStale(token) || session.state.view !== 'card') return;
