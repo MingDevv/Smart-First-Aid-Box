@@ -7,9 +7,9 @@
   "scripts": {
     "test": "npm run test:ui && node tests/local.test.mjs && node --test tests/kiosk-session.test.mjs && node tests/firmware-command-history.test.mjs && node --test tests/cloud-bridge.test.mjs tests/guide-command.test.mjs tests/sos.test.mjs tests/command-retry.test.mjs && npm run test:edge && npm run test:auth",
     "start:edge": "node edge/server.mjs",
-    "test:edge": "node --test tests/edge.test.mjs tests/microbit-serial.test.mjs && python3 tests/microbit_protocol_test.py",
+    "test:edge": "node --test tests/edge.test.mjs tests/microbit-serial.test.mjs tests/mqtt-cloud.test.mjs && python3 tests/microbit_protocol_test.py",
     "test:ui": "node tests/ui-smoke.test.mjs",
-    "test:mqtt": "node tests/mqtt-e2e.mjs",
+    "test:mqtt": "node tests/mqtt-e2e.mjs && node --test tests/mqtt-cloud-e2e.mjs",
     "build": "node scripts/build-web.mjs",
     "dev:web": "node scripts/dev-web.mjs",
     "test:auth": "node --test tests/auth.test.mjs tests/auth-ui.test.mjs",
