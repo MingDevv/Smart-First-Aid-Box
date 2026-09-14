@@ -1,3 +1,4 @@
+import { StudentSession } from './student-session.mjs';
 import { createServer } from 'node:http';
 import { readFile, realpath, mkdir } from 'node:fs/promises';
 import { dirname, extname, join, resolve, sep } from 'node:path';
@@ -107,6 +108,7 @@ export async function createLocalServer({ controller, root = ROOT, mode = proces
     const webRoot = await realpath(root);
     const routing = JSON.parse(await readFile(join(webRoot, 'vercel.json'), 'utf8'));
     const rewrites = new Map(routing.rewrites.map(r => [r.source, r.destination]));
+    const studentSession = new StudentSession(controller.outbox);
     const server = createServer(async (req, res) => {
         res.setHeader('Cache-Control', 'no-store');
         res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -128,6 +130,14 @@ export async function createLocalServer({ controller, root = ROOT, mode = proces
                 if (req.method === 'GET' && pathname === '/api/local/history') {
                     return json(res, 200, { commands: controller.history() });
                 }
+                if (pathname === '/api/local/student') {
+                    if (req.method !== 'POST') return json(res, 405, { error: 'POST required' });
+                    if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') return json(res, 415, { error: 'JSON required' });
+                    const body = await readJson(req, 1024);
+                    if (body.action === 'clear') { studentSession.clear(); return json(res, 200, { success: true }); }
+                    const student = studentSession.scan(body.code);
+                    return json(res, student ? 200 : 404, student || { error: 'card_not_found' });
+                }
                 if (pathname !== '/api/command' && !['/api/analyze', '/api/notify'].includes(pathname)) {
                     return json(res, 404, { success: false, error: 'Not found' });
                 }
@@ -137,7 +147,16 @@ export async function createLocalServer({ controller, root = ROOT, mode = proces
                 }
                 req.body = await readJson(req, pathname === '/api/analyze' ? 10 * 1024 * 1024 : 16384);
                 if (pathname === '/api/command') {
-                    const result = await controller.command(req.body);
+                    let identity = null;
+                    if (req.body.action === 'open') {
+                        identity = studentSession.identify(req.body.studentSession, req.body.id);
+                        if (!identity) return json(res, 401, { success: false, retrySafe: true, error: 'Scan student card to start a new round' });
+                    }
+                    const result = await controller.command(req.body, identity);
+                    if (identity && result.status >= 400 && !result.body.uncertain) {
+                        const row = controller.db.prepare('SELECT state FROM commands WHERE id = ?').get(req.body.id);
+                        if (!row || row.state === 'rejected') studentSession.release(req.body.id);
+                    }
                     return json(res, result.status, result.body);
                 }
                 if (pathname === '/api/analyze') return analyzeViaCloud(req, res);

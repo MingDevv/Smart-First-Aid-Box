@@ -22,8 +22,9 @@ export class CabinetOutbox {
     record(row, result, { historical = false } = {}) {
         if (![1, 2].includes(row.drawer)) return;
         const ts = Number.isFinite(Date.parse(row.created_at)) ? row.created_at : new Date().toISOString();
+        const identity = row.student_identity ? JSON.parse(row.student_identity) : null;
         this.add({ id: row.id, kind: 'dispense', cabinetId: this.cabinetId, ts,
-            uid: null, badgeId: null, verifiedBy: 'unidentified', clockTrust: 'untrusted',
+            uid: identity?.studentId || null, studentId: identity?.studentId || null, badgeId: identity?.badgeId || null, verifiedBy: identity ? 'cabinet_card' : 'unidentified', clockTrust: 'untrusted',
             drawer: row.drawer, woundType: row.drawer === 1 ? 'cut_abrasion' : 'insect',
             itemsUsed: [], ack: result?.body?.ack ? 'confirmed' : row.state,
             uncertain: row.state === 'uncertain', historical });

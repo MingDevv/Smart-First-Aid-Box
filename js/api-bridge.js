@@ -250,7 +250,7 @@ const ApiBridge = {
     },
 
     // Trigger physical box compartment opening (Compartment 1: Cut/Abrasion, Compartment 2: Insect Bite)
-    async openCompartment(woundId) {
+    async openCompartment(woundId, studentSession) {
         const settings = this.getSettings();
         const isDemo = this.isDemoMode();
         if (!this.isPiLocal() && !window.AuthService?.isStaff()) {
@@ -281,7 +281,7 @@ const ApiBridge = {
                 error: 'ประเภทแผลนี้ไม่มีช่องยารองรับ' };
         }
         if (this.isPiLocal()) {
-            return this.sendLocalCommand({ action: 'open', drawer: compartmentNum, id: commandId });
+            return this.sendLocalCommand({ action: 'open', drawer: compartmentNum, id: commandId, ...(studentSession ? { studentSession } : {}) });
         }
 
         // 2. ถ้าปิดโหมดสาธิต (Demo OFF): ส่งสัญญาณจริงผ่าน MQTT / LAN เท่านั้น

@@ -40,6 +40,9 @@ export class LocalController {
                 id TEXT PRIMARY KEY, drawer INTEGER NOT NULL, state TEXT NOT NULL,
                 created_at TEXT NOT NULL, confirmed_at TEXT, response TEXT
             );`);
+        if (!this.db.prepare('PRAGMA table_info(commands)').all().some(row => row.name === 'student_identity')) {
+            this.db.exec('ALTER TABLE commands ADD COLUMN student_identity TEXT');
+        }
         this.outbox = new CabinetOutbox(this.db, cabinetId);
         // A process may die after sending /open. Never replay a persisted pending command.
         this.db.exec("UPDATE commands SET state = 'uncertain' WHERE state = 'pending'");
@@ -106,7 +109,7 @@ export class LocalController {
         return { status, body: { success: false, mode: 'pi-local', commandId: id, error } };
     }
 
-    async command(command) {
+    async command(command, identity = null) {
         if (!command || typeof command !== 'object' || typeof command.id !== 'string' || !ID.test(command.id) ||
             !(command.action === 'open' && [1, 2].includes(command.drawer) ||
               command.action === 'buzzer' && ['on', 'off'].includes(command.state))) {
@@ -152,8 +155,8 @@ export class LocalController {
             }
         }
 
-        this.db.prepare("INSERT INTO commands (id, drawer, state, created_at) VALUES (?, ?, 'pending', ?)")
-            .run(command.id, channel, new Date().toISOString());
+        this.db.prepare("INSERT INTO commands (id, drawer, state, created_at, student_identity) VALUES (?, ?, 'pending', ?, ?)")
+            .run(command.id, channel, new Date().toISOString(), identity ? JSON.stringify(identity) : null);
         if (command.action === 'open') this.activeOpens.add(command.id);
         const task = this.dispatch(command).finally(() => {
             this.active.delete(command.id);

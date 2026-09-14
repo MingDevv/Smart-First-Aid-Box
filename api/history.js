@@ -10,7 +10,7 @@ function project(doc) {
         uncertain: row.uncertain === true, clockTrust: row.clockTrust, lineStatus: row.lineStatus,
         buzzerAck: row.buzzerAck ?? null };
     // All staff share the same explicit history projection.
-    Object.assign(result, { uid: row.uid ?? null, woundType: row.woundType ?? null,
+    Object.assign(result, { uid: row.uid ?? null, studentId: row.studentId ?? null, woundType: row.woundType ?? null,
         verifiedBy: row.verifiedBy ?? null, itemsUsed: row.itemsUsed || [] });
     return result;
 }

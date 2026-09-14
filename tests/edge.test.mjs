@@ -5,6 +5,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import vm from 'node:vm';
+import { hash, newCard } from '../lib/students.js';
 import { LocalController } from '../edge/controller.mjs';
 import { createLocalServer, CLOUD_ANALYZE_ERROR_MSG } from '../edge/server.mjs';
 import { USER_ERROR_MSG as CLOUD_USER_ERROR_MSG } from '../api/analyze.js';
@@ -413,8 +414,11 @@ test('local server serves all kiosk routes, suppresses MQTT, and protects source
         req.on('error', reject); req.end();
     });
     assert.equal(badHostStatus, 403);
+    const code = newCard();
+    controller.outbox.saveCache({ roster: [{ studentId: 'edge-student', givenName: 'Test', surname: 'Student', cardHash: hash(code) }] });
+    const login = await (await fetch(origin + '/api/local/student', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) })).json();
     const result = await fetch(origin + '/api/command', { method: 'POST', headers: {
-        'Content-Type': 'application/json', Origin: origin }, body: JSON.stringify(command) });
+        'Content-Type': 'application/json', Origin: origin }, body: JSON.stringify({ ...command, studentSession: login.sessionId }) });
     assert.equal((await result.json()).success, true);
     assert.equal((await (await fetch(origin + '/api/local/history')).json()).commands.length, 1);
 });
