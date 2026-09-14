@@ -9,9 +9,18 @@ The same protocol-2 ESP32 + micro:bit firmware supports both clients:
 
 Use [PI_LOCAL_SETUP.md](docs/PI_LOCAL_SETUP.md) for the Pi service, UART wiring,
 paired flashing, motor timing measurements and physical acceptance checks.
-The Pi does not connect to cloud MQTT or fall back to it. ESP32 can accept both
-transports; a busy micro:bit refuses a second motor command, while SOS is still
-allowed. Demo mode never sends an actuator command or records real treatment.
+**Since 2026-09-13 the Pi is the device on the broker.** The ESP32 left the cabinet
+on 2026-09-12; `edge/mqtt-cloud.mjs` now subscribes `<base>/cmd` and publishes
+`<base>/evt` and the retained `<base>/status` with the same protocol-2 payloads, so
+`api/command.js` is unchanged. Every cloud command passes through the same
+`LocalController` as the touchscreen (mode gate, journal, unresolved hold, replay
+guard); retained, stale (>30 s) or malformed commands are rejected before they reach
+it. The bridge starts only when `MQTT_URL` is present in the unit environment
+(`~/.config/sfab/edge.env` on the cabinet) — without it the cabinet is
+touchscreen-only. A busy micro:bit refuses a second motor command, while SOS is still
+allowed. Demo mode never sends an actuator command or records real treatment; the Pi
+advertises `ready:false` with `reason:"mode_demo"` so the website refuses before
+publishing.
 
 ## Broker and permissions
 
@@ -20,7 +29,7 @@ Create three separate credentials with these exact permissions:
 
 | Credential | Publish | Subscribe | Stored in |
 |---|---|---|---|
-| ESP32 device | `<base>/evt`, `<base>/status` | `<base>/cmd` | Ignored `device_config.h` |
+| Cabinet device (Pi since 2026-09-13; ESP32 before) | `<base>/evt`, `<base>/status` | `<base>/cmd` | Pi: `~/.config/sfab/edge.env` (`MQTT_URL`, `MQTT_USERNAME`, `MQTT_PASSWORD`, `MQTT_BASE_TOPIC`) · ESP32: ignored `device_config.h` |
 | Vercel publisher | `<base>/cmd` | `<base>/evt`, **`<base>/status`** | Vercel environment |
 | Optional web viewer | None | `<base>/evt`, `<base>/status` | Browser settings |
 

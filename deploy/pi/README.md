@@ -232,6 +232,41 @@ sudo install -o root -g sfab -m 0640 /dev/null /etc/sfab/edge.env
 # then add GEMINI_API_KEY / LINE_* from .env.example. Never commit this file.
 ```
 
+Optional cloud path (the website on Vercel opening the cabinet through the broker) — the
+Pi holds the **device** credential from `MQTT_SETUP.md` (publish `evt`/`status`, subscribe
+`cmd`). Same variable names as the Vercel side; leave them out and the cabinet stays
+touchscreen-only:
+
+```sh
+MQTT_URL=mqtts://<cluster-host>:8883
+MQTT_USERNAME=<device username>
+MQTT_PASSWORD=<device password>
+MQTT_BASE_TOPIC=crms6/firstaidbox/box1
+```
+
+Optional fifth line: `SFAB_CLOUD_ACTIONS=buzzer` lets the website ring the buzzer but never
+open a drawer (the website's `/api/command` has no login of its own); the default
+`open,buzzer` is parity with the ESP32 era. A wrong or missing `MQTT_URL` only disables the
+cloud path — the journal shows `[SFAB cloud] disabled: …` and the touchscreen keeps working.
+
+`edge/mqtt-cloud.mjs` loads the `mqtt` package lazily, so the checkout on the Pi needs a
+`node_modules` (the edge service itself uses only Node built-ins). The cabinet runs from
+`~/sfab` under the **user** unit, not `/opt`; ship code and the lockfile, never
+`node_modules`, then install on the Pi with its own npm (not on the unit's PATH by default):
+
+```sh
+# on the Mac
+rsync -a --delete --exclude node_modules --exclude .git --exclude '*.sqlite*' <checkout>/ pi5:~/sfab/
+# on the Pi
+cd ~/sfab && PATH=$HOME/.local/node/bin:$PATH npm ci --omit=dev   # npm re-spawns `node` via PATH
+timedatectl show -p NTPSynchronized      # must be yes: commands carry a timestamp the Pi judges
+systemctl --user restart sfab-edge
+journalctl _SYSTEMD_USER_UNIT=sfab-edge.service -n 20    # expect "[SFAB cloud] on broker as <base>"
+```
+
+Then confirm the broker shows a retained `<base>/status` with `"transport":"pi"` and
+`GET /api/command` on the website reports `connected:true`.
+
 Check it before going near the browser:
 
 ```sh

@@ -63,6 +63,8 @@ export class LocalController {
             const validBudget = Number.isInteger(data.ackTimeoutMs) && data.ackTimeoutMs >= 3000 && data.ackTimeoutMs <= 120000;
             const connected = status === 200 && data.protocol === 2 && data.microbit === 'connected' && validBudget;
             return { connected, ready: connected && data.ready === true, mode: 'pi-local', configured: true,
+                // The raw firmware budget, republished verbatim on the broker by edge/mqtt-cloud.mjs.
+                ackTimeoutMs: validBudget ? data.ackTimeoutMs : null,
                 commandTimeoutMs: validBudget ? data.ackTimeoutMs + 3000 : null,
                 reason: data.reason === 'awaiting_new_ready_epoch' ? data.reason : '', unresolved, deviceMode };
         } catch {
@@ -116,7 +118,10 @@ export class LocalController {
             if (previous.drawer !== channel) return this.failure(409, command.id, 'command ID ถูกใช้กับช่องยาอื่นแล้ว');
             if (this.active.has(command.id)) return this.active.get(command.id);
             if (previous.response) return JSON.parse(previous.response);
-            return this.failure(409, command.id, 'ผลคำสั่งเดิมยังไม่แน่นอน กรุณาตรวจตู้ก่อน ห้ามสั่งซ้ำ');
+            // uncertain:true lets a transport tell "look at the cabinet" apart from "refused".
+            const uncertain = this.failure(409, command.id, 'ผลคำสั่งเดิมยังไม่แน่นอน กรุณาตรวจตู้ก่อน ห้ามสั่งซ้ำ');
+            uncertain.body.uncertain = true;
+            return uncertain;
         }
         if (!this.origin) return this.failure(503, command.id, 'ยังไม่ได้ตั้งค่าการเชื่อมต่อ micro:bit บน Pi');
         if (command.action === 'open' && this.activeOpens.size) return this.failure(409, command.id, 'ตู้กำลังทำงาน กรุณารอ');
@@ -192,8 +197,12 @@ export class LocalController {
             'ยังยืนยันผลการจ่ายไม่ได้ กรุณาตรวจตู้ก่อน ห้ามสั่งซ้ำ'), sent ? 'uncertain' : 'rejected');
     }
 
-    async close() {
+    async drain() {
         await Promise.allSettled(this.active.values());
+    }
+
+    async close() {
+        await this.drain();
         await this.serial?.close();
         this.db.close();
     }
