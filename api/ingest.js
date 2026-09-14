@@ -6,7 +6,6 @@ import { readCabinetBody, signedResponse, cabinetFailure } from '../lib/cabinet-
 import { deliverEvent } from '../lib/cabinet-line.js';
 import { retryWebSos } from '../lib/web-sos.js';
 
-export const config = { api: { bodyParser: false } };
 export function createIngestHandler({ services = firebaseServices, env = process.env, now = Date.now, send } = {}) {
     return async (req, res) => {
         res.setHeader('Cache-Control', 'no-store');

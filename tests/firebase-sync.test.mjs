@@ -52,8 +52,10 @@ test('offline twice, reconnect, lose ingest response, restart: exactly two Fires
     const transport = async (url, options) => {
         if (!online) throw new Error('synthetic LAN unplugged');
         const path = new URL(url).pathname;
+        const headers = Object.fromEntries(new Headers(options.headers));
+        if (path === '/api/ingest') assert.equal(headers['content-type'], 'application/octet-stream');
         const response = await invoke(path === '/api/ingest' ? handler : syncHandler,
-            { ...options, headers: Object.fromEntries(new Headers(options.headers)), body: options.body || '' });
+            { ...options, headers, body: Buffer.from(options.body || '') });
         if (path === '/api/ingest' && loseReply) { loseReply = false; throw new Error('synthetic lost HTTP response after commit'); }
         return response;
     };

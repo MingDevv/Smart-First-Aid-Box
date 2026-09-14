@@ -102,3 +102,23 @@ test('SOS IDs cannot be reused to actuate a drawer, and stored delivery retries 
     assert.equal(controller.outbox.pending(20,Date.now()+61000).length,2);
     await controller.close();
 });
+
+test('ingest uses an octet-stream Buffer without consulting a parsed JSON object or request stream', async () => {
+    const { CabinetSync } = await import('../edge/sync.mjs');
+    const { readCabinetBody } = await import('../lib/cabinet-http.js');
+    const { responseSignature } = await import('../lib/cabinet-protocol.js');
+    const body = '{\n  "events": [], "note": "Unicode: \\u0061"\n}\n';
+    const worker = new CabinetSync({ controller: { outbox: {} }, origin: 'https://synthetic.invalid', secret,
+        fetchImpl: async (_url, options) => {
+            const headers = Object.fromEntries(new Headers(options.headers));
+            assert.equal(headers['content-type'], 'application/octet-stream', 'ingest must bypass Vercel JSON parsing');
+            const req = { method: 'POST', headers, body: Buffer.from(options.body),
+                async *[Symbol.asyncIterator]() { throw new Error('request stream must not be consulted'); } };
+            const raw = await readCabinetBody(req);
+            assert.equal(raw, body, 'whitespace and escape sequences must remain byte-exact');
+            const auth = authenticateCabinet(req, raw, '/api/ingest', env);
+            const reply = '{"acks":[]}';
+            return new Response(reply, { headers: { 'x-sfab-signature': responseSignature(secret, auth.signature, 200, '', reply) } });
+        } });
+    assert.deepEqual((await worker.request('/api/ingest', 'POST', body)).data, { acks: [] });
+});
