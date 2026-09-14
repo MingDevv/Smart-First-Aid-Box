@@ -104,7 +104,12 @@ const NotificationService = {
                 signal: controller.signal
             });
             const result = await response.json();
-            if (!controller.signal.aborted && response.ok && result?.success === true && result.mode !== 'simulation') {
+            if (!controller.signal.aborted && response.ok && result?.success === true) {
+                // โหมดสาธิตไม่เคยนับเป็นสำเร็จ — ห้ามบอกเด็กว่าเรียกครูแล้วทั้งที่ไม่มีใครถูกเรียก
+                // แต่ต้องแยกออกจาก "ระบบล่ม" ด้วย ไม่งั้นตอนสาธิตหน้างานจอจะขึ้นว่าแจ้งครูไม่ได้
+                // ทั้งที่ตั้งใจให้เป็นแบบนั้น · ของเดิมกลบโหมดสาธิตเป็น success:false เฉยๆ
+                // ทำให้สาขา simulation ที่เขียนไว้ข้างล่างไม่เคยถูกเรียกใช้เลย
+                if (result.mode === 'simulation') return { success: false, mode: 'simulation' };
                 return result;
             }
         } catch {
@@ -132,18 +137,19 @@ const NotificationService = {
         if (line?.mode === 'simulation' && buzzer?.mode === 'simulation') {
             this.showToast('โหมดสาธิต: จำลอง SOS เท่านั้น ไม่มีการส่ง LINE หรือเปิดเสียงจริง', 'info');
         } else {
-            const lineSent = line?.success === true && line.mode !== 'simulation' && line.mode !== 'queued';
-            const lineQueued = line?.success === true && line.mode === 'queued';
+            // เกณฑ์เดียวกับจอตู้: สำเร็จ = บันทึกคำขอไว้แล้ว ไม่ใช่ LINE ตอบกลับแล้ว
+            // หลัง WP2 ตู้ไม่ยิง LINE เอง มันลงบันทึกแล้วให้คลาวด์ส่งต่อ ⇒ queued คือทางปกติที่สำเร็จ
+            const called = line?.success === true && line.mode !== 'simulation';
             const buzzerConfirmed = buzzer?.success === true && buzzer.mode !== 'simulation';
             // "ยังไม่ได้ตั้งโหมด" ต่างจาก "ตู้ไม่ตอบ" อย่างสิ้นเชิง — อย่างแรกครูแก้ได้ในสิบวินาที
             // ถ้ารวมสองอย่างเป็นข้อความเดียว คนอ่านจะไปไล่หาสายไฟทั้งที่แค่ยังไม่ได้กดตั้งค่า
+            // toast นี้ครูเห็นด้วย (หน้าเว็บ ไม่ใช่แค่จอตู้) จึงยังบอกเรื่องออดไว้ ต่างจากจอตู้ที่เด็กอ่าน
             const buzzerText = buzzerConfirmed ? ' · ตู้ตอบรับคำสั่งเปิดเสียงแล้ว'
                 : buzzer?.mode === 'unprovisioned' ? ' · ตู้ยังไม่ได้ตั้งโหมด จึงยังเปิดเสียงไม่ได้'
                 : ' · ยังยืนยันเสียงที่ตู้ไม่ได้';
-            const message = (lineSent ? 'ส่งคำขอ SOS ผ่าน LINE แล้ว' : lineQueued ? 'SOS saved at the cabinet; LINE delivery is pending' : 'ยังยืนยันการส่ง LINE ไม่ได้') +
-                buzzerText +
-                (lineSent && buzzerConfirmed ? '' : ' กรุณาเรียกครูใกล้ที่สุดทันที');
-            this.showToast(message, lineSent && buzzerConfirmed ? 'success' : lineSent || buzzerConfirmed ? 'warning' : 'danger');
+            const message = (called ? 'แจ้งครูพยาบาลแล้ว' : 'ยังแจ้งครูไม่ได้') + buzzerText +
+                (called && buzzerConfirmed ? '' : ' กรุณาเรียกครูใกล้ที่สุดทันที');
+            this.showToast(message, called && buzzerConfirmed ? 'success' : called || buzzerConfirmed ? 'warning' : 'danger');
         }
         return { line, buzzer };
     },
