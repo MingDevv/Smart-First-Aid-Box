@@ -36,7 +36,7 @@ def load(*, busy=False, epoch=7):
         running_time=lambda: 1000,
         sleep=lambda _: None,
         pin16=Pin('p16', events),
-        DISPENSE_STEPS=200, STEP_MS=5, HEARTBEAT_MS=500,
+        DISPENSE_STEPS=200, STEP_MS=5, HEARTBEAT_MS=500, BUZZ_MAX_MS=5000, buzz_until=0,
         ID_CHARS='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-',
         MOTORS={1: [pins['p12'], pins['p14'], pins['p13'], pins['p15']],
                 2: [pins['p0'], pins['p2'], pins['p1'], pins['p8']]},
@@ -65,6 +65,46 @@ class ProtocolTests(unittest.TestCase):
                                       'BUZZ_DONE' + state + ':c-sound-test-01'])
         source = SOURCE.read_text()
         self.assertIn('pin=pin16', source, 'music defaults to P0, which is now a motor coil')
+
+    # ออดต้องดับเองที่บอร์ด ไม่ใช่รอ Pi สั่ง — 2026-09-14 กดเรียกครูแล้วดังไม่หยุด เพราะปุ่มปิด
+    # มีที่เดียวคือหน้าครูบน Vercel ที่ต้องล็อกอิน ⇒ ตัวจับเวลาต้องรอดแม้ Pi ดับทั้งเครื่อง
+    def test_buzzer_stops_itself_when_the_window_expires(self):
+        ns, events, _ = load()
+        now = [1000]
+        ns['running_time'] = lambda: now[0]
+        ns['handle_serial_frame']('BUZZ1:c-sos-window-1')
+        self.assertEqual(events, ['sound-on', 'BUZZ_DONE1:c-sos-window-1'])
+
+        now[0] = 1000 + ns['BUZZ_MAX_MS'] - 1
+        ns['service_buzzer']()
+        self.assertEqual(events[-1], 'BUZZ_DONE1:c-sos-window-1', 'ยังไม่ครบเวลา ห้ามดับก่อน')
+
+        now[0] = 1000 + ns['BUZZ_MAX_MS']
+        ns['service_buzzer']()
+        self.assertEqual(events[-1], 'sound-off')
+
+        # ดับแล้วต้องไม่ดับซ้ำทุกรอบของลูป ไม่งั้นมันจะยิง music.stop() 100 ครั้งต่อวินาที
+        ns['service_buzzer']()
+        self.assertEqual(events.count('sound-off'), 1)
+
+    def test_buzz_off_clears_the_window_and_a_new_buzz_restarts_it(self):
+        ns, events, _ = load()
+        now = [1000]
+        ns['running_time'] = lambda: now[0]
+        ns['handle_serial_frame']('BUZZ1:c-sos-window-2')
+        ns['handle_serial_frame']('BUZZ0:c-sos-window-3')
+        now[0] = 1000 + ns['BUZZ_MAX_MS'] * 4
+        ns['service_buzzer']()
+        self.assertEqual(events.count('sound-off'), 1, 'สั่งปิดแล้ว ตัวจับเวลาต้องไม่ยิงซ้ำทีหลัง')
+
+        # กดเรียกครูซ้ำระหว่างที่ยังดังอยู่ ต้องได้เวลาใหม่เต็ม ไม่ใช่ดับตามรอบเดิม
+        ns['handle_serial_frame']('BUZZ1:c-sos-window-4')
+        now[0] += ns['BUZZ_MAX_MS'] - 1
+        ns['service_buzzer']()
+        self.assertEqual(events.count('sound-off'), 1)
+        now[0] += 1
+        ns['service_buzzer']()
+        self.assertEqual(events.count('sound-off'), 2)
 
     def test_motor_keeps_heartbeat_and_services_sos(self):
         ns, events, chunks = load(busy=True)

@@ -18,6 +18,8 @@
 #   drawer 1 (cut/abrasion) = bottom motor P12 P13 P14 P15, rotating order P12 P14 P13 P15
 #   drawer 2 (insect)       = top motor    P0  P1  P2  P8,  rotating order P0  P2  P1  P8
 #   buzzer on P16 — `music` defaults to P0, which is now a motor coil; P16 is the last free pin.
+#     P5/P11 are wired to buttons A/B in hardware and can never drive it (silent ACK trap, 2026-09-14).
+#     The board stops the buzzer itself after BUZZ_MAX_MS; BUZZ0 still stops it at once.
 # Physical buttons no longer dispense: an ungated button bypassed every safety in the Pi
 # (handoff 2026-09-12 §6.1), and Bank/Nai agreed the board must not start a dispense on its own.
 from microbit import uart, display, sleep, running_time, Image, pin16
@@ -29,12 +31,21 @@ STEP_MS = 5
 HEARTBEAT_MS = 500
 ID_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-'
 
+# ออดดับตัวเองหลังเท่านี้ ไม่ต้องรอใครสั่ง (Bank เคาะ 5 วินาที 2026-09-14)
+#
+# ของเดิม BUZZ1 เล่น music.pitch(..., -1) = ดังไปเรื่อยๆ และปุ่มปิดมีที่เดียวคือหน้าครูบน Vercel
+# ซึ่งต้องล็อกอิน ⇒ วันที่เทส ไม่มีใครในโรงเรียนปิดออดได้เลย ต้องยิงคำสั่งจากนอกให้
+# ตัวจับเวลาอยู่ที่บอร์ด ไม่ใช่ที่ Pi เพราะถ้า Pi ดับหรือ service ตายกลางคัน ออดต้องยังดับเอง
+# BUZZ0 ยังหยุดได้ทันทีเหมือนเดิม และ BUZZ1 ใหม่เริ่มนับใหม่
+BUZZ_MAX_MS = 5000
+
 # drawer -> coil pins in the order that rotates cleanly (IN1, IN3, IN2, IN4 of each L298N)
 MOTORS = {1: [pin12, pin14, pin13, pin15], 2: [pin0, pin2, pin1, pin8]}
 
 busy = False
 ready_epoch = 1
 last_heartbeat = 0
+buzz_until = 0
 line = b''
 overflow = False
 
@@ -43,6 +54,14 @@ def coils_off():
     for pins in MOTORS.values():
         for p in pins:
             p.write_digital(0)
+
+
+def service_buzzer():
+    # เรียกจากลูปหลัก และจากในลูปมอเตอร์ด้วย ไม่งั้นระหว่างจ่ายยา 1 วินาทีจะไม่มีใครมาดับให้
+    global buzz_until
+    if buzz_until and running_time() >= buzz_until:
+        buzz_until = 0
+        music.stop(pin16)
 
 
 def report_hardware_state():
@@ -65,6 +84,7 @@ def motor_run(pins, steps, delay_ms):
             if i % 32 == 0:
                 check_serial_commands()
                 report_hardware_state()
+                service_buzzer()
             active = i % 4
             for j in range(4):
                 pins[j].write_digital(1 if j == active else 0)
@@ -108,10 +128,15 @@ def handle_serial_frame(frame):
     if not valid_id(command_id):
         return
     if len(parts) == 2 and parts[0] in ('BUZZ1', 'BUZZ0'):
+        global buzz_until
         if parts[0] == 'BUZZ1':
             music.pitch(880, -1, pin=pin16, wait=False)
+            buzz_until = running_time() + BUZZ_MAX_MS
         else:
+            buzz_until = 0
             music.stop(pin16)
+        # ACK ทันทีเหมือนเดิม = "รับคำสั่งแล้ว" ไม่ใช่ "เสียงจบแล้ว" · การดับเองตอนครบเวลา
+        # ไม่ส่งอะไรกลับ เพราะมันไม่มี command id และฝั่ง Pi ไม่ได้เก็บสถานะออดไว้เทียบอยู่แล้ว
         uart.write('BUZZ_DONE' + parts[0][4] + ':' + command_id + '\n')
         return
     if len(parts) != 3 or parts[0] not in ('OPEN1', 'OPEN2'):
@@ -152,4 +177,5 @@ display.show(Image.YES)
 while True:
     check_serial_commands()
     report_hardware_state()
+    service_buzzer()
     sleep(10)

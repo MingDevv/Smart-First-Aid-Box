@@ -127,6 +127,49 @@
             </div>
         </section>
 
+        <!-- 2.5 · ผลที่ AI อ่านได้ ────────────────────────────────────
+             ของเดิมไม่มีหน้านี้: analyzePhoto() เก็บผลไว้ใน session แล้วเด้งไปหน้ายืนยันหรือ
+             หน้าเลือกเองทันที ⇒ ข้อความที่ AI เขียนไม่เคยขึ้นจอตู้เลยสักครั้ง ทั้งที่ฝั่งมือถือ
+             (student/wound-scan.html) แสดงครบ · กรณีที่สำคัญที่สุดคือรอบที่ AI ระบุไม่ได้
+             เพราะเหตุผลที่มันให้ไว้อาจเป็น "แผลลึก ให้ไปหาครู" ซึ่งเด็กต้องได้อ่าน -->
+        <section class="view" id="view-airesult" aria-label="ผลวิเคราะห์จาก AI" hidden>
+            <div class="view-head">
+                <div>
+                    <h1 class="view-title" id="airesult-title">AI ดูภาพให้แล้ว</h1>
+                    <p class="view-lead" id="airesult-lead"></p>
+                </div>
+            </div>
+            <div class="view-body">
+                <div class="airesult-row">
+                    <div class="camera-frame airesult-photo">
+                        <img id="airesult-photo" alt="ภาพแผลที่เพิ่งถ่าย">
+                    </div>
+                    <div class="airesult-text">
+                        <p class="airesult-desc" id="airesult-desc"></p>
+                        <p class="airesult-reasoning" id="airesult-reasoning" hidden></p>
+                    </div>
+                </div>
+                <div class="notice" data-tone="warning">
+                    <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
+                    <span>ผลนี้เป็นคำแนะนำเบื้องต้น ไม่ทดแทนการดูแลจากครูพยาบาล</span>
+                </div>
+            </div>
+            <div class="view-foot">
+                <button class="btn btn-outline btn-back" type="button" data-action="go-scan">
+                    <svg class="icon" aria-hidden="true"><use href="#i-camera"></use></svg>
+                    ถ่ายใหม่
+                </button>
+                <button class="btn btn-outline" type="button" data-action="go-select">เลือกแผลเอง</button>
+                <!-- ซ่อนไว้เมื่อ AI ระบุไม่ได้หรือมั่นใจไม่พอ — ปุ่ม "ใช่" ที่กดได้ทั้งที่ตู้ไม่รู้ว่าแผลอะไร
+                     คือการให้เด็กยืนยันสิ่งที่ไม่มีใครยืนยัน -->
+                <button class="btn btn-primary btn-major" type="button" id="airesult-accept"
+                        data-action="airesult-accept" hidden>
+                    <svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>
+                    ใช่ แผลนี้
+                </button>
+            </div>
+        </section>
+
         <!-- 3 · เลือกแผลเอง ──────────────────────────────────────────── -->
         <section class="view" id="view-select" aria-label="เลือกประเภทแผล" hidden>
             <div class="view-head">

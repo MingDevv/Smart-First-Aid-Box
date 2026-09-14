@@ -576,6 +576,50 @@ img {
     width: 100%;
 }
 
+/* ── ผลที่ AI อ่านได้ ───────────────────────────────────────────────────── */
+
+/* ภาพซ้าย ข้อความขวา เหมือน .camera-row เพื่อให้จอ 800x480 ไม่ต้องเลื่อน
+ * ภาพแคบกว่าหน้าสแกนเพราะที่นี่ข้อความคือของหลัก ภาพเป็นแค่หลักฐานว่าถ่ายอะไรไป */
+.airesult-row {
+    display: grid;
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-columns: 220px 1fr;
+    gap: 18px;
+}
+
+.airesult-photo {
+    /* ทับ background เข้มของ .camera-frame ไม่ได้ ปล่อยไว้ ภาพเต็มกรอบอยู่แล้ว */
+    min-height: 0;
+}
+
+/* ข้อความจากโมเดลยาวไม่แน่นอน ให้เลื่อนในกล่องของตัวเอง ไม่ดันหน้าให้ล้น */
+.airesult-text {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+}
+
+.airesult-desc {
+    margin: 0;
+    color: var(--text-main);
+    font-size: var(--fs-body);
+    line-height: 1.5;
+}
+
+.airesult-reasoning {
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: var(--bg-main);
+    color: var(--text-muted);
+    font-size: var(--fs-small);
+    line-height: 1.45;
+}
+
 /* ── กำลังสั่งตู้ ───────────────────────────────────────────────────────── */
 
 .dispensing {
