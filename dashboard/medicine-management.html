@@ -82,7 +82,7 @@
     <script src="../js/auth.js" defer></script>
     <script src="../js/auth-ui.js" defer></script>
     <link rel="stylesheet" href="../css/dashboard-data.css">
-    <script src="../js/dashboard-data.js" defer></script>
+    <script src="../js/dashboard-data.js" defer></script><script src="../js/inventory.js" defer></script>
 </head>
 <body data-auth-required="staff" class="dashboard-body">
     <div class="dashboard-shell">
@@ -97,7 +97,7 @@
                     <a class="sidebar-link" href="/dashboard/statistics"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติการใช้งาน</a>
                     <a class="sidebar-link" href="/dashboard/students"><span class="material-symbols-rounded" aria-hidden="true">badge</span>ทะเบียนนักเรียน</a>
                     <a class="sidebar-link" href="/dashboard/roles" data-admin-only><span class="material-symbols-rounded" aria-hidden="true">manage_accounts</span>สิทธิ์เข้าหลังบ้าน</a>
-                    <a class="sidebar-link" id="settings-nav-link" href="/dashboard/medicine-management#settings"><span class="material-symbols-rounded" aria-hidden="true">settings</span>ตั้งค่า</a>
+                    <a class="sidebar-link" id="settings-nav-link" href="/dashboard/medicine-management#settings"><span class="material-symbols-rounded" aria-hidden="true">pending_actions</span>รายการค้างที่ตู้</a>
                 </nav>
             <div class="sidebar-status">
                 <div class="sidebar-status-title"><span class="sidebar-status-dot"></span>คลังเวชภัณฑ์</div>
@@ -111,7 +111,42 @@
                 <p id="data-status" role="status" aria-live="polite">กำลังโหลดข้อมูลการใช้งาน…</p>
                 <button id="data-refresh" class="dashboard-action" type="button">อัปเดตข้อมูล</button>
             </section>
-            <section class="db-card sync-panel" id="add"><h2>จำนวนเวชภัณฑ์ที่ตรวจนับ</h2><div id="inventory-data"></div></section>
+            <!-- ฟอร์มนับของ — ก่อนหน้านี้หัวข้อนี้แสดงผลอย่างเดียว ไม่มีทางกรอกอะไรเข้าไปเลย
+                 ทั้งระบบไม่มีโค้ดเขียน inventory สักจุด (Bank เจอเอง 2026-09-14) -->
+            <section class="db-card sync-panel" id="add">
+                <h2>ตรวจนับเวชภัณฑ์</h2>
+                <p class="inv-help">ตู้จ่ายทีละ<strong>ชุด</strong> ไม่ได้จ่ายทีละชิ้น จึงนับเป็นจำนวนชุดที่เหลือในแต่ละช่อง · ระบุด้วยว่า 1 ชุดมีอะไรบ้าง</p>
+                <form id="inventory-form" class="inv-form">
+                    <div class="inv-field">
+                        <label for="inv-drawer">ช่อง</label>
+                        <select id="inv-drawer" name="drawer">
+                            <option value="drawer1">ช่อง 1 — แผลมีดบาด / ถลอก</option>
+                            <option value="drawer2">ช่อง 2 — แมลงกัดต่อย</option>
+                        </select>
+                    </div>
+                    <div class="inv-field">
+                        <label for="inv-kit-name">ชื่อชุด</label>
+                        <input id="inv-kit-name" name="kitName" type="text" maxlength="60" placeholder="ชุดทำแผล" required>
+                    </div>
+                    <div class="inv-field inv-field-narrow">
+                        <label for="inv-count">นับได้กี่ชุด</label>
+                        <input id="inv-count" name="count" type="number" min="0" max="999" inputmode="numeric" placeholder="ยังไม่นับ">
+                    </div>
+                    <div class="inv-field inv-field-narrow">
+                        <label for="inv-target">ต่ำกว่านี้ให้เตือน</label>
+                        <input id="inv-target" name="target" type="number" min="0" max="999" inputmode="numeric" placeholder="ยังไม่กำหนด">
+                    </div>
+                    <fieldset class="inv-items">
+                        <legend>ใน 1 ชุดมีอะไรบ้าง</legend>
+                        <div id="inv-item-rows"></div>
+                        <button class="dashboard-action" id="inv-add-item" type="button">เพิ่มรายการ</button>
+                    </fieldset>
+                    <button class="dashboard-action primary" id="inv-save" type="submit">บันทึกการตรวจนับ</button>
+                </form>
+                <p class="inv-status" id="inv-status" role="status" aria-live="polite"></p>
+                <h3>สรุปที่บันทึกไว้</h3>
+                <div id="inventory-data"></div>
+            </section>
             <section class="db-card sync-panel" id="settings"><h2>รายการค้างที่ตู้</h2><p id="clearing-state"></p><p>หากมีรายการค้าง ให้ตรวจสอบที่ตู้และยืนยันผลบนหน้าตู้</p></section>
         </main>
     </div>

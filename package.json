@@ -12,7 +12,7 @@
     "test:mqtt": "node tests/mqtt-e2e.mjs && node --test tests/mqtt-cloud-e2e.mjs",
     "build": "node scripts/build-web.mjs",
     "dev:web": "node scripts/dev-web.mjs",
-    "test:auth": "node --test tests/auth.test.mjs tests/auth-ui.test.mjs tests/auth-session.test.mjs tests/roles-api.test.mjs tests/line-flex.test.mjs",
+    "test:auth": "node --test tests/auth.test.mjs tests/auth-ui.test.mjs tests/auth-session.test.mjs tests/roles-api.test.mjs tests/line-flex.test.mjs tests/inventory.test.mjs",
     "test:firebase": "node scripts/test-firebase.mjs"
   },
   "dependencies": {

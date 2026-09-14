@@ -659,3 +659,34 @@ body.dashboard-body .app-footer {
     .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .stat-item { min-height: 108px; }
 }
+
+/* ฟอร์มตรวจนับเวชภัณฑ์ — เพิ่ม 2026-09-14 พร้อมทางเขียน inventory ครั้งแรกของระบบ */
+.inv-help { margin: 0 0 12px; color: var(--text-muted); font-size: 14px; line-height: 1.6; }
+.inv-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; }
+.inv-field { display: flex; flex: 1 1 200px; min-width: 0; flex-direction: column; gap: 6px; }
+.inv-field-narrow { flex: 0 1 150px; }
+.inv-field label { color: var(--text-muted); font-size: 13px; font-weight: 600; }
+.inv-field input, .inv-field select,
+.inv-item-row input {
+    min-height: 44px;   /* เป้าแตะขั้นต่ำ — ครูกรอกจากไอแพดเป็นหลัก */
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm, 10px);
+    background: #fff;
+    font: inherit;
+    color: var(--text-main);
+}
+.inv-items { flex: 1 1 100%; margin: 0; padding: 12px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-sm, 10px); }
+.inv-items legend { padding: 0 6px; color: var(--text-muted); font-size: 13px; font-weight: 600; }
+.inv-item-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+.inv-item-row input:nth-child(1) { flex: 2 1 180px; min-width: 0; }
+.inv-item-row input:nth-child(2) { flex: 0 1 90px; }
+.inv-item-row input:nth-child(3) { flex: 0 1 110px; }
+.inv-status { margin: 12px 0 0; font-weight: 600; color: var(--text-muted); }
+.inv-status[data-tone='success'] { color: var(--success); }
+.inv-status[data-tone='danger'] { color: var(--danger); }
+.inv-summary { margin-bottom: 16px; }
+.inv-summary h4 { margin: 0 0 4px; font-size: 15px; color: var(--text-main); }
+.inv-summary p { margin: 0 0 6px; color: var(--text-muted); }
+.inv-summary p[data-tone='danger'] { color: var(--danger); font-weight: 600; }
+.inv-summary ul { margin: 0; padding-left: 20px; color: var(--text-muted); }
