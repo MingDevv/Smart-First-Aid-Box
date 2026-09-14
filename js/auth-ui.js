@@ -147,6 +147,9 @@
             const required = document.body.dataset.authRequired;
             document.body.dataset.authReady = String(ready && (required !== 'staff' || staff));
             document.body.dataset.staff = String(staff);
+            // บทบาทที่ละเอียดกว่า `staff` — เมนูบางอันเป็นของ admin เท่านั้น
+            // ซ่อนสิ่งที่กดไปก็ทำไม่ได้ ดีกว่าปล่อยให้กดแล้วเจอ 403
+            document.body.dataset.role = ready ? (state.role || '') : '';
             chip.dataset.state = state.status;
             if (!ready) closeMenu();
 

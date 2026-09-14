@@ -3,35 +3,101 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".",
   "functions": {
-    "api/command.js": { "maxDuration": 180 }
+    "api/command.js": {
+      "maxDuration": 180
+    }
   },
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/dashboard", "destination": "/dashboard/index.html" },
-    { "source": "/dashboard/medicine-management", "destination": "/dashboard/medicine-management.html" },
-    { "source": "/dashboard/statistics", "destination": "/dashboard/statistics.html" },
-    { "source": "/medicine-management", "destination": "/dashboard/medicine-management.html" },
-    { "source": "/medicine-management.html", "destination": "/dashboard/medicine-management.html" },
-    { "source": "/statistics", "destination": "/dashboard/statistics.html" },
-    { "source": "/statistics.html", "destination": "/dashboard/statistics.html" },
-    { "source": "/student/kiosk", "destination": "/student/kiosk.html" },
-    { "source": "/student/wound-select", "destination": "/student/wound-select.html" },
-    { "source": "/student/wound-scan", "destination": "/student/wound-scan.html" },
-    { "source": "/student/first-aid-guide", "destination": "/student/first-aid-guide.html" },
-    { "source": "/student/about", "destination": "/student/about.html" },
-    { "source": "/student/history", "destination": "/student/history.html" },
-    { "source": "/kiosk", "destination": "/kiosk/index.html" },
-    { "source": "/wound-select", "destination": "/student/wound-select.html" },
-    { "source": "/wound-scan", "destination": "/student/wound-scan.html" },
-    { "source": "/first-aid-guide", "destination": "/student/first-aid-guide.html" },
-    { "source": "/about", "destination": "/student/about.html" },
-    { "source": "/history", "destination": "/student/history.html" }
+    {
+      "source": "/dashboard",
+      "destination": "/dashboard/index.html"
+    },
+    {
+      "source": "/dashboard/medicine-management",
+      "destination": "/dashboard/medicine-management.html"
+    },
+    {
+      "source": "/dashboard/statistics",
+      "destination": "/dashboard/statistics.html"
+    },
+    {
+      "source": "/dashboard/roles",
+      "destination": "/dashboard/roles.html"
+    },
+    {
+      "source": "/medicine-management",
+      "destination": "/dashboard/medicine-management.html"
+    },
+    {
+      "source": "/medicine-management.html",
+      "destination": "/dashboard/medicine-management.html"
+    },
+    {
+      "source": "/statistics",
+      "destination": "/dashboard/statistics.html"
+    },
+    {
+      "source": "/statistics.html",
+      "destination": "/dashboard/statistics.html"
+    },
+    {
+      "source": "/student/kiosk",
+      "destination": "/student/kiosk.html"
+    },
+    {
+      "source": "/student/wound-select",
+      "destination": "/student/wound-select.html"
+    },
+    {
+      "source": "/student/wound-scan",
+      "destination": "/student/wound-scan.html"
+    },
+    {
+      "source": "/student/first-aid-guide",
+      "destination": "/student/first-aid-guide.html"
+    },
+    {
+      "source": "/student/about",
+      "destination": "/student/about.html"
+    },
+    {
+      "source": "/student/history",
+      "destination": "/student/history.html"
+    },
+    {
+      "source": "/kiosk",
+      "destination": "/kiosk/index.html"
+    },
+    {
+      "source": "/wound-select",
+      "destination": "/student/wound-select.html"
+    },
+    {
+      "source": "/wound-scan",
+      "destination": "/student/wound-scan.html"
+    },
+    {
+      "source": "/first-aid-guide",
+      "destination": "/student/first-aid-guide.html"
+    },
+    {
+      "source": "/about",
+      "destination": "/student/about.html"
+    },
+    {
+      "source": "/history",
+      "destination": "/student/history.html"
+    }
   ],
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
       ]
     }
   ]

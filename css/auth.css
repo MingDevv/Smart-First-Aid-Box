@@ -208,6 +208,7 @@ body[data-auth-required]:not([data-local-kiosk='true']):not([data-auth-ready='tr
 }
 
 body:not([data-staff='true']):not([data-local-kiosk='true']) [data-staff-only] { display: none !important; }
+body:not([data-role='admin']):not([data-local-kiosk='true']) [data-admin-only] { display: none !important; }
 
 .shared-unavailable { padding: 24px; line-height: 1.7; color: var(--text-muted); }
 
