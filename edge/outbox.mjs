@@ -1,3 +1,4 @@
+import { SOS_SYMPTOMS } from '../lib/cabinet-events.js';
 import { randomUUID } from 'node:crypto';
 
 export class CabinetOutbox {
@@ -29,9 +30,10 @@ export class CabinetOutbox {
             itemsUsed: [], ack: result?.body?.ack ? 'confirmed' : row.state,
             uncertain: row.state === 'uncertain', historical });
     }
-    queueSos(id = randomUUID()) {
+    queueSos(id = randomUUID(), symptom = null) {
         this.add({ id, kind: 'sos', cabinetId: this.cabinetId, uid: null,
-            ts: new Date().toISOString(), buzzerAck: null, clockTrust: 'untrusted', historical: false });
+            ts: new Date().toISOString(), buzzerAck: null, clockTrust: 'untrusted', historical: false,
+            symptom: SOS_SYMPTOMS.includes(symptom) ? symptom : null });
         this.onNew();
         return id;
     }

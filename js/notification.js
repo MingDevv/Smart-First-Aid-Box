@@ -85,9 +85,12 @@ const NotificationService = {
     },
 
     // SOS is constrained on both transports; arbitrary browser messages are not sent.
-    async sendLineNotification() {
+    async sendLineNotification({ symptom = null } = {}) {
         const local = window.SFAB_RUNTIME?.transport === 'pi-local';
-        const requestBody = { event: 'sos', ...(local ? { eventId: window.ApiBridge.createCommandId() } : {}) };
+        // อาการเป็นค่าจากปุ่มที่มีให้เลือกตายตัว ฝั่งเซิร์ฟเวอร์ตรวจซ้ำอีกชั้นด้วย enum
+        // ⇒ จอตู้ที่ไม่มีใครเฝ้าส่งข้อความอิสระเข้ากลุ่มครูไม่ได้
+        const requestBody = { event: 'sos', ...(symptom ? { symptom } : {}),
+            ...(local ? { eventId: window.ApiBridge.createCommandId() } : {}) };
 
         const controller = new AbortController();
         const deadline = setTimeout(() => controller.abort(), 10000);
@@ -121,16 +124,16 @@ const NotificationService = {
     },
 
     // LINE acceptance and a cabinet ACK are independent evidence; neither proves the other.
-    async sendSos(payload) {
+    async sendSos(payload, options = {}) {
         if (window.SFAB_RUNTIME?.transport !== 'pi-local') {
             // ไม่เกตการเรียกครูด้วยการล็อกอิน (Bank 2026-09-14) — เด็กที่เจ็บจนล็อกอินไม่ไหวต้องเรียกครูได้
             // ตัวตนเป็นของแถมที่ทำให้ข้อความมีชื่อ ฝั่งเซิร์ฟเวอร์รับทั้งแบบมีและไม่มี token
-            const line = await this.sendLineNotification({ event: 'sos' });
+            const line = await this.sendLineNotification(options);
             this.showToast(line.success ? 'ส่งคำขอ SOS ผ่าน LINE แล้ว' : 'ยังยืนยันการส่ง LINE ไม่ได้ กรุณาเรียกครูใกล้ที่สุดทันที', line.success ? 'success' : 'danger');
             return { line, buzzer: { success: false, mode: 'not-requested' } };
         }
         const results = await Promise.allSettled([
-            Promise.resolve().then(() => this.sendLineNotification(payload)),
+            Promise.resolve().then(() => this.sendLineNotification(options)),
             Promise.resolve().then(() => window.ApiBridge.triggerBuzzer('on'))
         ]);
         const [line, buzzer] = results.map(result => result.status === 'fulfilled' ? result.value : null);

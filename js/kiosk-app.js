@@ -33,6 +33,33 @@
     // "เร็วๆ นี้" ไม่ช่วยคนที่กำลังเจ็บ ให้ไปทางเรียกครูแทน
     const KIOSK_WOUND_IDS = ['cut_abrasion', 'insect'];
 
+    // คำถามคัดกรองก่อนจ่ายของ — ต่างกันตามประเภทแผล (Bank 2026-09-14)
+    //
+    // แผลทั่วไปถามเรื่องแพ้ยา เพราะของที่จ่ายคือยาทา · แต่ "แมลงกัดต่อย" คำถามที่สำคัญกว่า
+    // คือเด็กกำลังแพ้อยู่ตอนนี้หรือเปล่า · บวมกับแน่นหน้าอกเป็นสัญญาณของการแพ้รุนแรง
+    // ซึ่งยาทาไม่ช่วย และการยืนรอตู้จ่ายของคือการเสียเวลาที่ควรใช้ตามครู
+    // ⇒ สองอาการนี้ตู้ไม่จ่าย แต่เรียกครูให้ทันทีพร้อมบอกว่าเรียกเพราะอะไร
+    const TRIAGE_DEFAULT = {
+        question: 'เคยแพ้สิ่งที่แสดงนี้ไหม',
+        options: [
+            { value: 'yes', label: 'เคยแพ้' },
+            { value: 'unsure', label: 'ไม่แน่ใจ' },
+            { value: 'no', label: 'ไม่เคยแพ้', safe: true }
+        ]
+    };
+    const TRIAGE = {
+        insect: {
+            question: 'ตอนนี้มีอาการแบบนี้ไหม',
+            options: [
+                { value: 'swelling', label: 'บวมบริเวณแผล', symptom: 'swelling' },
+                { value: 'chest_tightness', label: 'แน่นหน้าอก', symptom: 'chest_tightness' },
+                { value: 'none', label: 'ไม่มี', safe: true }
+            ]
+        }
+    };
+    const triageFor = wound => TRIAGE[wound?.id] || TRIAGE_DEFAULT;
+    const triageOption = wound => triageFor(wound).options.find(item => item.value === allergyAnswer) || null;
+
     // ── อ้างอิง DOM ─────────────────────────────────────────────────────
 
     const el = id => document.getElementById(id);
@@ -581,7 +608,27 @@
     // ถูกเรียกทั้งตอนเปิดหน้า และทุกครั้งที่โพลสถานะกลับมา
     function renderAllergyGate() {
         const gate = el('allergy-gate');
-        gate.dataset.answered = allergyAnswer || 'none';
+        const triage = triageFor(currentWound());
+        // ปุ่มถูกสร้างใหม่ตามประเภทแผล ไม่ใช่ซ่อนของที่ไม่ใช้ ⇒ ไม่มีปุ่มที่กดไม่ได้ค้างอยู่บนจอ
+        // และไม่มีคำตอบของแผลประเภทก่อนหน้าหลงเหลือมาให้กดโดนอีก
+        el('allergy-question').textContent = triage.question;
+        const choices = gate.querySelector('.allergy-choices');
+        const wanted = triage.options.map(item => item.value).join(',');
+        if (choices.dataset.options !== wanted) {
+            choices.dataset.options = wanted;
+            choices.replaceChildren(...triage.options.map(item => {
+                const button = document.createElement('button');
+                button.className = 'btn btn-outline allergy-choice';
+                button.type = 'button';
+                button.dataset.action = 'allergy-answer';
+                button.dataset.answer = item.value;
+                button.textContent = item.label;
+                return button;
+            }));
+        }
+        const chosen = triageOption(currentWound());
+        // ตอบแล้วแต่ปลอดภัย = เขียว · ตอบแล้วและต้องให้ครูดู = แดง · ยังไม่ตอบ = เหลือง
+        gate.dataset.answered = !chosen ? 'none' : chosen.safe ? 'no' : 'yes';
         [...gate.querySelectorAll('[data-answer]')].forEach(button => {
             button.setAttribute('aria-pressed', String(button.dataset.answer === allergyAnswer));
         });
@@ -595,9 +642,14 @@
         if (!wound) return 'ยังไม่ได้เลือกประเภทแผล';
         const known = matchedAllergies(wound);
         if (known.length) return `ประวัติบอกว่าแพ้ ${known.join(', ')} — ต้องให้ครูดูก่อน`;
-        if (allergyAnswer === null) return 'ตอบคำถามเรื่องแพ้ยาก่อน ตู้จะได้รู้ว่าจ่ายให้ได้ไหม';
-        if (allergyAnswer === 'yes') return 'เคยแพ้ของพวกนี้ — ตู้จะไม่จ่ายให้ กดเรียกครูเลย';
-        if (allergyAnswer === 'unsure') return 'ไม่แน่ใจว่าแพ้หรือเปล่า — ให้ครูดูก่อนปลอดภัยกว่า กดเรียกครู';
+        const answer = triageOption(wound);
+        if (!answer) return triageFor(wound).question === TRIAGE_DEFAULT.question
+            ? 'ตอบคำถามเรื่องแพ้ยาก่อน ตู้จะได้รู้ว่าจ่ายให้ได้ไหม'
+            : 'ตอบคำถามเรื่องอาการก่อน ตู้จะได้รู้ว่าจ่ายให้ได้ไหม';
+        if (answer.symptom === 'swelling') return 'บวมแบบนี้ต้องให้ครูดูก่อน ตู้เรียกครูให้แล้ว รออยู่ตรงนี้';
+        if (answer.symptom === 'chest_tightness') return 'แน่นหน้าอกเป็นอาการที่ต้องรีบ ตู้เรียกครูให้แล้ว รออยู่ตรงนี้';
+        if (answer.value === 'yes') return 'เคยแพ้ของพวกนี้ — ตู้จะไม่จ่ายให้ กดเรียกครูเลย';
+        if (answer.value === 'unsure') return 'ไม่แน่ใจว่าแพ้หรือเปล่า — ให้ครูดูก่อนปลอดภัยกว่า กดเรียกครู';
         if (!session.canDispatch()) return 'รอบนี้สั่งตู้ไปแล้ว ถ้าของยังไม่ออกมาให้กดเรียกครู อย่าสั่งซ้ำ';
         // ค้างจากคำสั่งก่อนหน้าที่ยังไม่มีใครเคลียร์ — อ่านจากสมุดคำสั่งของ Pi ไม่ใช่จากหน้าจอ
         if (hardware.unresolved) {
@@ -625,7 +677,7 @@
         const dispenseButton = el('confirm-dispense');
         dispenseButton.hidden = false;
         dispenseButton.disabled = reason !== null;
-        if (reason && allergyAnswer === null) {
+        if (reason && triageOption(wound) === null) {
             // คำถามอยู่เหนือปุ่มอยู่แล้ว การขึ้นกล่องบอกซ้ำว่า "ตอบคำถามก่อน" คือข้อความซ้ำ
             // ที่กินที่บนจอ 480px และทำให้รายการของถูกบีบ ปล่อยให้คำถามพูดแทน
             setNotice(el('confirm-notice'), el('confirm-notice-text'), 'warning', '');
@@ -633,7 +685,8 @@
             setNotice(el('confirm-notice'), el('confirm-notice-text'), 'danger', reason);
         } else {
             setNotice(el('confirm-notice'), el('confirm-notice-text'), 'success',
-                'ตอบว่าไม่เคยแพ้แล้ว กดรับอุปกรณ์ได้');
+                triageFor(wound) === TRIAGE_DEFAULT ? 'ตอบว่าไม่เคยแพ้แล้ว กดรับอุปกรณ์ได้'
+                    : 'ไม่มีอาการที่ต้องรีบ กดรับอุปกรณ์ได้');
         }
     }
 
@@ -830,11 +883,18 @@
         el('overlay-sos').hidden = false;
     }
 
-    async function sendSos() {
+    async function sendSos({ symptom = null, auto = false } = {}) {
         if (sosBusy) return;
         sosBusy = true;
         const button = el('sos-confirm');
         button.disabled = true;
+        // เรียกอัตโนมัติจากคำตอบเรื่องอาการ ⇒ เด็กยังไม่ได้เปิดกล่องนี้เอง ต้องเปิดให้เห็น
+        // ไม่งั้นตู้เรียกครูไปเงียบๆ แล้วเด็กยืนงงว่าทำไมกดรับของไม่ได้
+        if (auto) {
+            el('sos-overlay-actions').hidden = true;
+            el('sos-overlay-close').hidden = true;
+            el('overlay-sos').hidden = false;
+        }
         el('sos-overlay-title').textContent = 'กำลังเรียกครู';
         el('sos-overlay-text').textContent = 'รอสักครู่ อย่ากดซ้ำ';
         try {
@@ -842,7 +902,7 @@
             const student = store ? store.getCurrentStudent() : null;
             const who = student ? `${student.name} (${student.class})` : 'นักเรียนที่ตู้ปฐมพยาบาล';
             // sendSos รายงานผล LINE กับผลออดแยกกันเอง ไม่ OR รวมเป็นสำเร็จเดียว
-            const outcome = await NotificationService.sendSos(NotificationService.buildSosFlexMessage(who));
+            const outcome = await NotificationService.sendSos(NotificationService.buildSosFlexMessage(who), { symptom });
             // คนอ่านจอนี้คือเด็กที่เพิ่งเจ็บ ไม่ใช่คนที่ดูแลระบบ
             //
             // ของเดิมเอาสถานะทางเทคนิคสามอย่างมาต่อกันเป็นประโยคเดียว แล้วขึ้นหัวว่า
@@ -921,6 +981,10 @@
         'allergy-answer': target => {
             allergyAnswer = target.dataset.answer;
             refreshConfirmGate();
+            // อาการแพ้รุนแรงไม่รอให้เด็กหาปุ่มเรียกครูเจอ — ตู้เรียกให้เองทันทีพร้อมบอกเหตุผล
+            // ถ้าส่งไม่สำเร็จ ปุ่มเรียกครูยังอยู่ตรงนั้นและกดได้เหมือนเดิม
+            const chosen = triageOption(currentWound());
+            if (chosen?.symptom) void sendSos({ symptom: chosen.symptom, auto: true });
         },
         // ปุ่มนี้ถูกซ่อนเมื่อ AI ระบุไม่ได้ แต่ยังตรวจซ้ำตรงนี้ ไม่เชื่อว่าปุ่มถูกซ่อนไว้แล้ว
         'airesult-accept': () => { if (currentWound()) goConfirm(); },
