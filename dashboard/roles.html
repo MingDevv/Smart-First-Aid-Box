@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#078683">
+    <title>สิทธิ์ครูพยาบาล — Smart First Aid Box</title>
+    <link rel="stylesheet" href="../css/global.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="../css/auth.css">
+    <script src="../js/auth.js" defer></script>
+    <script src="../js/auth-ui.js" defer></script>
+    <style>
+        .roles-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+        .roles-field { display: flex; flex: 1 1 260px; flex-direction: column; gap: 6px; }
+        .roles-field label { font-size: 13px; font-weight: 600; color: var(--text-main); }
+        .roles-field input, .roles-field select {
+            min-height: 46px; padding: 10px 12px; border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm, 12px); background: #fff; color: var(--text-main); font: inherit;
+        }
+        .roles-help { margin: 10px 0 0; color: var(--text-muted); font-size: 13px; line-height: 1.6; }
+        .roles-status { margin: 14px 0 0; padding: 11px 13px; border-radius: var(--radius-sm, 12px);
+            font-size: 14px; line-height: 1.55; }
+        .roles-status:empty { display: none; }
+        .roles-status[data-tone='ok'] { background: var(--success-light); color: var(--success-hover); }
+        .roles-status[data-tone='bad'] { background: var(--danger-light); color: var(--danger-hover); }
+        .roles-table { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 14px; }
+        .roles-table th, .roles-table td { padding: 11px 10px; border-bottom: 1px solid var(--border-color); text-align: left; }
+        .roles-table th { color: var(--text-muted); font-size: 12px; font-weight: 600; }
+        .roles-table td.roles-email { word-break: break-all; }
+        .roles-empty { padding: 22px 10px; color: var(--text-muted); text-align: center; }
+        .roles-revoke { min-height: 40px; padding: 8px 14px; border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm, 12px); background: #fff; color: var(--danger); font: inherit;
+            font-weight: 600; cursor: pointer; }
+        .roles-revoke:disabled { opacity: 0.5; cursor: not-allowed; }
+    </style>
+</head>
+<body data-auth-required="staff" class="dashboard-body">
+    <div id="dashboard-content">
+        <div class="dashboard-shell">
+            <aside class="dashboard-sidebar">
+                <a class="sidebar-brand" href="../">
+                    <img class="sidebar-logo" src="../images/logo_first_aid.webp" width="72" height="72" alt="Smart First Aid Box">
+                    <span><strong>First Aid Box</strong><span style="font-family:var(--font-sarabun); letter-spacing:0; font-size:10px;">ครูพยาบาล</span></span>
+                </a>
+                <nav class="sidebar-nav" aria-label="เมนูแดชบอร์ด">
+                    <a class="sidebar-link" href="/dashboard"><span class="material-symbols-rounded" aria-hidden="true">dashboard</span>ภาพรวม</a>
+                    <a class="sidebar-link" href="/dashboard/medicine-management"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>คลังยา</a>
+                    <a class="sidebar-link" href="/dashboard/statistics#history"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติ</a>
+                    <a class="sidebar-link" href="/dashboard/statistics"><span class="material-symbols-rounded" aria-hidden="true">monitoring</span>สถิติ</a>
+                    <a class="sidebar-link active" href="/dashboard/roles" data-admin-only><span class="material-symbols-rounded" aria-hidden="true">manage_accounts</span>สิทธิ์ครูพยาบาล</a>
+                    <a class="sidebar-link" href="/dashboard/medicine-management#settings"><span class="material-symbols-rounded" aria-hidden="true">settings</span>ตั้งค่า</a>
+                </nav>
+            </aside>
+
+            <main class="dashboard-main animate-fade-in">
+                <header class="dashboard-topbar">
+                    <div class="dashboard-greeting">
+                        <h1>สิทธิ์ครูพยาบาล</h1>
+                        <p>ให้และถอดสิทธิ์เข้าหลังบ้าน เฉพาะผู้ดูแลระบบเท่านั้นที่แก้ได้</p>
+                    </div>
+                </header>
+
+                <!-- คนที่ไม่ใช่ admin เห็นหน้านี้ได้ (เมนูอยู่ในโซนครู) แต่แก้ไม่ได้ — บอกให้ชัดแทนที่จะให้กดแล้วเด้ง 403 -->
+                <section class="db-card" id="roles-denied" hidden style="margin-bottom:20px; padding:18px;">
+                    <p style="margin:0;">หน้านี้แก้ได้เฉพาะผู้ดูแลระบบ กรุณาติดต่อผู้ดูแลระบบเพื่อขอสิทธิ์</p>
+                </section>
+
+                <section class="db-card" id="roles-editor" hidden style="margin-bottom:20px; padding:18px;">
+                    <h2 style="margin:0 0 14px; font-size:17px;">ให้สิทธิ์</h2>
+                    <form class="roles-form" id="roles-form">
+                        <div class="roles-field">
+                            <label for="roles-email">อีเมลโรงเรียน</label>
+                            <input id="roles-email" name="email" type="email" inputmode="email"
+                                   autocomplete="off" placeholder="nurse@tesaban6.ac.th" required>
+                        </div>
+                        <div class="roles-field" style="flex:0 1 200px;">
+                            <label for="roles-role">บทบาท</label>
+                            <select id="roles-role" name="role">
+                                <option value="nurse">ครูพยาบาล</option>
+                                <option value="teacher">ครู</option>
+                                <option value="admin">ผู้ดูแลระบบ</option>
+                            </select>
+                        </div>
+                        <button class="dashboard-action primary" id="roles-submit" type="submit" style="min-height:46px;">
+                            <span class="material-symbols-rounded" aria-hidden="true">person_add</span>บันทึกสิทธิ์
+                        </button>
+                    </form>
+                    <p class="roles-help">
+                        คนที่จะได้สิทธิ์ <strong>ต้องเปิดเว็บแล้วกดเข้าสู่ระบบอย่างน้อยหนึ่งครั้งก่อน</strong>
+                        ระบบจึงจะรู้จักบัญชีนั้น · ใช้ได้เฉพาะบัญชี <strong>@tesaban6.ac.th</strong> ที่ยืนยันอีเมลแล้ว
+                    </p>
+                    <p class="roles-status" id="roles-status" role="status" aria-live="polite"></p>
+                </section>
+
+                <section class="db-card" style="padding:18px;">
+                    <h2 style="margin:0 0 4px; font-size:17px;">คนที่มีสิทธิ์ตอนนี้</h2>
+                    <p class="roles-help" style="margin:0 0 10px;">คนที่ไม่อยู่ในรายการนี้คือนักเรียนทั่วไป เข้าหลังบ้านไม่ได้</p>
+                    <div id="roles-list" aria-live="polite"><p class="roles-empty">กำลังโหลด</p></div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="../js/storage.js"></script>
+    <script>
+        const ROLE_TH = { nurse: 'ครูพยาบาล', teacher: 'ครู', admin: 'ผู้ดูแลระบบ', student: 'นักเรียน' };
+        // ข้อความต้องบอกว่าทำอะไรต่อ ไม่ใช่แค่บอกว่าพัง — โดยเฉพาะ never_signed_in ซึ่งเป็นเคสที่เจอบ่อยที่สุด
+        const ERROR_TH = {
+            never_signed_in: 'ยังไม่เคยเข้าสู่ระบบ ให้เจ้าตัวเปิดเว็บแล้วกดเข้าสู่ระบบด้วย Google หนึ่งครั้งก่อน แล้วลองใหม่',
+            school_email_required: 'ต้องเป็นอีเมลของโรงเรียนที่ลงท้ายด้วย @tesaban6.ac.th',
+            email_not_verified: 'บัญชีนี้ยังไม่ได้ยืนยันอีเมล',
+            unknown_role: 'บทบาทไม่ถูกต้อง',
+            cannot_demote_self: 'ถอดสิทธิ์ผู้ดูแลระบบของตัวเองไม่ได้ ให้ผู้ดูแลระบบอีกคนเป็นคนถอดให้',
+            admin_role_required: 'เฉพาะผู้ดูแลระบบเท่านั้นที่แก้สิทธิ์ได้',
+            sign_in_required: 'กรุณาเข้าสู่ระบบก่อน'
+        };
+        const say = (message, tone) => {
+            const box = document.getElementById('roles-status');
+            box.textContent = message;
+            box.dataset.tone = tone;
+        };
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        async function callRoles(options) {
+            const response = await AuthService.authorizedFetch('/api/roles', options);
+            const body = await response.json().catch(() => ({}));
+            if (!response.ok || body.success !== true) {
+                throw new Error(ERROR_TH[body.error] || 'ทำรายการไม่สำเร็จ กรุณาลองใหม่');
+            }
+            return body;
+        }
+
+        async function renderList() {
+            const box = document.getElementById('roles-list');
+            try {
+                const { staff } = await callRoles({ method: 'GET' });
+                if (!staff.length) {
+                    box.innerHTML = '<p class="roles-empty">ยังไม่มีใครมีสิทธิ์เข้าหลังบ้าน</p>';
+                    return;
+                }
+                const isAdmin = AuthService.state.role === 'admin';
+                box.innerHTML = '<table class="roles-table"><thead><tr><th>อีเมล</th><th>บทบาท</th>'
+                    + '<th>ให้สิทธิ์โดย</th><th></th></tr></thead><tbody>'
+                    + staff.map(person => `<tr>
+                        <td class="roles-email">${escapeHtml(person.email || person.uid)}</td>
+                        <td>${escapeHtml(ROLE_TH[person.role] || person.role)}</td>
+                        <td>${escapeHtml(person.grantedBy || '—')}</td>
+                        <td>${isAdmin ? `<button class="roles-revoke" type="button"
+                            data-revoke="${escapeHtml(person.email)}">ถอดสิทธิ์</button>` : ''}</td>
+                    </tr>`).join('') + '</tbody></table>';
+            } catch (error) {
+                box.innerHTML = `<p class="roles-empty">${escapeHtml(error.message)}</p>`;
+            }
+        }
+
+        document.addEventListener('click', async event => {
+            const button = event.target.closest('[data-revoke]');
+            if (!button) return;
+            const email = button.dataset.revoke;
+            // การถอดสิทธิ์ย้อนกลับได้ก็จริง แต่ระหว่างนั้นครูคนนั้นเข้าหลังบ้านไม่ได้ ⇒ ถามก่อน
+            if (!confirm(`ถอดสิทธิ์ของ ${email} ใช่หรือไม่`)) return;
+            button.disabled = true;
+            try {
+                await callRoles({ method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, role: 'student' }) });
+                say(`ถอดสิทธิ์ของ ${email} แล้ว`, 'ok');
+                await renderList();
+            } catch (error) {
+                say(error.message, 'bad');
+                button.disabled = false;
+            }
+        });
+
+        document.getElementById('roles-form').addEventListener('submit', async event => {
+            event.preventDefault();
+            const submit = document.getElementById('roles-submit');
+            const email = document.getElementById('roles-email').value.trim();
+            const role = document.getElementById('roles-role').value;
+            submit.disabled = true;
+            try {
+                const result = await callRoles({ method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, role }) });
+                say(`ให้สิทธิ์ ${ROLE_TH[result.role] || result.role} กับ ${result.email} แล้ว`, 'ok');
+                document.getElementById('roles-email').value = '';
+                await renderList();
+            } catch (error) {
+                say(error.message, 'bad');
+            } finally {
+                submit.disabled = false;
+            }
+        });
+
+        let drawn = false;
+        document.addEventListener('DOMContentLoaded', () => {
+            AuthService.subscribe(state => {
+                if (state.status !== 'ready' || !AuthService.isStaff()) return;
+                const isAdmin = state.role === 'admin';
+                document.getElementById('roles-editor').hidden = !isAdmin;
+                document.getElementById('roles-denied').hidden = isAdmin;
+                if (drawn) return;
+                drawn = true;
+                renderList();
+            });
+        });
+    </script>
+</body>
+</html>
