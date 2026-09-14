@@ -207,6 +207,21 @@ body[data-auth-required]:not([data-local-kiosk='true']):not([data-auth-ready='tr
     display: none !important;
 }
 
+/* หน้าที่มีปุ่มอยู่มุมขวาบน ต้องกันที่ให้ชิปบัญชีที่ลอยทับอยู่
+ *
+ * ชิปเป็น `position: fixed` จึงไม่กินที่ในเลย์เอาต์ และหน้าไม่มีทางรู้ว่ามันมีอยู่
+ * บนหน้าหลักหลังบ้านมันทับปุ่ม "เติมเวชภัณฑ์" พอดี (Bank 2026-09-14)
+ * `--auth-chip-width` ถูกวัดและประกาศโดย js/auth-ui.js เพราะความกว้างขึ้นกับความยาวชื่อ
+ * ค่าสำรอง 132px คือกรณีที่สคริปต์ยังไม่ทันรัน — กันไว้ก่อนดีกว่าให้ทับแล้วค่อยขยับ
+ */
+.dashboard-topbar { padding-right: calc(var(--auth-chip-width, 132px) + 16px); }
+
+/* จอเล็กเรียงเป็นแนวตั้งอยู่แล้ว ปุ่มจึงไม่ได้อยู่แถวเดียวกับชิป — กันที่ซ้ำจะเหลือช่องว่างเปล่า */
+@media (max-width: 900px) {
+    .dashboard-topbar { padding-right: 0; }
+    .dashboard-greeting { padding-right: calc(var(--auth-chip-width, 132px) + 16px); }
+}
+
 body:not([data-staff='true']):not([data-local-kiosk='true']) [data-staff-only] { display: none !important; }
 body:not([data-role='admin']):not([data-local-kiosk='true']) [data-admin-only] { display: none !important; }
 
