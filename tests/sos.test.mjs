@@ -29,8 +29,8 @@ const webStorage = () => {
 // buzzer: null = ใช้ ApiBridge.triggerBuzzer ตัวจริง (ใช้ตอนทดสอบเกตฮาร์ดแวร์)
 function browser({ demoMode = false, fetch = async () => reply({ success: false }, 503),
     buzzer = async () => ({ success: false }), timeoutMs, local = true, authStatus = 'ready' } = {}) {
-    const notices = [], mocks = [], elements = new Map();
-    const window = { SFAB_RUNTIME: local ? {transport:'pi-local', mode:demoMode === null ? 'unset' : demoMode ? 'demo' : 'real'} : undefined, AuthService:{state:{user:null,status:authStatus}, isStaff:()=>false, authorizedFetch:fetch} };
+    const notices = [], mocks = [], prompts = [], elements = new Map();
+    const window = { SFAB_RUNTIME: local ? {transport:'pi-local', mode:demoMode === null ? 'unset' : demoMode ? 'demo' : 'real'} : undefined, AuthService:{state:{user:null,status:authStatus}, isStaff:()=>false, authorizedFetch:fetch}, AuthUI:{ promptSignIn: reason => prompts.push(reason) } };
     const localStorage = webStorage(), sessionStorage = webStorage();
     const context = vm.createContext({ window, fetch, AbortController, clearTimeout,
         setTimeout: (fn, ms) => setTimeout(fn, timeoutMs ?? ms), console: { log() {}, warn() {}, error() {} },
@@ -53,7 +53,7 @@ function browser({ demoMode = false, fetch = async () => reply({ success: false 
     const service = window.NotificationService;
     service.showToast = (message, type) => notices.push({ message, type });
     service.showLineMockModal = data => mocks.push(data);
-    return { service, context, notices, mocks, elements, storage, localStorage };
+    return { service, context, notices, mocks, prompts, elements, storage, localStorage };
 }
 
 test('actual no-credentials notify response stays failure through the browser helper', async () => {
@@ -179,7 +179,7 @@ test('public home SOS sends no request before school sign-in and focuses the sig
             assert.equal(calls,0,'anonymous home SOS must not attempt network delivery');
             assert.equal(confirms,0,'explain sign-in before asking to send');
             assert.match(b.notices.at(-1).message,/เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน แล้วกด SOS อีกครั้ง/);
-            assert.equal(b.elements.get('google-sign-in').focused,true);
+            assert.equal(b.prompts.length,1,'ต้องเปิดกล่องลงชื่อเข้าใช้ให้เลย ไม่ใช่แค่ toast แล้วปล่อยทิ้ง');
         }
     }
 });
@@ -200,7 +200,7 @@ test('shared cloud SOS requires school sign-in before any delivery, including fu
         assert.equal(result.buzzer.mode,'not-requested');
         assert.match(b.notices.at(-1).message,/เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน แล้วกด SOS อีกครั้ง/);
         assert.equal(b.notices.at(-1).type,'warning');
-        assert.equal(b.elements.get('google-sign-in').focused,true);
+        assert.equal(b.prompts.length,1,'ต้องเปิดกล่องลงชื่อเข้าใช้ให้เลย ไม่ใช่แค่ toast แล้วปล่อยทิ้ง');
     }
 });
 
@@ -217,6 +217,6 @@ test('all four cloud SOS callers use sign-in guidance instead of a delivery fail
         await b.context[name]();
         assert.equal(calls,0,`${file}: anonymous SOS must not contact the API`);
         assert.match(b.notices.at(-1).message,/เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน แล้วกด SOS อีกครั้ง/,file);
-        assert.equal(b.elements.get('google-sign-in').focused,true,file);
+        assert.equal(b.prompts.length,1,file);
     }
 });

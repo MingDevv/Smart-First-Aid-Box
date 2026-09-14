@@ -12,7 +12,15 @@
     async function refresh() {
         const run = ++revision, user = auth?.currentUser;
         if (!user) { publish({ status: 'signed-out', user: null, role: null }); return; }
-        publish({ status: 'loading', user: null, role: null });
+        // การตรวจซ้ำคนเดิม ต้องไม่ล้างตัวตนที่รู้อยู่แล้วทิ้ง
+        //
+        // `onIdTokenChanged` ยิง refresh() ทุกครั้งที่ token ต่ออายุ (Firebase ทำเองราวชั่วโมงละครั้ง
+        // และตอนโหลดหน้า) · ของเดิม publish `loading` พร้อม user:null ทุกรอบ ⇒ หน้าจอตกกลับไปเป็น
+        // "ยังไม่ล็อกอิน" ตลอดช่วงที่รอ /api/me แล้วค่อยเด้งกลับมาเป็นชื่อ = กะพริบติดๆ ดับๆ
+        // (Bank เห็นเองบน production 2026-09-14) · ตอนนี้แสดง loading เฉพาะตอนที่ยังไม่รู้ว่าใคร
+        if (!(state.status === 'ready' && state.user?.uid === user.uid)) {
+            publish({ status: 'loading', user: null, role: null });
+        }
         if (!user.emailVerified || !/^[^@\s]+@tesaban6\.ac\.th$/.test(user.email || '')) {
             await sdk.signOut(auth);
             publish({ status: 'forbidden', user: null, role: null });
