@@ -13,3 +13,9 @@ button:focus-visible, select:focus-visible { outline: 3px solid var(--primary); 
 @media (max-width: 600px) { .sync-panel { padding: 12px; } .db-table { min-width: 620px; } }
 
 #history-more[hidden] { display: none !important; }
+
+.recent-activity { list-style: none; padding: 0; margin: 0; }
+.recent-activity li { padding: 16px; border-bottom: 1px solid var(--border-color); }
+.recent-activity strong { color: var(--text-main); font-size: 16px; }
+.recent-activity p { margin-top: 6px; overflow-wrap: anywhere; }
+#recent-timeline > p { padding: 16px; }
