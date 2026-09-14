@@ -99,8 +99,14 @@ test('LINE sends minimal plain text to a configured group and preserves transpor
         let body;
         globalThis.fetch=async(url,options)=>{ assert.equal(url,'https://api.line.me/v2/bot/message/push');body=JSON.parse(options.body);return{ok:true}; };
         assert.equal((await sendSchoolSos(school)).success,true);
-        assert.equal(body.to,'synthetic-group'); assert.equal(body.messages[0].type,'text');
-        assert.match(body.messages[0].text,/First/);assert.doesNotMatch(body.messages[0].text,/Surname/);
+        assert.equal(body.to,'synthetic-group');
+        // SOS จากเว็บใช้การ์ด Flex ภาษาไทยชุดเดียวกับฝั่งตู้ (2026-09-14) ⇒ ครูเห็นหน้าตาเดียวกันทั้งสองทาง
+        assert.equal(body.messages[0].type,'flex');
+        const rendered = JSON.stringify(body.messages[0]);
+        // ชื่อต้นอย่างเดียว ไม่เอานามสกุล — ข้อจำกัดเดิมที่ต้องอยู่ต่อแม้เปลี่ยนรูปแบบข้อความ
+        assert.match(rendered,/First/);assert.doesNotMatch(rendered,/Surname/);
+        assert.match(body.messages[0].altText,/เรียกครูพยาบาล/);
+        assert.match(rendered,/กดจากเว็บ/,'ครูต้องรู้ว่ากดมาจากเว็บ ไม่ใช่ที่หน้าตู้');
         globalThis.fetch=async()=>({ok:false});assert.equal((await sendSchoolSos(school)).success,false);
         delete process.env.LINE_GROUP_ID;
         let calls = 0;
