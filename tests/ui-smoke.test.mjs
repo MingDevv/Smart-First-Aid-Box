@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { access, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -517,6 +518,29 @@ for (const dependency of [
         kioskScripts.indexOf(dependency) < kioskScripts.indexOf('../js/kiosk-app.js'),
         `${dependency} must load before js/kiosk-app.js, which calls into it during init()`
     );
+}
+
+// หน้าแรกของนักเรียนต้องไม่มีการ์ดตายๆ ที่กดแล้วไม่เกิดอะไร และต้องมีทางเข้าสแกนแผลด้วย AI
+//
+// ช่องหลักเคยเป็น <div> ชื่อ "บัตรของฉัน" ที่บอกว่ายังไม่พร้อมใช้งาน กดแล้วเงียบ
+// มันกินช่องที่ควรเป็นเมนู AI ทำให้ดูเหมือนเมนู AI หายไป (Bank เจอเอง 2026-09-14)
+//
+// บัตร QR ไม่ใช่เรื่องของเว็บ เพราะเว็บบังคับล็อกอิน @tesaban6.ac.th อยู่แล้ว และตัวตนจาก
+// อีเมลที่ยืนยันแล้วแข็งแรงกว่าบัตรที่ถ่ายรูปไปใช้แทนกันได้ · บัตรมีหน้าที่เดียวคือสแกนที่ตู้
+{
+    const home = await readFile(new URL('../student/index.html', import.meta.url), 'utf8');
+    const live = home.replace(/<!--[\s\S]*?-->/g, '');
+    assert.ok(/class="home-action primary-action"[^>]*href="\/student\/wound-scan"/.test(live),
+        'หน้าแรกของนักเรียนต้องมีเมนูสแกนแผลด้วย AI อยู่ในช่องหลัก');
+    assert.ok(!/บัตรของฉัน/.test(live),
+        'บัตร QR ไม่ใช่ทางเข้าของเว็บ ต้องไม่มีการ์ดบัตรบนหน้าแรกของนักเรียน');
+    for (const dead of live.match(/<div class="home-action[^>]*>/g) || []) {
+        assert.fail(`การ์ดเมนูต้องเป็นลิงก์หรือปุ่มที่กดแล้วเกิดอะไรขึ้น ไม่ใช่ <div> ตายๆ: ${dead}`);
+    }
+    for (const icon of live.match(/src="\/images\/menu-icons\/[^"]+"/g) || []) {
+        const file = icon.slice(6, -1).replace(/^\//, '');
+        assert.ok(existsSync(new URL('../' + file, import.meta.url)), `ไม่พบไฟล์ไอคอน ${file}`);
+    }
 }
 
 console.log(`UI smoke checks passed for ${htmlFiles.length} HTML pages.`);

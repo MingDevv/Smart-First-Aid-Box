@@ -40,16 +40,23 @@
                 <h2>เลือกวิธีดูแลแผล</h2>
                 <p>ใช้บัญชีโรงเรียนเพื่อเรียกครูพยาบาลและดูข้อมูลของตนเอง</p>
             </div>
-            <div class="home-action primary-action" aria-label="บัตรของฉัน ยังไม่พร้อมใช้งาน">
-                <span class="home-action-icon" aria-hidden="true"><span class="material-symbols-rounded">badge</span></span>
+            <!-- ช่องนี้เคยเป็นการ์ด "บัตรของฉัน" ที่เป็น <div> ตายๆ กดแล้วไม่เกิดอะไร
+                 (Bank เจอเอง 2026-09-14) · มันยังกินช่องหลักที่ควรเป็นเมนูสแกนแผลด้วย AI
+                 ทำให้ดูเหมือนเมนู AI หายไปจากหน้าเว็บ ซึ่งเป็นข้อ 6 ใน fixit.txt
+                 บัตร QR ไม่ใช่เรื่องของเว็บตั้งแต่แรก เพราะเว็บบังคับล็อกอิน @tesaban6.ac.th อยู่แล้ว
+                 ตัวตนจากอีเมลที่ยืนยันแล้วแข็งแรงกว่าบัตรที่ถ่ายรูปไปใช้แทนกันได้
+                 บัตรจึงเหลือหน้าที่เดียวคือสแกนที่ตู้ ซึ่งเป็นที่เดียวที่ไม่มีคีย์บอร์ดให้ล็อกอิน -->
+            <a class="home-action primary-action" href="/student/wound-scan">
+                <img class="home-action-icon" src="/images/menu-icons/wound-scan.svg" alt="" aria-hidden="true" width="48" height="48">
                 <span class="home-action-copy">
-                    <span class="home-action-title">บัตรของฉัน</span>
-                    <span class="home-action-desc">บัตรดิจิทัลยังไม่พร้อมใช้งาน กรุณาติดต่อครูพยาบาล</span>
+                    <span class="home-action-title">สแกนแผลด้วย AI</span>
+                    <span class="home-action-desc">ถ่ายรูปแผล ระบบบอกวิธีทำแผลให้</span>
                 </span>
-            </div>
+                <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
+            </a>
 
             <a class="home-action" href="/student/wound-select">
-                <span class="home-action-icon" aria-hidden="true"><span class="material-symbols-rounded">list_alt</span></span>
+                <img class="home-action-icon" src="/images/menu-icons/wound-select.svg" alt="" aria-hidden="true" width="48" height="48">
                 <span class="home-action-copy">
                     <span class="home-action-title">เลือกประเภทแผลเอง</span>
                     <span class="home-action-desc">แผลมีดบาด/ถลอก · แมลงกัดต่อย</span>
@@ -58,7 +65,7 @@
             </a>
 
             <a class="home-action" data-staff-only href="/dashboard/">
-                <span class="home-action-icon peach" aria-hidden="true"><span class="material-symbols-rounded">monitoring</span></span>
+                <img class="home-action-icon" src="/images/menu-icons/teacher-dashboard.svg" alt="" aria-hidden="true" width="48" height="48">
                 <span class="home-action-copy">
                     <span class="home-action-title">ครูพยาบาล</span>
                     <span class="home-action-desc">คลังยา · ประวัติ · แจ้งเตือน</span>

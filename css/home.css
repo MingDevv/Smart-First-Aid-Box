@@ -367,3 +367,11 @@ a.sos-school:hover {
         min-height: 78px;
     }
 }
+
+/* ไอคอนเมนูเป็นไฟล์ SVG แล้ว ไม่ใช่ฟอนต์ material-symbols (fixit ข้อ 7)
+ * รูปต้องไม่ยืดเพี้ยนและต้องไม่ถูกลากไปวางทับข้อความเมื่อผู้ใช้ลากนิ้ว */
+img.home-action-icon {
+    object-fit: contain;
+    padding: 8px;
+    pointer-events: none;
+}
