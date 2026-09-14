@@ -123,7 +123,7 @@ test('changed payload, cross-kind ID reuse, bad HMAC, forged identity and oversi
 });
 test('signed sync is cabinet-scoped, caches clear state and stock, and does not leak roster/private fields', async () => {
     await db.doc('inventory/syncbox').set({ counts:{drawer1:7,drawer2:2},targets:{drawer1:10,drawer2:5},privateNote:'never disclose' });
-    await db.doc('cabinets/syncbox').set({ clearRequests:[{commandId:'held-command-001',decisionId:'decision-001',checkedBy:'nurse',checkedAt:new Date().toISOString(),secret:'hidden'}], roster:['hidden'] },{merge:true});
+    await db.doc('cabinets/syncbox').set({ clearRequests:[{commandId:'held-command-001',decisionId:'decision-001',checkedBy:'teacher',checkedAt:new Date().toISOString(),secret:'hidden'}], roster:['hidden'] },{merge:true});
     const handler = createSyncHandler({ env });
     const headers = signedHeaders(secret, 'GET', '/api/sync', 'syncbox');
     const response = await invoke(handler, {method:'GET',headers});
@@ -157,7 +157,7 @@ test('actual school tokens give all staff identical history and inventory; stude
         {...event('page-event-'+i),uid:'private-user',syncedAt:new Date().toISOString(),lineStatus:'pending'});
     await batch.commit();
     let staffProjection;
-    for(const role of ['teacher','nurse','admin']) {
+    for(const role of ['teacher','admin']) {
         const token = await tokenFor(role), headers = {authorization:'Bearer '+token};
         const first = await (await invoke(handler,{method:'GET',headers})).json();
         assert.equal(first.rows.length,100); assert.ok(first.nextCursor);

@@ -27,7 +27,7 @@ Firestore event IDs are `<cabinetId>~<journalId>`; the cabinet ID alphabet exclu
 
 The single-flight loop runs on boot, after new events, and every 60 seconds, backing off to five minutes on errors. New SOS entries are prioritized. Already-stored events retry LINE without preventing new events from reaching Firestore. Synced outbox rows remain in SQLite for audit. Manual-review delivery state retains ambiguous evidence without automatic resend.
 
-`GET /api/sync` returns a signed, cabinet-scoped bundle containing inventory and pending clearing decisions. An ETag avoids rewriting unchanged cache data. Even 304 responses are authenticated and bound to the current request. WP2 caches clearing requests but does not clear physical holds; nurse clear controls and their application remain WP4. The cabinet heartbeat mirrors its current hold separately.
+`GET /api/sync` returns a signed, cabinet-scoped bundle containing inventory and pending clearing decisions. An ETag avoids rewriting unchanged cache data. Even 304 responses are authenticated and bound to the current request. WP2 caches clearing requests but does not clear physical holds; staff clear controls and their application remain WP4. The cabinet heartbeat mirrors its current hold separately.
 
 ## LINE and SOS
 
@@ -39,7 +39,7 @@ Web SOS also persists before delivery and accepts anonymous users. Its existing 
 
 ## Dashboard and permissions
 
-The September 14 decision gives teacher, nurse and admin the same history and inventory view. `/api/history` verifies a current staff role, returns an explicit projection, and pages 100 records ordered by server sync time plus document ID. Statistics describe the loaded rows, rather than presenting a partial page as an all-time total. Date displays warn about unverified cabinet clocks. Missing stock counts stay unknown; a drawer ACK never decrements a physical stock estimate.
+The September 14 decision gives teacher and admin the same history and inventory view; `nurse` was retired the same day, leaving exactly three roles (admin, teacher, student). `/api/history` verifies a current staff role, returns an explicit projection, and pages 100 records ordered by server sync time plus document ID. Statistics describe the loaded rows, rather than presenting a partial page as an all-time total. Date displays warn about unverified cabinet clocks. Missing stock counts stay unknown; a drawer ACK never decrements a physical stock estimate.
 
 Firestore staff read membership is shared. Student and photo documents deny direct client reads for every role; approved fields must pass through explicit server projections (`/api/me` already does this for the caller). `/api/roles` remains admin-only, and its page/sidebar/auth implementation is unchanged by WP2.
 

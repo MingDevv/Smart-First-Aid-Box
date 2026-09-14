@@ -30,7 +30,7 @@
     function renderInventory(target, inventory) {
         if (!target) return;
         target.replaceChildren();
-        if (!inventory.length) { target.append(node('p', 'No shared stock count recorded. Ask the nurse to count the cabinet supplies.')); return; }
+        if (!inventory.length) { target.append(node('p', 'No shared stock count recorded. Ask a teacher to count the cabinet supplies.')); return; }
         for (const stock of inventory) {
             target.append(node('h3', stock.cabinetId));
             for (const drawer of ['drawer1', 'drawer2']) target.append(node('p',

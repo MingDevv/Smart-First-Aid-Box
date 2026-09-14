@@ -52,7 +52,7 @@ test('role allowlist, revocation and failures close the command path before MQTT
         [{ error:'auth/user-disabled' }, request({}), 401],
         [{ error:'auth/internal-error' }, request({}), 503],
         [{ token:{...school,email_verified:false},role:'admin' }, request({}), 403],
-        [{ token:{...school,email:'a@elsewhere.test'},role:'nurse' }, request({}), 403],
+        [{ token:{...school,email:'a@elsewhere.test'},role:'teacher' }, request({}), 403],
         [{}, request({role:'admin'}), 403], [{role:'owner'}, request({}),403],
         [{failRole:true},request({}),503]
     ]) {
@@ -65,7 +65,8 @@ test('role allowlist, revocation and failures close the command path before MQTT
     assert.equal((await invoke(studentHandler, {method:'GET',headers:{}})).status,401);
     assert.equal((await invoke(studentHandler, {...request(),method:'GET'})).status,403);
     assert.equal(mqttClientStatsForTests().created, 0);
-    for (const role of ['nurse','teacher','admin']) {
+    // สามบทบาทเท่านั้น (Bank 2026-09-14) — `nurse` ที่ค้างในเอกสารเก่าต้องตกเป็น student ไม่ใช่ผ่าน
+    for (const role of ['teacher','admin']) {
         const handler = createCommandHandler(createAuthorizer(services({role})));
         assert.equal((await invoke(handler,request({action:'invalid'}))).status,400);
     }

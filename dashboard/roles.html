@@ -72,12 +72,11 @@
                         <div class="roles-field">
                             <label for="roles-email">อีเมลโรงเรียน</label>
                             <input id="roles-email" name="email" type="email" inputmode="email"
-                                   autocomplete="off" placeholder="nurse@tesaban6.ac.th" required>
+                                   autocomplete="off" placeholder="teacher@tesaban6.ac.th" required>
                         </div>
                         <div class="roles-field" style="flex:0 1 200px;">
                             <label for="roles-role">บทบาท</label>
                             <select id="roles-role" name="role">
-                                <option value="nurse">ครูพยาบาล</option>
                                 <option value="teacher">ครู</option>
                                 <option value="admin">ผู้ดูแลระบบ</option>
                             </select>
@@ -104,7 +103,7 @@
 
     <script src="../js/storage.js"></script>
     <script>
-        const ROLE_TH = { nurse: 'ครูพยาบาล', teacher: 'ครู', admin: 'ผู้ดูแลระบบ', student: 'นักเรียน' };
+        const ROLE_TH = { teacher: 'ครู', admin: 'ผู้ดูแลระบบ', student: 'นักเรียน' };
         // ข้อความต้องบอกว่าทำอะไรต่อ ไม่ใช่แค่บอกว่าพัง — โดยเฉพาะ never_signed_in ซึ่งเป็นเคสที่เจอบ่อยที่สุด
         const ERROR_TH = {
             never_signed_in: 'ยังไม่เคยเข้าสู่ระบบ ให้เจ้าตัวเปิดเว็บแล้วกดเข้าสู่ระบบด้วย Google หนึ่งครั้งก่อน แล้วลองใหม่',

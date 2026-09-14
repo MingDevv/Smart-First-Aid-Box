@@ -11,7 +11,9 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role;
     }
     function clinical() { return staff(); }
-    function staff() { return school() && role() in ['nurse', 'teacher', 'admin']; }
+    // สามบทบาทเท่านั้น: admin, teacher, student — `nurse` ยกเลิกแล้ว (Bank 2026-09-14)
+    // ต้องตรงกับ STAFF_ROLES ใน lib/auth.js เสมอ ไม่งั้นเบราว์เซอร์กับ API จะเห็นคนละชุดสิทธิ์
+    function staff() { return school() && role() in ['teacher', 'admin']; }
     match /roles/{uid} { allow read: if clinical(); }
     // Student and photo payloads are exposed only by explicit server projections.
     match /students/{uid} { allow read: if false; }

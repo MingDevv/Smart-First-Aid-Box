@@ -1,6 +1,6 @@
 // Firebase owns session persistence; application identity and roles stay in memory.
 (() => {
-    const staff = ['nurse', 'teacher', 'admin'];
+    const staff = ['teacher', 'admin'];   // ต้องตรงกับ STAFF_ROLES ใน lib/auth.js และ staff() ใน firestore.rules
     let sdk, auth, revision = 0;
     let state = { status: 'loading', user: null, role: null };
     const listeners = new Set();
