@@ -9,7 +9,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { lineMessage, sosBubble, dispenseBubble, formatThaiTime, altTextFor, THEME } from '../lib/line-flex.js';
+import { lineMessage, sosBubble, dispenseBubble, formatThaiTime, altTextFor, cabinetLabel, THEME } from '../lib/line-flex.js';
 import { resolveStudent } from '../lib/cabinet-line.js';
 
 const SOS = { kind: 'sos', cabinetId: 'box1', ts: '2026-09-14T11:05:00.000Z', clockTrust: 'ntp', buzzerAck: true };
@@ -99,7 +99,17 @@ test('an unverified cabinet clock is disclosed on the card, and only when it is 
 
 test('a web SOS says it came from the web, because that changes what the teacher should do', () => {
     assert.match(words(sosBubble({ ...SOS, cabinetId: 'web' })), /กดจากเว็บ ไม่ได้กดที่ตู้/);
-    assert.match(words(sosBubble(SOS)), /ตู้ box1/);
+    assert.match(words(sosBubble(SOS)), /ตู้ที่ 1/);
+});
+
+// `box1` เป็นชื่อที่เครื่องใช้คุยกัน ครูไม่รู้จัก (Bank 2026-09-14)
+test('the cabinet is named the way a teacher would say it, and an unknown shape is shown as-is', () => {
+    assert.equal(cabinetLabel('box1'), 'ตู้ที่ 1');
+    assert.equal(cabinetLabel('box12'), 'ตู้ที่ 12');
+    // รูปแบบที่ไม่รู้จักต้องไม่ถูกเดาเป็นเลขมั่ว ครูจะได้ไม่เดินไปผิดตู้
+    for (const odd of ['clinic-a', '', null, 'boxA']) assert.match(cabinetLabel(odd), /^ตู้ /);
+    assert.doesNotMatch(words(sosBubble(SOS)), /box1/, 'ชื่อทางเทคนิคต้องไม่โผล่บนการ์ด');
+    assert.doesNotMatch(altTextFor(SOS, null), /box1/);
 });
 
 // altText คือสิ่งที่ครูเห็นบนหน้าจอล็อก · LINE ไม่แสดง Flex ในทุกที่ ⇒ บรรทัดนี้ต้องยืนได้ลำพัง
