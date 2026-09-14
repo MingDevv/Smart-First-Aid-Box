@@ -78,9 +78,21 @@
 
     <main class="kiosk-main">
         <section class="view" id="view-welcome" aria-label="เริ่มใช้งาน">
+            <div class="welcome-copy">
             <h1 class="view-title">ตู้ปฐมพยาบาลอัจฉริยะ</h1>
             <p class="view-lead">เตรียมบัตรนักเรียนที่มี QR ก่อนเริ่ม</p>
             <button class="btn btn-primary btn-major" type="button" data-action="scan-card">กดเพื่อเริ่มใช้งาน</button>
+            </div>
+            <!-- มาสคอตกับสโลแกน ตัดแยกจากภาพเดียวกันที่ Bank ส่งมา (2026-09-14)
+                 ในภาพต้นฉบับข้อความอยู่ซ้ายของมาสคอต Bank ขอให้สลับมาอยู่ขวา
+                 และห้ามกลับด้านตัวมาสคอต จึงตัดเป็นสองไฟล์แล้วเรียงใหม่ ไม่ได้ flip
+                 ทั้งคู่เป็นของตกแต่ง จึงเป็น aria-hidden และหลบเองเมื่อที่ไม่พอ -->
+            <div class="welcome-art" aria-hidden="true">
+                <img class="welcome-mascot" src="../images/mascot.webp" alt=""
+                     width="420" height="425" decoding="async">
+                <img class="welcome-tagline" src="../images/tagline.webp" alt=""
+                     width="420" height="282" decoding="async">
+            </div>
         </section>
         <section class="view" id="view-card" aria-label="สแกนบัตรนักเรียน" hidden>
             <h1 class="view-title">สแกน QR บนบัตรนักเรียน</h1>
@@ -102,10 +114,6 @@
                     <h1 class="view-title">เจ็บตรงไหน แตะเลือกได้เลย</h1>
                     <p class="view-lead">ถ้าอาการรุนแรงหรือไม่แน่ใจ ให้กดปุ่มเรียกครูทางขวาล่าง</p>
                 </div>
-                <!-- มาสคอตของตู้ — ที่ว่างทางขวาของหน้าแรกเคยโล่ง (Bank 2026-09-14)
-                     ตกแต่งล้วน จึงเป็น aria-hidden และต้องไม่กินที่ของปุ่มเมื่อจอแคบ -->
-                <img class="start-mascot" src="../images/mascot.webp" alt="" aria-hidden="true"
-                     width="520" height="520" decoding="async">
             </div>
             <div class="start-grid">
                 <button class="start-card start-card-primary" type="button" data-action="go-scan">

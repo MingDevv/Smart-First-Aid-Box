@@ -1003,16 +1003,48 @@ img {
 
 #student-greeting { max-height: 130px; overflow: auto; overflow-wrap: anywhere; }
 
-/* มาสคอตบนหน้าแรกของตู้ — ที่ว่างทางขวาเคยโล่ง (Bank 2026-09-14)
- * ตกแต่งล้วน จึงต้องยอมหายไปก่อนใครเมื่อที่ไม่พอ ไม่ใช่ไปเบียดหัวเรื่องหรือปุ่ม */
-.start-mascot {
+/* หน้าแรกของตู้: ข้อความซ้าย มาสคอตขวา
+ *
+ * ก่อน WP3 หน้าแรกคือ #view-start ผมจึงวางมาสคอตไว้ที่นั่น · WP3 แทรกหน้าสแกนบัตรมาก่อน
+ * หน้าแรกจริงจึงกลายเป็น #view-welcome และมาสคอตไปโผล่หลังสแกนบัตรแทน ซึ่งไม่ใช่ที่ Bank ขอ
+ * (เห็นจากภาพหน้าจอตู้จริงที่แคปมาดู 2026-09-14) ⇒ ย้ายมาที่นี่
+ *
+ * มาสคอตเป็นของตกแต่งล้วน ⇒ ต้องยอมหายไปก่อนใครเมื่อที่ไม่พอ ไม่ใช่ไปเบียดปุ่ม */
+#view-welcome {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+.welcome-copy {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--gap);
+}
+/* มาสคอตก่อน สโลแกนตามหลังทางขวา — สลับจากภาพต้นฉบับโดยไม่กลับด้านตัวมาสคอต */
+.welcome-art {
+    display: flex;
     flex: 0 1 auto;
-    width: clamp(96px, 22vw, 190px);
+    min-width: 0;
+    align-items: center;
+    gap: 4px;
+}
+.welcome-mascot,
+.welcome-tagline {
     height: auto;
-    align-self: center;
+    max-height: 62vh;
     object-fit: contain;
     pointer-events: none;
 }
-@media (max-height: 430px) {
-    .start-mascot { display: none; }
+.welcome-mascot { flex: 0 1 auto; width: clamp(120px, 26vw, 250px); }
+.welcome-tagline { flex: 0 1 auto; width: clamp(110px, 24vw, 230px); }
+
+/* ที่ไม่พอ: สโลแกนหลบก่อน แล้วค่อยถึงมาสคอต — ปุ่มกับข้อความสำคัญกว่าทั้งคู่ */
+@media (max-width: 720px) {
+    .welcome-tagline { display: none; }
+}
+@media (max-height: 380px), (max-width: 560px) {
+    .welcome-art { display: none; }
 }
