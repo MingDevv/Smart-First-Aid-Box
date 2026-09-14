@@ -710,13 +710,9 @@
 
     async function finishRound(reason) {
         stopTickers();
-        const wound = currentWound();
         const dispensed = session.state.dispatch.state === 'confirmed';
 
-        // บันทึกเฉพาะรอบที่ตู้จ่ายของจริงและทำแผลจนจบ และเฉพาะโหมดจริง
-        if (reason === 'completed' && dispensed && wound && !isDemo()) {
-            recordTreatment(wound).catch(error => console.warn('[Kiosk] record failed:', error && error.message));
-        }
+        // History was committed at physical command completion by the edge controller.
         // พาดหัวต้องพูดความจริงของรอบนั้น ไม่ใช่ข้อความชัยชนะแบบตายตัว
         // สามกรณีต่างกันจริงๆ: ตู้รับคำสั่งแล้ว · สั่งไปแล้วไม่รู้ผล · ไม่เคยสั่งเลย
         const neverSent = session.state.dispatch.state === 'idle';
@@ -729,37 +725,6 @@
                 : 'ตู้ยังไม่ยืนยันว่าจ่ายของออกมา ถ้ายังต้องใช้ของ ให้ไปหาครูพยาบาล';
         showView('done');
         startDoneCountdown();
-    }
-
-    async function recordTreatment(wound) {
-        const store = storage();
-        if (!store) return;
-        const student = store.getCurrentStudent();
-        const method = session.state.method === 'ai-scan' ? 'AI วิเคราะห์จากภาพถ่าย' : 'เลือกประเภทแผลเอง';
-        store.addHistoryEntry({
-            studentId: student ? student.studentId : '99999',
-            studentName: student ? student.name : 'นักเรียนทั่วไป (หน้าตู้)',
-            studentClass: student ? student.class : '-',
-            woundType: wound.id,
-            woundNameTh: wound.name_th,
-            method,
-            itemsUsed: wound.items,
-            timestamp: new Date().toISOString()
-        });
-        const payload = NotificationService.buildFirstAidFlexMessage({
-            studentId: student ? student.studentId : '99999',
-            name: student ? student.name : 'นักเรียนทั่วไป (หน้าตู้)',
-            studentClass: student ? student.class : '-',
-            woundNameTh: wound.name_th,
-            woundNameEn: wound.name_en,
-            items: wound.items,
-            method
-        });
-        // แจ้งครูไม่สำเร็จ ไม่ทำให้รอบนี้ล้ม แต่ต้องไม่รายงานว่าส่งแล้ว
-        const line = await NotificationService.sendLineNotification(payload);
-        if (!line || line.success !== true) {
-            console.warn('[Kiosk] LINE not confirmed');
-        }
     }
 
     function startDoneCountdown() {
@@ -829,11 +794,11 @@
             const who = student ? `${student.name} (${student.class})` : 'นักเรียนที่ตู้ปฐมพยาบาล';
             // sendSos รายงานผล LINE กับผลออดแยกกันเอง ไม่ OR รวมเป็นสำเร็จเดียว
             const outcome = await NotificationService.sendSos(NotificationService.buildSosFlexMessage(who));
-            const lineOk = outcome.line && outcome.line.success === true && outcome.line.mode !== 'simulation';
+            const lineOk = outcome.line && outcome.line.success === true && outcome.line.mode !== 'simulation' && outcome.line.mode !== 'queued';
             const buzzerOk = outcome.buzzer && outcome.buzzer.success === true && outcome.buzzer.mode !== 'simulation';
             el('sos-overlay-title').textContent = lineOk && buzzerOk ? 'เรียกครูแล้ว' : 'ยังยืนยันไม่ได้ทั้งหมด';
             el('sos-overlay-text').textContent =
-                `${lineOk ? 'แจ้ง LINE ถึงครูแล้ว' : 'ยังยืนยันการแจ้ง LINE ไม่ได้'} · ` +
+                `${lineOk ? 'แจ้ง LINE ถึงครูแล้ว' : outcome.line?.mode === 'queued' ? 'SOS saved; LINE delivery pending' : 'ยังยืนยันการแจ้ง LINE ไม่ได้'} · ` +
                 `${buzzerOk ? 'ตู้รับคำสั่งเปิดเสียงแล้ว' : 'ยังยืนยันเสียงที่ตู้ไม่ได้'}` +
                 `${lineOk && buzzerOk ? '' : ' — ให้ไปตามครูที่อยู่ใกล้ที่สุดด้วย'}`;
         } catch (error) {

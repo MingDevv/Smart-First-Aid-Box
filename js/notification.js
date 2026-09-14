@@ -84,24 +84,10 @@ const NotificationService = {
         }, 3000);
     },
 
-    // Send LINE Notification (supports plain text string OR Flex Message payload object)
-    async sendLineNotification(payload) {
-        let requestBody = {};
-        if (typeof payload === 'string') {
-            requestBody = { message: payload };
-        } else if (payload && (payload.flexMessage || payload.type === 'flex' || payload.contents)) {
-            const flexObj = payload.flexMessage || (payload.type === 'flex' ? payload : { type: 'flex', altText: payload.altText || 'การแจ้งเตือน Smart First Aid Box', contents: payload.contents || payload });
-            requestBody = {
-                flexMessage: flexObj,
-                message: flexObj.altText || 'การแจ้งเตือน Smart First Aid Box'
-            };
-        } else {
-            requestBody = { message: JSON.stringify(payload) };
-        }
-
+    // SOS is constrained on both transports; arbitrary browser messages are not sent.
+    async sendLineNotification() {
         const local = window.SFAB_RUNTIME?.transport === 'pi-local';
-        // Only SOS is accepted on the cloud route. Local evidence remains in the Pi journal.
-        if (!local) requestBody = { event: 'sos' };
+        const requestBody = { event: 'sos', ...(local ? { eventId: window.ApiBridge.createCommandId() } : {}) };
 
         const controller = new AbortController();
         const deadline = setTimeout(() => controller.abort(), 10000);
@@ -146,14 +132,15 @@ const NotificationService = {
         if (line?.mode === 'simulation' && buzzer?.mode === 'simulation') {
             this.showToast('โหมดสาธิต: จำลอง SOS เท่านั้น ไม่มีการส่ง LINE หรือเปิดเสียงจริง', 'info');
         } else {
-            const lineSent = line?.success === true && line.mode !== 'simulation';
+            const lineSent = line?.success === true && line.mode !== 'simulation' && line.mode !== 'queued';
+            const lineQueued = line?.success === true && line.mode === 'queued';
             const buzzerConfirmed = buzzer?.success === true && buzzer.mode !== 'simulation';
             // "ยังไม่ได้ตั้งโหมด" ต่างจาก "ตู้ไม่ตอบ" อย่างสิ้นเชิง — อย่างแรกครูแก้ได้ในสิบวินาที
             // ถ้ารวมสองอย่างเป็นข้อความเดียว คนอ่านจะไปไล่หาสายไฟทั้งที่แค่ยังไม่ได้กดตั้งค่า
             const buzzerText = buzzerConfirmed ? ' · ตู้ตอบรับคำสั่งเปิดเสียงแล้ว'
                 : buzzer?.mode === 'unprovisioned' ? ' · ตู้ยังไม่ได้ตั้งโหมด จึงยังเปิดเสียงไม่ได้'
                 : ' · ยังยืนยันเสียงที่ตู้ไม่ได้';
-            const message = (lineSent ? 'ส่งคำขอ SOS ผ่าน LINE แล้ว' : 'ยังยืนยันการส่ง LINE ไม่ได้') +
+            const message = (lineSent ? 'ส่งคำขอ SOS ผ่าน LINE แล้ว' : lineQueued ? 'SOS saved at the cabinet; LINE delivery is pending' : 'ยังยืนยันการส่ง LINE ไม่ได้') +
                 buzzerText +
                 (lineSent && buzzerConfirmed ? '' : ' กรุณาเรียกครูใกล้ที่สุดทันที');
             this.showToast(message, lineSent && buzzerConfirmed ? 'success' : lineSent || buzzerConfirmed ? 'warning' : 'danger');

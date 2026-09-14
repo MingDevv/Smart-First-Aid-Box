@@ -6,6 +6,8 @@ import { homedir } from 'node:os';
 import { LocalController } from './controller.mjs';
 import { MicrobitSerial } from './microbit-serial.mjs';
 import { startCloudBridge } from './mqtt-cloud.mjs';
+import { startCabinetSync } from './sync.mjs';
+import { createLocalNotify } from './notify.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
@@ -139,13 +141,10 @@ export async function createLocalServer({ controller, root = ROOT, mode = proces
                     return json(res, result.status, result.body);
                 }
                 if (pathname === '/api/analyze') return analyzeViaCloud(req, res);
-                // Reuse optional cloud AI/notification handlers, never the MQTT command handler.
-                // Local SOS remains a loopback-only adapter, independent of cloud login.
-                const { default: handler } = await import(pathname === '/api/notify'
-                    ? new URL('./notify.mjs', import.meta.url) : new URL(`..${pathname}.js`, import.meta.url));
+                // Local SOS is journaled; external delivery belongs to Vercel.
                 res.status = code => { res.statusCode = code; return res; };
                 res.json = body => { json(res, res.statusCode, body); return res; };
-                return await handler(req, res);
+                return await createLocalNotify(controller.outbox)(req, res);
             }
             if (!['GET', 'HEAD'].includes(req.method)) return json(res, 405, { error: 'Method not allowed' });
             let route = rewrites.get(pathname) || pathname;
@@ -192,7 +191,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     const serial = serialDevice ? new MicrobitSerial({ device: serialDevice }) : null;
     if (serial) await serial.open();
     const controller = new LocalController({
-        esp32Url: process.env.SFAB_ESP32_URL || '', serial, database, mode: deviceMode });
+        esp32Url: process.env.SFAB_ESP32_URL || '', serial, database, mode: deviceMode, cabinetId: process.env.SFAB_CABINET_ID || 'box1' });
     const server = await createLocalServer({ controller, mode: deviceMode });
     const port = Number(process.env.SFAB_PORT || 8787);
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid SFAB_PORT');
@@ -200,6 +199,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     // Optional: with MQTT_URL in the unit's environment the Pi also serves the cloud path
     // (Vercel → broker → here), taking the seat the ESP32 used to hold. Same controller,
     // same gates; without MQTT_URL the cabinet is touchscreen-only exactly as before.
+    const sync = startCabinetSync(process.env, controller);
     const cloud = await startCloudBridge(process.env, controller);
     // An idle keep-alive socket does NOT hold close() open. Measured on this server, node
     // v26.8.2: one parked keep-alive connection held open, close() WITHOUT
@@ -224,7 +224,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     const stop = () => {
         // Drain first: a cloud command still running must get its ACK out before the
         // broker link is closed, or the website reports 504 for a drawer that did open.
-        server.close(async () => { await controller.drain(); await cloud?.close(); await controller.close(); process.exit(0); });
+        server.close(async () => { await controller.drain(); await cloud?.close(); await sync?.close(); await controller.close(); process.exit(0); });
         server.closeIdleConnections();
     };
     process.once('SIGTERM', stop);

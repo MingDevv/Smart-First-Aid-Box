@@ -5,6 +5,9 @@
   "functions": {
     "api/command.js": {
       "maxDuration": 180
+    },
+    "api/ingest.js": {
+      "maxDuration": 60
     }
   },
   "trailingSlash": false,

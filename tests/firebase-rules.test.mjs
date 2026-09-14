@@ -34,19 +34,22 @@ test('students can get/query own events, never others or unfiltered lists', asyn
     await assertFails(getDoc(doc(db,'inventory','box1')));
 });
 
-test('clinical access is role + verified exact school domain, for get and list',async()=>{
-    for(const uid of ['rules-nurse','rules-admin']) {
+test('all staff share history and inventory visibility, while student payloads stay server-only',async()=>{
+    for(const uid of ['rules-nurse','rules-admin','rules-teacher']) {
         const db=client(uid).firestore();
-        await assertSucceeds(getDoc(doc(db,'students','rules-student')));
-        await assertSucceeds(getDocs(collection(db,'students')));
+        await assertFails(getDoc(doc(db,'students','rules-student')));
+        await assertFails(getDocs(collection(db,'students')));
         await assertSucceeds(getDocs(collection(db,'dispenses')));
+        await assertSucceeds(getDoc(doc(db,'inventory','box1')));
+        await assertSucceeds(getDocs(collection(db,'inventory')));
+        await assertSucceeds(getDocs(collection(db,'sos')));
     }
-    const contexts=[env.unauthenticatedContext(),client('rules-teacher'),client('rules-invalid'),
+    const contexts=[env.unauthenticatedContext(),client('rules-invalid'),
         client('rules-nurse',{email_verified:false}),client('rules-nurse',{email:'nurse@elsewhere.test'}),
         client('rules-admin',{email:'nurse@tesaban6.ac.th.evil.test'})];
     for(const ctx of contexts) {
-        await assertFails(getDoc(doc(ctx.firestore(),'students','rules-student')));
-        await assertFails(getDocs(collection(ctx.firestore(),'students')));
+        await assertFails(getDocs(collection(ctx.firestore(),'inventory')));
+        await assertFails(getDocs(collection(ctx.firestore(),'dispenses')));
     }
 });
 
@@ -62,15 +65,12 @@ test('every client role is denied writes to server-owned data and unknown paths'
     }
 });
 
-test('Firestore evidence photos require verified nurse/admin access for get and list', async()=>{
-    for(const uid of ['rules-nurse','rules-admin']) {
-        const db=client(uid).firestore();
-        await assertSucceeds(getDoc(doc(db,'photos','rules-photo')));
-        await assertSucceeds(getDocs(collection(db,'photos')));
-    }
+test('student and photo documents cannot be read directly by any client role', async()=>{
     for(const ctx of [env.unauthenticatedContext(),client('rules-student'),client('rules-teacher'),
-        client('rules-nurse',{email_verified:false}),client('rules-nurse',{email:'x@other.test'})]) {
-        await assertFails(getDoc(doc(ctx.firestore(),'photos','rules-photo')));
-        await assertFails(getDocs(collection(ctx.firestore(),'photos')));
+        client('rules-nurse'),client('rules-admin'),client('rules-nurse',{email_verified:false})]) {
+        for(const [collectionName,id] of [['photos','rules-photo'],['students','rules-student']]) {
+            await assertFails(getDoc(doc(ctx.firestore(),collectionName,id)));
+            await assertFails(getDocs(collection(ctx.firestore(),collectionName)));
+        }
     }
 });

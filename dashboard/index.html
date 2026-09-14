@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="../css/auth.css">
     <script src="../js/auth.js" defer></script>
     <script src="../js/auth-ui.js" defer></script>
+    <link rel="stylesheet" href="../css/dashboard-data.css">
+    <script src="../js/dashboard-data.js" defer></script>
 </head>
 <body data-auth-required="staff" class="dashboard-body">
     <div id="dashboard-content">
@@ -53,28 +55,32 @@
                     <p id="stop-sos-status" role="status" style="margin:10px 0 0;">ใช้เมื่อครูรับทราบเหตุแล้ว การหยุดเสียงไม่ยกเลิกข้อความ LINE ที่ส่งไป</p>
                 </section>
 
-                <div id="alerts-panel"></div>
+                <section class="db-card sync-panel" aria-label="Shared cabinet data">
+                <p id="data-status" role="status" aria-live="polite">Loading shared cabinet data…</p>
+                <button id="data-refresh" class="dashboard-action" type="button">Refresh data</button>
+            </section>
+                <div id="alerts-panel" role="status"></div>
 
                 <section class="stats-grid" aria-label="สถิติสำคัญ">
                     <article class="stat-item">
-                        <div class="stat-lbl">ใช้งานวันนี้</div>
+                        <div class="stat-lbl">Confirmed today (loaded)</div>
                         <div class="stat-val" id="stat-cases-today">—</div>
-                        <div class="stat-note positive" id="stat-today-note">ยังไม่มีข้อมูลจากส่วนกลาง</div>
+                        <div class="stat-note positive" id="stat-today-note">From loaded cabinet records</div>
                     </article>
                     <article class="stat-item">
-                        <div class="stat-lbl">สแกนด้วย AI</div>
+                        <div class="stat-lbl">Uncertain results</div>
                         <div class="stat-val" id="stat-ai-scans">—</div>
-                        <div class="stat-note" id="stat-ai-note">ยังไม่มีข้อมูลจากส่วนกลาง</div>
+                        <div class="stat-note" id="stat-ai-note">From loaded cabinet records</div>
                     </article>
                     <article class="stat-item">
-                        <div class="stat-lbl">รายการทั้งหมด</div>
+                        <div class="stat-lbl">Loaded records</div>
                         <div class="stat-val" id="stat-total-items">—</div>
-                        <div class="stat-note">ยังไม่มีข้อมูลจากส่วนกลาง</div>
+                        <div class="stat-note">From loaded cabinet records</div>
                     </article>
                     <article class="stat-item alert-stat">
-                        <div class="stat-lbl">ใกล้หมด</div>
+                        <div class="stat-lbl">Below stock target</div>
                         <div class="stat-val" id="stat-low-stock">—</div>
-                        <div class="stat-note">ยังไม่มีข้อมูลจากส่วนกลาง</div>
+                        <div class="stat-note">From loaded cabinet records</div>
                     </article>
                 </section>
 
@@ -85,7 +91,7 @@
                     </article>
                     <article class="db-card">
                         <div class="db-card-header"><h2>การใช้งานล่าสุด</h2><a href="statistics.html">ดูทั้งหมด <span aria-hidden="true">→</span></a></div>
-                        <div class="shared-unavailable" id="recent-timeline">ยังไม่เชื่อมประวัติจากตู้</div>
+                        <div class="table-wrapper" id="recent-timeline">ยังไม่เชื่อมประวัติจากตู้</div>
                     </article>
                 </section>
             </main>

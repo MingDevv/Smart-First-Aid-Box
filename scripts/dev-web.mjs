@@ -10,7 +10,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 export async function createWebServer() {
     const routing = JSON.parse(await readFile(join(root, 'vercel.json')));
     const routes = new Map(routing.rewrites.map(r => [r.source, r.destination]));
-    const apis = new Set(['firebase-config', 'me', 'command', 'notify']);
+    const apis = new Set(['firebase-config', 'me', 'command', 'notify', 'history', 'ingest', 'sync']);
     return createServer(async (req, res) => {
         res.setHeader('Cache-Control', 'no-store');
         try {
@@ -21,10 +21,10 @@ export async function createWebServer() {
                 let body = '', size = 0;
                 for await (const chunk of req) {
                     size += chunk.length;
-                    if (size > 16384) { res.writeHead(413).end(); return; }
+                    if (size > (name === 'ingest' ? 65536 : 16384)) { res.writeHead(413).end(); return; }
                     body += chunk;
                 }
-                req.body = body ? JSON.parse(body) : {};
+                req.body = name === 'ingest' ? body : body ? JSON.parse(body) : {};
                 res.status = code => { res.statusCode = code; return res; };
                 res.json = data => { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(data)); };
                 const handler = (await import(new URL(`../api/${name}.js`, import.meta.url))).default;
