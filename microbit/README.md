@@ -26,14 +26,33 @@ writes before failing on the first bad checksum (`FAIL.TXT`) — measured 2026-0
 ```bash
 openocd -f interface/cmsis-dap.cfg -c "transport select swd" -f target/nrf51.cfg -c init -c halt \
   -c "dump_image before-flash.bin 0x0 0x40000" -c "dump_image before-uicr.bin 0x10001000 0x100" -c resume -c shutdown
-cp sfab-v1-usb.hex /media/technology/MICROBIT/SFAB.HEX && sync -f /media/technology/MICROBIT
-sleep 4; ls /media/technology/MICROBIT/        # FAIL.TXT here = it did not take; restore from the dump
+# Resolve the mount — do NOT hardcode /media/technology/MICROBIT. udisks appends a digit when a
+# stale mountpoint from an earlier session is still there, and the stale one is root-owned 0700,
+# so a hardcoded path fails with "Permission denied" while the real board sits at MICROBIT2.
+# (Cost 2026-09-14: a flash that looked like a permissions problem and was a wrong path.)
+M=$(lsblk -no LABEL,MOUNTPOINT | awk '$1=="MICROBIT"{print $2}' | head -1); echo "$M"
+cp sfab-v1-usb.hex "$M/SFAB.HEX" && sync -f "$M"
+sleep 6; ls "$M"        # FAIL.TXT here = it did not take; restore from the dump.
+                        # "No such file or directory" right after the copy is NORMAL — DAPLink
+                        # reboots and re-enumerates; wait and re-resolve $M before concluding.
 ```
 
 ## Verify (sends nothing)
 
 ```bash
 stty -F /dev/ttyACM0 115200 raw -echo; timeout 3 cat /dev/ttyACM0     # expect READY:<epoch> every 500 ms
+```
+
+`READY:<epoch>` alone does NOT prove the new build took — the old firmware says exactly the same
+thing, and `dump_image` during the pre-flash backup resets the board so the epoch is 1 either way.
+MicroPython stores the script as plain text in flash, so dump it back and grep for an identifier
+that only the new code has, with the pre-flash dump as the control:
+
+```bash
+openocd -f interface/cmsis-dap.cfg -c "transport select swd" -f target/nrf51.cfg -c init -c halt \
+  -c "dump_image after-flash.bin 0x0 0x40000" -c resume -c shutdown
+strings after-flash.bin  | grep -c service_buzzer     # new build: > 0
+strings before-flash.bin | grep -c service_buzzer     # control: must be 0
 ```
 
 Then `systemctl --user restart sfab-edge` and `curl -s localhost:8787/api/local/status` must show
