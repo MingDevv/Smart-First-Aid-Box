@@ -1,6 +1,7 @@
 import { FieldPath } from 'firebase-admin/firestore';
 import { authorize, accessFailure, apiHeaders, AccessError } from '../lib/auth.js';
 import { inventoryProjection } from '../lib/cabinet-events.js';
+import { createInventoryHandler } from '../lib/inventory-route.js';
 
 const LIMIT = 100;
 function project(doc) {
@@ -14,13 +15,17 @@ function project(doc) {
         verifiedBy: row.verifiedBy ?? null, itemsUsed: row.itemsUsed || [] });
     return result;
 }
-export function createHistoryHandler({ authorizeRequest = authorize, now = Date.now } = {}) {
+export function createHistoryHandler({ authorizeRequest = authorize, now = Date.now,
+    inventory = createInventoryHandler() } = {}) {
     return async (req, res) => {
+        const query = new URL(req.url || '/api/history', 'https://sfab.invalid').searchParams;
+        // คลังเวชภัณฑ์อยู่ใต้ endpoint นี้เพราะ Vercel จำกัด serverless function ไว้ 12 ตัว
+        // และ api/ เต็มพอดี · เหตุผลเต็มอยู่ในหัวไฟล์ lib/inventory-route.js
+        if (query.get('resource') === 'inventory') return inventory(req, res);
         apiHeaders(res, 'GET');
         if (req.method !== 'GET') return res.status(405).json({ success: false, error: 'GET required' });
         try {
             const { db } = await authorizeRequest(req, { staffOnly: true });
-            const query = new URL(req.url || '/api/history', 'https://sfab.invalid').searchParams;
             const kind = query.get('kind') || 'dispense';
             if (!['dispense', 'sos'].includes(kind)) throw new AccessError(400, 'invalid_kind');
             let cursor;

@@ -95,7 +95,7 @@
     }
 
     async function load() {
-        const response = await AuthService.authorizedFetch('/api/inventory', { signal: AbortSignal.timeout(15000) });
+        const response = await AuthService.authorizedFetch('/api/history?resource=inventory', { signal: AbortSignal.timeout(15000) });
         if (!response.ok) throw new Error(response.status === 403 ? 'ต้องเป็นครูหรือผู้ดูแลระบบจึงจะดูคลังได้' : 'โหลดข้อมูลคลังไม่สำเร็จ');
         current = await response.json();
         fillForm($('inv-drawer').value);
@@ -116,7 +116,7 @@
                 count: $('inv-count').value === '' ? null : Number($('inv-count').value),
                 target: $('inv-target').value === '' ? null : Number($('inv-target').value)
             } };
-            const response = await AuthService.authorizedFetch('/api/inventory', {
+            const response = await AuthService.authorizedFetch('/api/history?resource=inventory', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body), signal: AbortSignal.timeout(15000)
             });
