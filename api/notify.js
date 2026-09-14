@@ -1,5 +1,7 @@
 import { authorize, apiHeaders } from '../lib/auth.js';
 import { persistSchoolSos } from '../lib/web-sos.js';
+import { lineMessage } from '../lib/line-flex.js';
+import { publicOrigin } from '../lib/cabinet-line.js';
 
 export async function sendSchoolSos(token) {
     const channel = process.env.LINE_CHANNEL_ACCESS_TOKEN?.trim();
@@ -7,16 +9,19 @@ export async function sendSchoolSos(token) {
     if (!channel || !group) return { success: false };
     // token เป็น null ได้ — การเรียกครูไม่บังคับล็อกอิน (Bank 2026-09-14) · ถ้าล็อกอินอยู่ก็บอกชื่อให้
     // ถ้าไม่ได้ล็อกอินก็ยังส่ง แต่บอกตามตรงว่าไม่รู้ว่าใคร ครูจะได้รู้ว่าต้องไปดูที่ตู้เอง
+    // ชื่อมาจาก token ที่ตรวจแล้วเท่านั้น ไม่เคยมาจากเนื้อคำขอ · ตัดอักขระควบคุมออกกันปลอมบรรทัด
     const firstName = (typeof token?.name === 'string' ? token.name : '')
-        .trim().split(/\s+/)[0].replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 60) || 'School user';
-    // Client names and Flex payloads never reach LINE. UID disambiguates first names.
-    const text = token
-        ? `SOS — ${firstName}\nReference: ${token.uid}\n${new Date().toISOString()}\nPlease contact the student.`
-        : `SOS — unidentified (not signed in)\n${new Date().toISOString()}\nGo to the first aid cabinet.`;
+        .trim().split(/\s+/)[0].replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 60);
+    const student = firstName ? { name: firstName } : null;
+    // เหตุการณ์สังเคราะห์ให้ตัวสร้างข้อความใช้ร่วมกับฝั่งตู้ ⇒ ครูเห็นหน้าตาเดียวกันทั้งสองทาง
+    // `cabinetId: 'web'` ทำให้การ์ดบอกตรงๆ ว่ากดมาจากเว็บ ไม่ใช่กดที่หน้าตู้ ซึ่งเปลี่ยนสิ่งที่ครูต้องทำ
+    const event = { kind: 'sos', cabinetId: 'web', ts: new Date().toISOString(),
+        buzzerAck: null, clockTrust: 'ntp' };
+    const message = lineMessage(event, { student, origin: publicOrigin() });
     try {
         const response = await fetch('https://api.line.me/v2/bot/message/push', {
             method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${channel}` },
-            body: JSON.stringify({ to: group, messages: [{ type: 'text', text }] }),
+            body: JSON.stringify({ to: group, messages: [message] }),
             signal: AbortSignal.timeout(8000), redirect: 'error'
         });
         return { success: response.ok };
