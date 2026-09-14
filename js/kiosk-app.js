@@ -215,7 +215,16 @@
         try {
             // ขอ {video:true} ตรงๆ ไม่ใช้ facingMode — กล้อง USB/CSI บน Pi มักไม่รายงาน
             // ด้านหน้า-หลัง แล้วจะถูกปฏิเสธด้วย OverconstrainedError เสียเที่ยวหนึ่ง
-            const granted = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            //
+            // ความละเอียดต้องขอ ไม่งั้น Chromium หยิบ 640x480 ให้ ซึ่งบนตู้ออกมามืดและรายละเอียดหาย
+            // (วัดบนกล้องจริง 2026-09-14: ค่ากล้องเดิมทุกตัว เปลี่ยนแค่ความละเอียด แล้ว 1280x720
+            // สว่างและคมกว่า 640x480 ชัดเจน ส่วนการดัน brightness/gain แทนทำให้ภาพขาวโพลนใช้ไม่ได้)
+            // ใช้ ideal ไม่ใช่ exact/min — ideal เป็นค่าที่อยากได้เฉยๆ จึงไม่ทำให้เกิด
+            // OverconstrainedError แบบที่คอมเมนต์ข้างบนระวังไว้ กล้องที่ทำไม่ได้จะลดให้เอง
+            const granted = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+                audio: false
+            });
             // ผู้ใช้อาจกดกลับไปแล้วระหว่างรอสิทธิ์กล้อง สตรีมที่เพิ่งได้มาต้องถูกปิดทันที
             // ไม่ใช่ปล่อยให้ไปเกาะ video ที่ซ่อนอยู่แล้วไฟกล้องติดค้างทั้งที่ไม่มีใครใช้
             if (isStale(token)) {

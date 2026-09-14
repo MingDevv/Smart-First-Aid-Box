@@ -26,7 +26,10 @@ function checkRateLimit(ip) {
 }
 
 // Safe user-facing error message (never expose internals)
-const USER_ERROR_MSG = 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง';
+// Exported because edge/server.mjs forwards the cabinet's /api/analyze here and must fail with the
+// SAME sentence: js/kiosk-app.js routes the student to manual wound selection on any analyze error,
+// and two different wordings for one situation read like two different faults.
+export const USER_ERROR_MSG = 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง';
 
 export default async function handler(req, res) {
     // Set CORS headers safely

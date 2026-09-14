@@ -30,6 +30,48 @@ async function readJson(req, limit) {
     catch { throw Object.assign(new Error('Invalid JSON'), { status: 400 }); }
 }
 
+// การวิเคราะห์แผลด้วย AI ส่งต่อขึ้น Vercel ตู้ไม่ถือคีย์ Gemini (เคาะ 2026-09-14)
+//
+// เหตุผลที่ไม่ใส่คีย์ไว้ที่ตู้: Gemini ต้องใช้เน็ตอยู่แล้ว การเก็บคีย์ไว้บนการ์ด SD ของตู้
+// ที่ตั้งอยู่กลางทางเดินโรงเรียนจึงไม่ได้ทำให้ทำงานตอนออฟไลน์ได้เพิ่มขึ้นเลยแม้แต่นิดเดียว
+// แลกมาแต่ความเสี่ยงว่าการ์ดหายแล้วคีย์หลุด · ตรงกับกติกาเดิมที่ว่า Pi ไม่ถือ credential
+// ตอนเน็ตล่ม ทั้งสองทางตกไปที่ทางถอยเดียวกันคือให้เลือกแผลเอง
+//
+// อ่าน env ตอนเรียก ไม่ใช่ตอนโหลดโมดูล เพื่อให้เทสชี้ไปที่เซิร์ฟเวอร์จำลองได้โดยไม่ต้องยุ่งกับลำดับ import
+function cloudBase() {
+    return (process.env.SFAB_CLOUD_BASE || 'https://smart-first-aid-box.vercel.app').replace(/\/+$/, '');
+}
+
+// งบเวลาฝั่งเบราว์เซอร์คือ 25 วิ (ANALYZE_TIMEOUT_MS ใน js/kiosk-app.js) ตัดให้ต่ำกว่าเล็กน้อย
+// เพื่อให้ตู้เป็นคนตอบว่าไปไม่ถึง แทนที่จะให้เบราว์เซอร์ abort เองแล้วไม่รู้ว่าพลาดที่ช่วงไหน
+const CLOUD_ANALYZE_TIMEOUT_MS = 20000;
+
+// เขียนซ้ำจาก USER_ERROR_MSG ใน api/analyze.js โดยตั้งใจ **ห้ามเปลี่ยนเป็น import**
+// เส้นทางจอสัมผัสต้องไม่พึ่ง import ที่ล้มได้ — เหตุผลเดียวกับที่ PR #17 ถอด `import mqtt`
+// ออกจากหัวไฟล์นี้ (99291a5): ไฟล์ใน api/ เป็นของ Vercel ถ้าวันหนึ่งมันไปเรียกอะไรที่ Pi
+// ไม่มี ตู้จะบูตบริการไม่ขึ้นทั้งใบ แล้วจอสัมผัสตายไปด้วยทั้งที่ไม่เกี่ยวกับ AI เลย
+// กันค่าเพี้ยนด้วยเทส 'the cabinet fallback sentence matches the cloud one' แทนการ import
+export const CLOUD_ANALYZE_ERROR_MSG = 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง';
+
+async function analyzeViaCloud(req, res) {
+    try {
+        const upstream = await fetch(`${cloudBase()}/api/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(req.body),
+            signal: AbortSignal.timeout(CLOUD_ANALYZE_TIMEOUT_MS)
+        });
+        // ส่งสถานะและเนื้อของต้นทางต่อตามจริง — 429 ของ rate limit กับ 502 ของโมเดลล่ม
+        // เป็นคนละเรื่องกัน หน้าตู้จึงต้องได้เห็นตัวจริง ไม่ใช่ถูกยุบเป็นความล้มเหลวก้อนเดียว
+        return json(res, upstream.status, await upstream.json());
+    } catch (error) {
+        // เน็ตนอกล่ม Vercel ไม่ตอบ หรือตอบมาไม่ใช่ JSON — ทั้งหมดนี้หน้าตู้ทำอย่างเดียวกันคือ
+        // พาไปเลือกแผลเอง จึงตอบด้วยประโยคเดียวกับที่ฝั่งคลาวด์ใช้
+        console.warn('[SFAB] cloud analyze failed:', error && error.message);
+        return json(res, 502, { success: false, error: CLOUD_ANALYZE_ERROR_MSG });
+    }
+}
+
 // โหมดการทำงานของตู้มาจากการติดตั้ง ไม่ใช่จากเบราว์เซอร์
 //
 // เดิมโหมดเก็บใน localStorage ของโปรไฟล์ Chromium บนตู้ ซึ่งตั้งได้จากหน้าครูที่เดียว
@@ -96,6 +138,7 @@ export async function createLocalServer({ controller, root = ROOT, mode = proces
                     const result = await controller.command(req.body);
                     return json(res, result.status, result.body);
                 }
+                if (pathname === '/api/analyze') return analyzeViaCloud(req, res);
                 // Reuse optional cloud AI/notification handlers, never the MQTT command handler.
                 // Local SOS remains a loopback-only adapter, independent of cloud login.
                 const { default: handler } = await import(pathname === '/api/notify'
