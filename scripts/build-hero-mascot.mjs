@@ -4,7 +4,16 @@
 // ว่า "ไม่คม" กับ "ลบพื้นหลังขาวออกไม่หมด" ทั้งสองอย่างเป็นผลของ *วิธีแปลง* ไม่ใช่ของต้นฉบับ
 // ถ้าไม่จดวิธีไว้ รอบหน้าก็ได้ผลเดิมอีก
 //
-// ต้นฉบับ = images/hero_mascot_tagline_source.png (1920x1080 พื้นขาวทึบ ไม่มีอัลฟา)
+// ต้นฉบับ = images/hero_mascot_tagline_source.png
+//
+// **สองแบบ และสคริปต์แยกให้เอง ไม่ต้องสั่ง**:
+//   · ต้นฉบับที่ *มีอัลฟาอยู่แล้ว* (ตัดพื้นมาให้เรียบร้อย เช่นตัวที่ Bank ส่งมา 2026-09-15
+//     1672x941 กึ่งโปร่ง 53% ของภาพ) ⇒ **ห้ามแตะอัลฟาเดิม** แค่ครอปตามขอบจริงแล้วเข้ารหัส
+//     การเอาขั้นตอนคีย์ขาวไปทับงานที่ตัดมาดีแล้ว มีแต่จะกัดขอบที่เขาไล่มาเรียบร้อยให้เสีย
+//   · ต้นฉบับพื้นขาวทึบไม่มีอัลฟา (ตัวแรก 1920x1080) ⇒ เดินเส้นคีย์ขาวข้างล่าง
+//
+// เกณฑ์ตัดสิน: มีช่อง A และมีพิกเซลที่ไม่ทึบจริงๆ ไม่ใช่แค่ "ไฟล์ประกาศว่ามีอัลฟา"
+// (PNG จำนวนมากมีช่อง A ที่เป็น 255 ทั้งใบ ซึ่งเท่ากับไม่มี)
 //
 // **กับดักที่พิสูจน์แล้วว่าพัง — อย่าทำ**: คีย์พื้นหลังด้วย "ความขาว" ทั้งภาพ หรือใช้เกณฑ์หลวม
 // (min>=236 ขึ้นไป) จะกิน *ของที่ตั้งใจให้ขาว* ไปด้วย คือเส้นขอบขาวของตัวอักษรสโลแกน และ
@@ -45,7 +54,18 @@ MAX_WIDTH, QUALITY = 1900, 88
 MIN_WHITE, MAX_SAT = 248, 8   # แคบไว้ก่อน — ดูคอมเมนต์เรื่องรองเท้ากับเส้นขอบสโลแกน
 ERODE_PX, BLUR_PX = 1, 0.8
 
-a = np.asarray(Image.open(src).convert('RGB')).astype(np.float64)
+source = Image.open(src)
+# ต้นฉบับที่ตัดพื้นมาแล้ว: ครอปตามขอบอัลฟาจริง แล้วจบ ไม่แตะอะไรอีก
+if 'A' in source.getbands() and np.asarray(source.convert('RGBA').split()[3]).min() < 255:
+    im = source.convert('RGBA')
+    im = im.crop(im.split()[3].getbbox())
+    if im.width > MAX_WIDTH:
+        im = im.resize((MAX_WIDTH, round(im.height * MAX_WIDTH / im.width)), Image.LANCZOS)
+    im.save(dst, 'WEBP', quality=QUALITY, method=6, alpha_quality=100)
+    print(f'{im.width}x{im.height} (alpha kept)')
+    raise SystemExit(0)
+
+a = np.asarray(source.convert('RGB')).astype(np.float64)
 H, W, _ = a.shape
 mn, mx = a.min(axis=2), a.max(axis=2)
 bg_like = (mn >= MIN_WHITE) & ((mx - mn) <= MAX_SAT)
