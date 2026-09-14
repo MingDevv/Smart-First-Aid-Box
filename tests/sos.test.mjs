@@ -227,7 +227,7 @@ test('all four cloud SOS callers deliver without demanding a sign-in first', asy
 // และผิดหลังจากนั้น · ข้อกังวลที่แท้จริงยังอยู่และยังถูกปักไว้: **ห้ามอ้างว่า LINE ส่งถึงแล้ว**
 const sosOverlay = async (b) => {
     const kiosk = await read('js/kiosk-app.js');
-    const start = kiosk.indexOf('    async function sendSos()');
+    const start = kiosk.indexOf('    async function sendSos(');
     const end = kiosk.indexOf('    function onIdleWarning',start);
     assert.ok(start>=0 && end>start);
     vm.runInContext('let sosBusy=false; const el=id=>document.getElementById(id); const storage=()=>null;'+kiosk.slice(start,end),b.context);
