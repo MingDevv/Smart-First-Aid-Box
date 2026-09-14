@@ -20,9 +20,11 @@ function services({ token = school, role, error, failRole = false } = {}) {
 const request = body => ({ method: 'POST', headers: { authorization: 'Bearer synthetic' }, body });
 export async function invoke(handler, req) {
     let status = 200, data;
-    await handler(req, { setHeader() {}, status(code) { status = code; return this; },
+    const headers = {};
+    await handler(req, { setHeader(key, value) { headers[key.toLowerCase()] = value; },
+        status(code) { status = code; return this; },
         json(value) { data = value; }, end() {} });
-    return { status, data };
+    return { status, data, headers };
 }
 
 test('school domain is exact and verified; provider hint is not authority', () => {
@@ -133,6 +135,45 @@ test('public Firebase config is an explicit allowlist and missing config fails c
         assert.doesNotMatch(JSON.stringify(response.data),/synthetic-private|synthetic-service/);
         delete process.env.FIREBASE_WEB_APP_ID;
         assert.equal((await invoke(firebaseConfig,{method:'GET'})).status,503);
+    } finally { assign(previous); }
+});
+
+// ค่าสาธารณะที่ห้ามแคช = ปลุก lambda ทุกครั้งที่เปิดหน้า แล้วการโหลด SDK ถึงจะเริ่มได้
+// วัดจริงบน production 2026-09-14: 0.42–1.70 วินาทีต่อหน้า และ `x-vercel-cache: MISS` ทุกครั้ง
+// สิ่งที่ต้องไม่พังไปพร้อมกัน: คำตอบตอนตั้งค่าไม่ครบ (503) ต้องไม่ถูกแคชค้าง ไม่งั้นแก้ env แล้วเว็บยังเสียทั้งวัน
+test('public Firebase config is cacheable, but a misconfigured answer never is', async () => {
+    const values = { FIREBASE_PROJECT_ID:'synthetic-school-project', FIREBASE_WEB_API_KEY:'synthetic-public-key',
+        FIREBASE_AUTH_DOMAIN:'synthetic-school-project.firebaseapp.com', FIREBASE_WEB_APP_ID:'synthetic-web-app',
+        FIREBASE_CLIENT_EMAIL:'synthetic-service-account', FIREBASE_PRIVATE_KEY:'synthetic-private-placeholder',
+        SFAB_USE_FIREBASE_EMULATORS:undefined, FIREBASE_AUTH_EMULATOR_HOST:undefined, FIRESTORE_EMULATOR_HOST:undefined };
+    const previous = Object.fromEntries(Object.keys(values).map(key => [key, process.env[key]]));
+    const assign = entries => {
+        for (const [key,value] of Object.entries(entries)) {
+            if (value === undefined) delete process.env[key]; else process.env[key] = value;
+        }
+    };
+    try {
+        assign(values);
+        const ok = await invoke(firebaseConfig,{method:'GET'});
+        assert.equal(ok.status,200);
+        assert.match(ok.headers['cache-control'],/(^|,\s*)public/);
+        assert.match(ok.headers['cache-control'],/s-maxage=\d+/,'ขอบเครือข่ายต้องเก็บได้ ไม่งั้นยังปลุก lambda ทุกหน้าอยู่ดี');
+        assert.doesNotMatch(ok.headers['cache-control'],/no-store/);
+
+        delete process.env.FIREBASE_WEB_API_KEY;
+        const broken = await invoke(firebaseConfig,{method:'GET'});
+        assert.equal(broken.status,503);
+        assert.match(broken.headers['cache-control'],/no-store/,'503 ที่ถูกแคชไว้ = แก้ env แล้วเว็บยังพังต่อ');
+
+        assign({ ...values, FIREBASE_PROJECT_ID:'demo-sfab', SFAB_USE_FIREBASE_EMULATORS:'true',
+            FIREBASE_AUTH_EMULATOR_HOST:'127.0.0.1:9099', FIRESTORE_EMULATOR_HOST:'127.0.0.1:8080' });
+        const emulated = await invoke(firebaseConfig,{method:'GET'});
+        assert.equal(emulated.status,200);
+        assert.match(emulated.headers['cache-control'],/no-store/,'ค่าโหมด emulator ห้ามไปค้างที่ขอบเครือข่าย');
+
+        const rejected = await invoke(firebaseConfig,{method:'POST'});
+        assert.equal(rejected.status,405);
+        assert.match(rejected.headers['cache-control'],/no-store/);
     } finally { assign(previous); }
 });
 
