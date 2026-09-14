@@ -104,11 +104,18 @@ test('deleting a role takes effect on the next command with the same valid token
 
 test('actual student ID token may send SOS, but cannot forge sender or submit a staff event',async()=>{
     const sent=[];
-    const notify=createNotifyHandler({send:async token=>{sent.push(token.uid);return{success:true};}});
-    assert.equal((await invoke(notify,null,{event:'sos'})).status,401);
-    assert.equal((await invoke(notify,tokens.get('external'),{event:'sos'})).status,403);
+    const notify=createNotifyHandler({send:async token=>{sent.push(token?.uid??null);return{success:true};}});
+    // การเรียกครูไม่ถูกเกตด้วยตัวตน (Bank 2026-09-14 · กฎเดิมในวิกิข้อ 9) — ไม่มี token ก็ส่งถึง
+    // และบัญชีนอกโรงเรียนก็ส่งถึงเหมือนกัน เพียงแต่ไม่ถูกนับเป็นตัวตนที่เชื่อถือได้ จึงส่งแบบไม่ระบุชื่อ
+    assert.equal((await invoke(notify,null,{event:'sos'})).status,200);
+    assert.equal((await invoke(notify,tokens.get('external'),{event:'sos'})).status,200);
+    // ⚠️ ข้อแลกเปลี่ยนที่ต้องรู้: คำขอนิรนามใช้ที่อยู่ต้นทางเป็นกุญแจกันส่งซ้ำ ⇒ สองคนที่ไม่ได้ล็อกอิน
+    // และออกจากไอพีเดียวกัน (เช่น Wi-Fi โรงเรียน) ภายใน 2 นาที จะถูกยุบเป็นข้อความเดียว
+    // ยอมรับได้เพราะครูไปที่ตู้อยู่ดี และถ้าไม่ยุบเลยช่องทางนี้จะกลายเป็นที่สแปมทันที
+    assert.deepEqual(sent,[null],'ส่งถึงครูแบบไม่ระบุชื่อ และคำขอที่สองถูกยุบรวม ไม่ใช่ถูกปฏิเสธ');
+    // สิ่งที่ยังกันอยู่: เหตุการณ์อื่นที่ไม่ใช่ sos ยังถูกปฏิเสธ ช่องทางนี้มีไว้เรียกครูอย่างเดียว
     assert.equal((await invoke(notify,tokens.get('student'),{event:'dispense'})).status,400);
-    assert.equal(sent.length,0);
+    assert.equal(sent.length,1);
     assert.equal((await invoke(notify,tokens.get('student'),{event:'sos',uid:'api-admin',name:'forged',messages:[{}]})).status,200);
-    assert.deepEqual(sent,['api-student']);
+    assert.deepEqual(sent,[null,'api-student'],'ชื่อมาจาก token ที่ตรวจแล้วเท่านั้น ไม่ใช่จากเนื้อคำขอ');
 });

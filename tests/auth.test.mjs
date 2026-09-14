@@ -77,10 +77,13 @@ test('student SOS only accepts its event and forwards exclusively verified ident
         sent.push(token); return { success:true };
     }});
     assert.equal((await invoke(handler,request({messages:[{type:'text',text:'forged'}]}))).status,400);
-    assert.equal((await invoke(handler,{...request({event:'sos'}),headers:{}})).status,401);
-    assert.equal(sent.length,0);
+    // ไม่มี token ก็ต้องส่งถึงครู (Bank 2026-09-14) — การเรียกครูไม่ถูกเกตด้วยตัวตน ตามกฎเดิมในวิกิข้อ 9
+    // ตัวตนเป็นของแถมที่ทำให้ข้อความมีชื่อ ไม่ใช่เงื่อนไขก่อนส่ง · ฝั่ง send ได้ null ไปตรงๆ
+    assert.equal((await invoke(handler,{...request({event:'sos'}),headers:{}})).status,200);
+    assert.deepEqual(sent,[null],'ต้องส่งแบบไม่ระบุชื่อ ไม่ใช่ปฏิเสธ');
+    // ฟิลด์ตัวตนที่ปลอมมาในเนื้อคำขอยังถูกทิ้งเหมือนเดิม ชื่อมาจาก token ที่ตรวจแล้วเท่านั้น
     assert.equal((await invoke(handler,request({event:'sos',uid:'admin',name:'forged',flexMessage:{}}))).status,200);
-    assert.deepEqual(sent,[school]);
+    assert.deepEqual(sent,[null,school]);
     const failed=createNotifyHandler({authorizeRequest:createAuthorizer(services()),send:async()=>({success:false})});
     assert.equal((await invoke(failed,request({event:'sos'}))).status,503);
 });

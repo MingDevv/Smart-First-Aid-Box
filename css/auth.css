@@ -1,12 +1,222 @@
-#auth-panel { position:relative; z-index:20; max-width:960px; margin:16px auto; padding:16px 20px; border:1px solid var(--border-color,#cee5e1); border-radius:18px; background:#fff; color:#17433f; font-family:var(--font-sarabun,sans-serif); }
-#auth-panel p { margin:4px 0 12px; line-height:1.5; }
-.auth-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-.auth-actions button,.auth-actions a { min-height:44px; padding:10px 16px; border-radius:12px; border:1px solid #078683; background:white; color:#075d58; font:inherit; cursor:pointer; }
-#google-sign-in { background:#076e68; color:white; }
-.auth-actions :focus-visible { outline:3px solid #17433f; outline-offset:3px; }
-.auth-actions [hidden] { display:none; }
-.auth-actions button:disabled { opacity:0.6; cursor:wait; }
-body[data-auth-required]:not([data-local-kiosk="true"]):not([data-auth-ready="true"]) > :not(#auth-panel):not(script):not(link) { display:none !important; }
-body:not([data-staff="true"]):not([data-local-kiosk="true"]) [data-staff-only] { display:none !important; }
-.shared-unavailable { padding:24px; line-height:1.7; color:var(--text-muted,#48615e); }
-@media(max-width:640px) { #auth-panel { margin:12px; } }
+/* CSS/AUTH.CSS — ชิปบัญชีมุมจอ + กล่องลงชื่อเข้าใช้
+ *
+ * ของเดิมเป็นการ์ดกว้างเต็มที่ถูก prepend เข้า body ⇒ กินพื้นที่เลย์เอาต์และดันหน้าอื่นเสียทรง
+ * ตอนนี้ทั้งสองชิ้นลอยอยู่เหนือหน้า ไม่แตะ flow เลย
+ *
+ * ใช้โทเคนจาก css/global.css ทั้งหมด ไม่ตั้งสีใหม่ — ธีม Care Kit เป็นแหล่งความจริงด้านหน้าตา
+ */
+
+/* ── ชิปบัญชี มุมขวาบน ──────────────────────────────────────────────────── */
+
+#auth-chip {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top));
+    right: max(12px, env(safe-area-inset-right));
+    z-index: 900;   /* เหนือเนื้อหาหน้า แต่ต่ำกว่า toast (10000) ที่ต้องอยู่บนสุดเสมอ */
+    font-family: inherit;
+}
+
+#auth-chip-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;   /* เป้าแตะขั้นต่ำ 44px ทั้งที่ตัวอักษรเล็กกว่านั้น */
+    max-width: min(60vw, 260px);
+    padding: 8px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--text-main);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 10px oklch(0.27 0.025 210 / 0.10);
+    transition: background-color 160ms ease-out, border-color 160ms ease-out;
+}
+
+#auth-chip-button:hover { background: var(--primary-light); }
+#auth-chip-button:disabled { opacity: 0.55; cursor: wait; }
+
+/* จุดสถานะสื่อความหมายซ้ำกับข้อความเสมอ ไม่ได้ใช้สีสื่อความหมายเพียงอย่างเดียว */
+.auth-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    flex: 0 0 auto;
+}
+#auth-chip[data-state='ready'] .auth-dot { background: var(--success); }
+#auth-chip[data-state='unavailable'] .auth-dot,
+#auth-chip[data-state='forbidden'] .auth-dot { background: var(--danger); }
+
+.auth-chip-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#auth-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 240px;
+    max-width: min(80vw, 320px);
+    padding: 14px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm, 12px);
+    background: #fff;
+    box-shadow: 0 10px 30px oklch(0.27 0.025 210 / 0.16);
+}
+
+.auth-menu-name { margin: 0; font-weight: 600; color: var(--text-main); }
+.auth-menu-email { margin: 2px 0 0; font-size: 13px; color: var(--text-muted); word-break: break-all; }
+.auth-menu-role { margin: 8px 0 12px; font-size: 13px; color: var(--primary); font-weight: 600; }
+
+#google-sign-out {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm, 12px);
+    background: #fff;
+    color: var(--danger);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+#google-sign-out:hover { background: var(--danger-light); }
+
+/* ── กล่องลงชื่อเข้าใช้ ─────────────────────────────────────────────────── */
+
+#auth-dialog {
+    /* ⚠️ ต้องสั่งจัดกลางเอง — `css/global.css` มี `* { margin: 0 }` ซึ่งล้าง `margin: auto`
+     * ที่เบราว์เซอร์ใช้จัดกลาง <dialog> โหมด modal ⇒ ถ้าไม่เขียนตรงนี้ กล่องจะตกไปมุมซ้ายบน
+     * (เจอบน preview 2026-09-14) · เขียน inset + margin คู่กันเพื่อให้ชนะ reset แน่ๆ */
+    position: fixed;
+    inset: 0;
+    width: min(440px, calc(100vw - 32px));
+    height: fit-content;
+    max-height: calc(100dvh - 32px);
+    margin: auto;
+    overflow-y: auto;
+    padding: 32px 28px 26px;
+    border: none;
+    border-radius: 26px;
+    background: #fff;
+    color: var(--text-main);
+    font-family: inherit;
+    text-align: center;
+    box-shadow: 0 30px 70px oklch(0.27 0.025 210 / 0.30);
+}
+/* scrim เข้มพอให้เนื้อหาข้างหลังไม่แย่งสายตา และเบลอเพื่อบอกว่าข้างหลังกดไม่ได้ */
+#auth-dialog::backdrop {
+    background: oklch(0.27 0.025 210 / 0.58);
+    backdrop-filter: blur(3px);
+}
+#auth-dialog[open] { animation: auth-dialog-in 220ms cubic-bezier(0.2, 0.9, 0.3, 1); }
+@keyframes auth-dialog-in {
+    from { opacity: 0; transform: translateY(10px) scale(0.97); }
+    to { opacity: 1; transform: none; }
+}
+
+/* ตราของตู้ไว้บนสุด ให้รู้ทันทีว่ากล่องนี้มาจากระบบไหน ไม่ใช่ป๊อปอัปแปลกปลอม */
+.auth-dialog-logo {
+    display: block;
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 14px;
+}
+
+#auth-dialog h2 { margin: 0 0 10px; font-size: 23px; line-height: 1.35; font-weight: 600; }
+#auth-dialog-reason {
+    margin: 0 auto 24px;
+    max-width: 34ch;   /* คุมความยาวบรรทัดให้อ่านง่าย ไม่ยาวพาดเต็มกล่อง */
+    color: var(--text-muted);
+    line-height: 1.65;
+}
+#auth-dialog-status:empty { display: none; }
+#auth-dialog-status {
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm, 12px);
+    background: var(--danger-light);
+    color: var(--danger-hover);
+    font-size: 14px;
+    line-height: 1.5;
+}
+.auth-dialog-hint { margin: 16px 0 0; font-size: 13px; color: var(--text-muted); text-align: center; }
+.auth-dialog-escape {
+    display: block;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+    color: var(--primary);
+    font-size: 14px;
+    text-align: center;
+}
+
+.auth-dialog-dismiss { position: absolute; top: 14px; right: 14px; margin: 0; }
+.auth-dialog-dismiss button {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.auth-dialog-dismiss button:hover { background: var(--bg-canvas); }
+
+/* ปุ่ม Google ตามแนวทางแบรนด์: พื้นขาว ขอบเทา #747775 โลโก้ 4 สีตัวจริง ข้อความไม่ดัดแปลง */
+.google-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 16px;
+    border: 1px solid #747775;
+    border-radius: var(--radius-sm, 12px);
+    background: #fff;
+    color: #1f1f1f;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 160ms ease-out;
+}
+.google-button:hover { background: #f7f8f8; }
+.google-button:disabled { opacity: 0.55; cursor: wait; }
+.google-mark { flex: 0 0 auto; }
+
+/* ── สถานะร่วม ─────────────────────────────────────────────────────────── */
+
+#auth-chip :focus-visible,
+#auth-dialog :focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* หน้าที่ต้องล็อกอินก่อน ซ่อนเนื้อหาไว้จนกว่าจะพร้อม — เว้นชิปกับกล่องไว้ให้ทำงานต่อได้ */
+body[data-auth-required]:not([data-local-kiosk='true']):not([data-auth-ready='true'])
+    > :not(#auth-chip):not(#auth-dialog):not(script):not(link) {
+    display: none !important;
+}
+
+body:not([data-staff='true']):not([data-local-kiosk='true']) [data-staff-only] { display: none !important; }
+
+.shared-unavailable { padding: 24px; line-height: 1.7; color: var(--text-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+    #auth-chip-button, .google-button { transition: none; }
+}
+
+/* จอเล็ก: ชิปเหลือเฉพาะจุดสถานะกับคำสั้น ไม่ให้ไปทับหัวเรื่องของหน้า */
+@media (max-width: 480px) {
+    #auth-chip-button { max-width: 46vw; padding: 8px 12px; font-size: 13px; }
+    #auth-dialog { padding: 24px 20px 20px; }
+}

@@ -39,7 +39,7 @@
                 <h2>เริ่มดูแลแผลเบื้องต้น</h2>
                 <p>เลือกวิธีที่สะดวก ระบบจะพาไปทีละขั้นอย่างชัดเจน</p>
             </div>
-            <a class="home-action primary-action" href="student/wound-scan">
+            <a class="home-action primary-action" href="student/wound-scan" data-requires-auth>
                 <img class="home-action-media" src="images/ai_scanner_hero.webp" width="480" height="480" alt="สแกนบาดแผลด้วย AI">
                 <span class="home-action-copy">
                     <span class="home-action-title">สแกนแผลด้วย AI</span>
@@ -48,7 +48,7 @@
                 <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
             </a>
 
-            <a class="home-action" href="student/wound-select">
+            <a class="home-action" href="student/wound-select" data-requires-auth>
                 <span class="home-action-icon" aria-hidden="true"><span class="material-symbols-rounded">list_alt</span></span>
                 <span class="home-action-copy">
                     <span class="home-action-title">เลือกประเภทแผลเอง</span>
@@ -87,11 +87,7 @@
     <script src="js/api-bridge.js"></script>
     <script>
         async function triggerHomeSos() {
-            if (window.SFAB_RUNTIME?.transport !== 'pi-local' && window.AuthService?.state?.status !== 'ready') {
-                NotificationService.showToast('เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน แล้วกด SOS อีกครั้ง', 'warning');
-                document.getElementById('google-sign-in')?.focus();
-                return;
-            }
+            // ไม่เกตการเรียกครูด้วยการล็อกอิน (Bank 2026-09-14)
             if (!confirm('ต้องการส่งสัญญาณเรียกครูพยาบาลด่วนใช่หรือไม่?')) return;
 
             const button = document.getElementById('home-sos-button');

@@ -103,7 +103,7 @@
                 }
 
                 return `
-                    <button class="wound-card${index === 0 ? ' featured' : ''}" type="button" onclick="location.href='/student/first-aid-guide?wound=${encodeURIComponent(wound.id)}'">
+                    <button class="wound-card${index === 0 ? ' featured' : ''}" type="button" data-requires-auth onclick="location.href='/student/first-aid-guide?wound=${encodeURIComponent(wound.id)}'">
                         <span class="wound-photo-wrap"><img class="wound-photo" src="${escapeHtml(wound.image)}" alt="${escapeHtml(wound.name_th)}"></span>
                         <span class="wound-copy"><span><span class="wound-name">${escapeHtml(wound.name_th)}</span><span class="wound-meta">${wound.steps.length} ขั้นตอน · ช่องเก็บที่ ${Number(wound.drawer) || 1} · เวชภัณฑ์ ${wound.items.length} รายการ</span></span><span class="material-symbols-rounded" aria-hidden="true" style="color:var(--primary);">chevron_right</span></span>
                     </button>
