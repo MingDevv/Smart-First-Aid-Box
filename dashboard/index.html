@@ -22,10 +22,10 @@
                     <span><strong>First Aid Box</strong><span style="font-family:var(--font-sarabun); letter-spacing:0; font-size:10px;">หลังบ้านครู</span></span>
                 </a>
                 <nav class="sidebar-nav" aria-label="เมนูแดชบอร์ด">
-                    <a class="sidebar-link active" href="/dashboard"><span class="material-symbols-rounded" aria-hidden="true">dashboard</span>ภาพรวม</a>
+                    <a class="sidebar-link active" aria-current="page" href="/dashboard"><span class="material-symbols-rounded" aria-hidden="true">dashboard</span>ภาพรวม</a>
                     <a class="sidebar-link" href="/dashboard/medicine-management"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>คลังยา</a>
-                    <a class="sidebar-link" href="/dashboard/statistics#history"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติ</a>
-                    <a class="sidebar-link" href="/dashboard/statistics"><span class="material-symbols-rounded" aria-hidden="true">monitoring</span>สถิติ</a>
+                    <a class="sidebar-link" href="/dashboard/statistics"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติการใช้งาน</a>
+                    <a class="sidebar-link" href="/dashboard/students"><span class="material-symbols-rounded" aria-hidden="true">badge</span>ทะเบียนนักเรียน</a>
                     <a class="sidebar-link" href="/dashboard/roles" data-admin-only><span class="material-symbols-rounded" aria-hidden="true">manage_accounts</span>สิทธิ์เข้าหลังบ้าน</a>
                     <a class="sidebar-link" href="/dashboard/medicine-management#settings"><span class="material-symbols-rounded" aria-hidden="true">settings</span>ตั้งค่า</a>
                 </nav>
@@ -36,12 +36,11 @@
             </aside>
 
             <main class="dashboard-main animate-fade-in">
-<a href="/dashboard/students" class="btn">ทะเบียนนักเรียนและบัตร QR</a>
 
                 <header class="dashboard-topbar">
                     <div class="dashboard-greeting">
-                        <h1>สวัสดีค่ะ</h1>
-                        <p id="dashboard-summary">ประวัติและคลังจากส่วนกลางยังไม่พร้อมใช้งาน</p>
+                        <h1>ภาพรวมการใช้งานตู้</h1>
+                        <p id="dashboard-summary">กำลังโหลดประวัติและจำนวนเวชภัณฑ์</p>
                     </div>
                     <div class="dashboard-actions">
 
@@ -57,43 +56,43 @@
                     <p id="stop-sos-status" role="status" style="margin:10px 0 0;">ใช้เมื่อครูรับทราบเหตุแล้ว การหยุดเสียงไม่ยกเลิกข้อความ LINE ที่ส่งไป</p>
                 </section>
 
-                <section class="db-card sync-panel" aria-label="Shared cabinet data">
-                <p id="data-status" role="status" aria-live="polite">Loading shared cabinet data…</p>
-                <button id="data-refresh" class="dashboard-action" type="button">Refresh data</button>
+                <section class="db-card sync-panel" aria-label="ข้อมูลการใช้งานตู้">
+                <p id="data-status" role="status" aria-live="polite">กำลังโหลดข้อมูลการใช้งาน…</p>
+                <button id="data-refresh" class="dashboard-action" type="button">อัปเดตข้อมูล</button>
             </section>
                 <div id="alerts-panel" role="status"></div>
 
                 <section class="stats-grid" aria-label="สถิติสำคัญ">
                     <article class="stat-item">
-                        <div class="stat-lbl">Confirmed today (loaded)</div>
+                        <div class="stat-lbl">ตู้ตอบรับการเบิกวันนี้</div>
                         <div class="stat-val" id="stat-cases-today">—</div>
-                        <div class="stat-note positive" id="stat-today-note">From loaded cabinet records</div>
+                        <div class="stat-note positive" id="stat-today-note">เฉพาะรายการที่โหลดแล้ว</div>
                     </article>
                     <article class="stat-item">
-                        <div class="stat-lbl">Uncertain results</div>
+                        <div class="stat-lbl">รายการที่ต้องตรวจสอบ</div>
                         <div class="stat-val" id="stat-ai-scans">—</div>
-                        <div class="stat-note" id="stat-ai-note">From loaded cabinet records</div>
+                        <div class="stat-note" id="stat-ai-note">เฉพาะรายการที่โหลดแล้ว</div>
                     </article>
                     <article class="stat-item">
-                        <div class="stat-lbl">Loaded records</div>
+                        <div class="stat-lbl">รายการที่แสดง</div>
                         <div class="stat-val" id="stat-total-items">—</div>
-                        <div class="stat-note">From loaded cabinet records</div>
+                        <div class="stat-note">เฉพาะรายการที่โหลดแล้ว</div>
                     </article>
                     <article class="stat-item alert-stat">
-                        <div class="stat-lbl">Below stock target</div>
+                        <div class="stat-lbl">ช่องที่ของต่ำกว่าเกณฑ์</div>
                         <div class="stat-val" id="stat-low-stock">—</div>
-                        <div class="stat-note">From loaded cabinet records</div>
+                        <div class="stat-note" id="stat-stock-note">จากจำนวนที่ครูตรวจนับ</div>
                     </article>
                 </section>
 
                 <section class="dashboard-grid">
                     <article class="db-card">
                         <div class="db-card-header"><h2>คลังเวชภัณฑ์</h2><a href="medicine-management.html">จัดการคลัง <span aria-hidden="true">→</span></a></div>
-                        <div class="shared-unavailable" id="inventory-preview">ยังไม่เชื่อมข้อมูลคลังจากส่วนกลาง</div>
+                        <div class="shared-unavailable" id="inventory-preview">กำลังโหลดจำนวนเวชภัณฑ์</div>
                     </article>
                     <article class="db-card">
                         <div class="db-card-header"><h2>การใช้งานล่าสุด</h2><a href="statistics.html">ดูทั้งหมด <span aria-hidden="true">→</span></a></div>
-                        <div class="table-wrapper" id="recent-timeline">ยังไม่เชื่อมประวัติจากตู้</div>
+                        <div class="table-wrapper" id="recent-timeline">กำลังโหลดรายการล่าสุด</div>
                     </article>
                 </section>
             </main>

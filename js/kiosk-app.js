@@ -794,7 +794,7 @@
             progress.appendChild(segment);
         }
         el('step-prev').disabled = stepIndex === 0;
-        el('step-next-label').textContent = stepIndex === total - 1 ? 'ทำครบแล้ว' : 'ทำเสร็จแล้ว';
+        el('step-next-label').textContent = stepIndex === total - 1 ? 'ทำครบแล้ว' : 'ถัดไป';
     }
 
     function moveStep(delta) {

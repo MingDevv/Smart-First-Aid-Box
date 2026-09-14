@@ -1,0 +1,32 @@
+/* Load after kiosk.css. Only the student-card view owns these dimensions. */
+#view-card .camera-frame {
+    flex: 0 0 auto;
+    width: min(220px, 100%);
+    height: auto;
+    aspect-ratio: 1;
+    max-height: none;
+    align-self: center;
+    border: 2px solid var(--primary);
+    border-radius: 18px;
+    background: #183e3c;
+}
+#view-card #card-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+#view-card .camera-frame::after {
+    content: "";
+    position: absolute;
+    inset: 12%;
+    pointer-events: none;
+    border: 2px solid #fff;
+    border-radius: 10px;
+    box-shadow: 0 0 0 999px rgb(0 0 0 / 20%);
+    background:
+        linear-gradient(#8fffe5, #8fffe5) left top / 25px 5px,
+        linear-gradient(#8fffe5, #8fffe5) left top / 5px 25px,
+        linear-gradient(#8fffe5, #8fffe5) right top / 25px 5px,
+        linear-gradient(#8fffe5, #8fffe5) right top / 5px 25px,
+        linear-gradient(#8fffe5, #8fffe5) left bottom / 25px 5px,
+        linear-gradient(#8fffe5, #8fffe5) left bottom / 5px 25px,
+        linear-gradient(#8fffe5, #8fffe5) right bottom / 25px 5px,
+        linear-gradient(#8fffe5, #8fffe5) right bottom / 5px 25px;
+    background-repeat: no-repeat;
+}
