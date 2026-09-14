@@ -99,3 +99,22 @@ test('scanner allows a verified student and starts the camera only after school 
         assert.equal(stops, local ? 0 : 2);
     }
 });
+
+// กล่องต้องอยู่กลางจอ — และมันไม่ได้มาเอง
+//
+// `css/global.css` มี `* { margin: 0 }` ซึ่งล้าง `margin: auto` ที่เบราว์เซอร์ใช้จัดกลาง
+// <dialog> โหมด modal ⇒ ถ้าไม่สั่งเอง กล่องจะตกไปมุมซ้ายบน (เจอบน preview 2026-09-14)
+// เทสนี้เฝ้าการประกาศใน CSS เพราะการจัดกลางเป็นเรื่องของ stylesheet ล้วน ไม่มี DOM ให้ตรวจ
+test('the dialog declares its own centring because the global reset kills margin:auto', async () => {
+    // ตัดคอมเมนต์ทิ้งก่อน ไม่งั้นการหา `}` ปิดบล็อกจะไปเจอวงเล็บที่อยู่ในคอมเมนต์แทน
+    // (คอมเมนต์ในบล็อกนี้พูดถึง `* { margin: 0 }` พอดี — เทสรุ่นแรกแดงเพราะเหตุนี้)
+    const strip = text => text.replace(/\/\*[\s\S]*?\*\//g, '');
+    const css = strip(await readFile(new URL('../css/auth.css', import.meta.url), 'utf8'));
+    const global = strip(await readFile(new URL('../css/global.css', import.meta.url), 'utf8'));
+    assert.match(global, /\*\s*\{[^}]*margin:\s*0/s, 'ถ้า reset นี้หายไป คอมเมนต์ข้างบนต้องถูกทบทวน');
+    const block = css.slice(css.indexOf('#auth-dialog {'), css.indexOf('}', css.indexOf('#auth-dialog {')));
+    assert.ok(block, '#auth-dialog ต้องมีบล็อกของตัวเอง');
+    for (const rule of [/margin:\s*auto/, /inset:\s*0/, /position:\s*fixed/]) {
+        assert.match(block, rule, String(rule));
+    }
+});

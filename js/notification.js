@@ -131,7 +131,7 @@ const NotificationService = {
         if (window.SFAB_RUNTIME?.transport !== 'pi-local') {
             if (window.AuthService?.state?.status !== 'ready') {
                 this.showToast('เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน แล้วกด SOS อีกครั้ง', 'warning');
-                window.AuthUI?.promptSignIn('เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน แล้วกดเรียกครูพยาบาลอีกครั้ง');
+                window.AuthUI?.promptSignIn('กรุณาเข้าสู่ระบบด้วยบัญชีโรงเรียนก่อนใช้งาน');
                 return { line: { success: false, error: 'sign_in_required' }, buzzer: { success: false, mode: 'not-requested' } };
             }
             const line = await this.sendLineNotification({ event: 'sos' });

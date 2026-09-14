@@ -58,15 +58,17 @@
             + '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">'
             + '<path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
             + '</button></form>'
+            // path เริ่มด้วย / เพราะกล่องนี้ถูกแทรกจากหน้าที่อยู่คนละชั้น (/, /student/, /dashboard/)
+            + '<img class="auth-dialog-logo" src="/images/logo_first_aid.webp" width="56" height="56" alt="">'
             + '<h2 id="auth-dialog-title">เข้าสู่ระบบก่อนใช้งาน</h2>'
             + '<p id="auth-dialog-reason"></p>'
             + '<button id="auth-dialog-sign-in" class="google-button" type="button">' + GOOGLE_MARK
             + '<span>ลงชื่อเข้าใช้ด้วย Google</span></button>'
             + '<p id="auth-dialog-status" role="status" aria-live="polite"></p>'
             + '<p class="auth-dialog-hint">ใช้บัญชีของโรงเรียนที่ลงท้ายด้วย <b>@tesaban6.ac.th</b></p>'
-            // ทางถอยต้องพาไปที่ที่ใช้ได้จริงโดยไม่ต้องล็อกอิน · หน้าแรกเข้าได้เสมอและมีปุ่มเรียกครูอยู่
+            // ทางถอยชี้หน้าแรก ซึ่งเข้าได้เสมอโดยไม่ต้องล็อกอิน
             // (ของเดิมชี้ไปหน้าเลือกแผล ซึ่งตอนนี้ก็ต้องล็อกอินเหมือนกัน = ทางตันที่ดูเหมือนทางออก)
-            + '<a class="auth-dialog-escape" href="/">กลับหน้าแรก — ปุ่มเรียกครูพยาบาลใช้ได้โดยไม่ต้องเข้าสู่ระบบ</a>';
+            + '<a class="auth-dialog-escape" href="/">กลับหน้าแรก</a>';
         document.body.appendChild(dialog);
 
         const chipButton = chip.querySelector('#auth-chip-button');
@@ -117,7 +119,7 @@
             const state = chip.dataset.state;
             if (state === 'ready') return toggleMenu();
             if (state === 'unavailable') return location.reload();
-            return openDialog('เข้าสู่ระบบด้วยบัญชีโรงเรียนเพื่อให้ประวัติการใช้งานบันทึกเป็นของหนู');
+            return openDialog('กรุณาเข้าสู่ระบบด้วยบัญชีโรงเรียนก่อนใช้งาน');
         };
         signOutButton.onclick = () => { closeMenu(); return run(signOutButton, () => AuthService.signOut(), () => {}); };
         dialogButton.onclick = () => doSignIn(dialogButton, message => { dialogStatus.textContent = message; });
@@ -125,7 +127,7 @@
         // ทางเรียกจากโค้ดอื่น (เช่นปุ่ม SOS ที่ต้องล็อกอินก่อน) — ให้ hook ที่มีชื่อ แทนที่จะให้เขา
         // ไปหา element ด้วย id เอง · ของเดิม `getElementById('google-sign-in')?.focus()` พังเงียบทันที
         // ที่หน้าตาเปลี่ยน และเทสก็ยังเขียวเพราะ stub สร้าง element ปลอมให้
-        window.AuthUI = { promptSignIn: reason => openDialog(reason || 'เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อนใช้งานส่วนนี้') };
+        window.AuthUI = { promptSignIn: reason => openDialog(reason || 'กรุณาเข้าสู่ระบบด้วยบัญชีโรงเรียนก่อนใช้งาน') };
 
         // ปุ่มที่ต้องล็อกอินก่อน ประกาศด้วย `data-requires-auth` ในหน้า ไม่ใช่เดาจาก URL ในนี้
         // ค่าของแอตทริบิวต์คือเหตุผลที่จะบอกผู้ใช้ — เขียนให้ตรงกับปุ่มที่เพิ่งกด ไม่ใช่ข้อความกลางๆ
@@ -136,7 +138,7 @@
             if (chip.dataset.state === 'loading') return;   // ยังไม่รู้ว่าล็อกอินอยู่ไหม อย่าเพิ่งขวาง
             event.preventDefault();
             event.stopPropagation();
-            openDialog(trigger.dataset.requiresAuth || 'เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อนใช้งานส่วนนี้');
+            openDialog(trigger.dataset.requiresAuth || 'กรุณาเข้าสู่ระบบด้วยบัญชีโรงเรียนก่อนใช้งาน');
         }, true);
 
         AuthService.subscribe(state => {
@@ -168,7 +170,7 @@
                     ? `${state.user.email} ยังไม่มีสิทธิ์สำหรับครู กรุณาแจ้งครูผู้ดูแลระบบเพื่อขอสิทธิ์`
                     : state.status === 'unavailable' ? 'ระบบบัญชียังไม่พร้อม กรุณาลองอีกครั้ง หรือเรียกครูที่อยู่ใกล้ที่สุด'
                     : state.status === 'forbidden' ? 'ต้องใช้บัญชี Google ของโรงเรียนที่ยืนยันอีเมลแล้ว'
-                    : 'หน้านี้สำหรับครู กรุณาเข้าสู่ระบบด้วยบัญชีโรงเรียน',
+                    : 'กรุณาเข้าสู่ระบบด้วยบัญชีโรงเรียนก่อนใช้งาน',
                 { dismissible: false });
         });
     };
