@@ -202,6 +202,15 @@ button.home-status {
     color: oklch(0.52 0.04 195);
 }
 
+/* แถวลิงก์ท้ายเมนู — เคยเป็น style ฝังในหน้าและถูกคัดลอกไว้สองที่
+   พอเป็นคลาสเดียว หน้าแรกกับหน้านักเรียนจึงขยับพร้อมกันเสมอ */
+.home-meta-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 18px;
+}
+
 .home-meta-link {
     display: inline-flex;
     min-height: 44px;

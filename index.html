@@ -12,6 +12,11 @@
     <script src="js/auth.js" defer></script>
     <script src="js/auth-ui.js" defer></script>
 </head>
+<!-- หน้าแรกสาธารณะ ใช้โครงและองค์ประกอบชุดเดียวกับ /student ทุกอย่าง
+     ต่างกันสองข้อ ซึ่งเป็นเรื่องของสิทธิ์ ไม่ใช่เรื่องหน้าตา:
+       · ไม่มี data-auth-required ที่ body — หน้านี้ต้องเปิดดูได้โดยไม่ต้องล็อกอิน
+       · เมนูที่ต้องใช้บัญชีโรงเรียนติด data-requires-auth ให้เด้งหน้าล็อกอินตอนกด
+         แทนที่จะซ่อนทิ้ง เพราะคนที่ยังไม่ล็อกอินต้องเห็นว่ามีอะไรให้ใช้บ้าง -->
 <body class="home-body">
     <main class="home-app animate-fade-in">
         <section class="home-hero">
@@ -21,14 +26,13 @@
                     <span class="home-brand-name">SMART FIRST AID BOX</span>
                 </div>
                 <span class="home-status">พร้อมใช้</span>
-                <a class="menu-item-btn" href="student/kiosk" style="display:none;" aria-hidden="true">เปิดโหมดหน้าจอประจำตู้</a>
             </div>
 
-            <h1 class="home-title">เจ็บตรงไหน?<br>สแกนแผลได้เลย</h1>
-            <p class="home-description">AI ช่วยดูว่าเป็นแผลแบบไหน แล้วพาทำแผลทีละขั้น พร้อมปลดล็อกช่องยาอัตโนมัติ</p>
-            <figure class="home-hero-visual">
-                <img src="images/smart_box_full.webp" width="900" height="900" alt="กล่องปฐมพยาบาลอัจฉริยะพร้อมหน้าจอควบคุม">
-                <figcaption class="hero-float hero-float-ai"><span class="material-symbols-rounded" aria-hidden="true">auto_awesome</span>AI ช่วยวิเคราะห์แผล</figcaption>
+            <h1 class="home-title">ดูแลตัวเอง<br>ด้วยคู่มือปฐมพยาบาล</h1>
+            <p class="home-description">ดูคู่มือและส่งคำขอ SOS ถึงครู การรับเวชภัณฑ์ให้ใช้บริการที่ตู้</p>
+            <figure class="home-hero-mascot">
+                <img src="images/hero_mascot_tagline.webp" width="1640" height="910"
+                     alt="ตู้ปฐมพยาบาลอัจฉริยะ ห่วงใยใกล้ตัว สแกนชัวร์ ดูแลไว" decoding="async">
             </figure>
         </section>
 
@@ -38,8 +42,9 @@
                 <h2>เริ่มดูแลแผลเบื้องต้น</h2>
                 <p>เลือกวิธีที่สะดวก ระบบจะพาไปทีละขั้นอย่างชัดเจน</p>
             </div>
-            <a class="home-action primary-action" href="student/wound-scan" data-requires-auth>
-                <img class="home-action-media" src="images/ai_scanner_hero.webp" width="480" height="480" alt="สแกนบาดแผลด้วย AI">
+
+            <a class="home-action primary-action" href="/student/wound-scan" data-requires-auth>
+                <img class="home-action-icon" src="/images/menu-icons/wound-scan.svg" alt="" aria-hidden="true" width="48" height="48">
                 <span class="home-action-copy">
                     <span class="home-action-title">สแกนแผลด้วย AI</span>
                     <span class="home-action-desc">ถ่ายรูปแผล ระบบบอกวิธีทำแผลให้</span>
@@ -47,8 +52,8 @@
                 <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
             </a>
 
-            <a class="home-action" href="student/wound-select" data-requires-auth>
-                <span class="home-action-icon" aria-hidden="true"><span class="material-symbols-rounded">list_alt</span></span>
+            <a class="home-action" href="/student/wound-select" data-requires-auth>
+                <img class="home-action-icon" src="/images/menu-icons/wound-select.svg" alt="" aria-hidden="true" width="48" height="48">
                 <span class="home-action-copy">
                     <span class="home-action-title">เลือกประเภทแผลเอง</span>
                     <span class="home-action-desc">แผลมีดบาด/ถลอก · แมลงกัดต่อย</span>
@@ -56,8 +61,10 @@
                 <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
             </a>
 
-            <a class="home-action" href="dashboard/">
-                <span class="home-action-icon peach" aria-hidden="true"><span class="material-symbols-rounded">monitoring</span></span>
+            <!-- ไม่ติด data-staff-only เหมือนหน้า /student เพราะที่นั่นครูล็อกอินแล้วแน่ๆ
+                 แต่หน้านี้เป็นประตูหน้า ถ้าซ่อนไว้จนกว่าจะล็อกอิน ครูพยาบาลจะไม่มีทางเข้า -->
+            <a class="home-action" href="/dashboard/">
+                <img class="home-action-icon" src="/images/menu-icons/teacher-dashboard.svg" alt="" aria-hidden="true" width="48" height="48">
                 <span class="home-action-copy">
                     <span class="home-action-title">ครูพยาบาล</span>
                     <span class="home-action-desc">คลังยา · ประวัติ · แจ้งเตือน</span>
@@ -65,9 +72,9 @@
                 <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
             </a>
 
-            <div style="display:flex; justify-content:center; gap:18px; flex-wrap:wrap;">
-                <a class="home-meta-link" href="student/history"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติการใช้งาน</a>
-                <a class="home-meta-link" href="student/about"><span class="material-symbols-rounded" aria-hidden="true">info</span>เกี่ยวกับโครงงาน</a>
+            <div class="home-meta-links">
+                <a class="home-meta-link" href="/student/history" data-requires-auth><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติการใช้งาน</a>
+                <a class="home-meta-link" href="/student/about"><span class="material-symbols-rounded" aria-hidden="true">info</span>เกี่ยวกับโครงงาน</a>
             </div>
         </section>
 
@@ -76,7 +83,7 @@
                 <span class="material-symbols-rounded" aria-hidden="true">emergency</span>
                 <span>เรียกครูพยาบาลด่วน</span>
             </button>
-            <a class="sos-school" href="student/about">โรงเรียนเทศบาล 6 นครเชียงราย</a>
+            <a class="sos-school" href="/student/about">โรงเรียนเทศบาล 6 นครเชียงราย</a>
         </div>
     </main>
 
@@ -86,7 +93,7 @@
     <script src="js/api-bridge.js"></script>
     <script>
         async function triggerHomeSos() {
-            // ไม่เกตการเรียกครูด้วยการล็อกอิน (Bank 2026-09-14)
+            // การเรียกครูไม่ถูกเกตด้วยการล็อกอิน เด็กที่ยังไม่ได้ล็อกอินก็ต้องเรียกครูได้
             if (!confirm('ต้องการส่งสัญญาณเรียกครูพยาบาลด่วนใช่หรือไม่?')) return;
 
             const button = document.getElementById('home-sos-button');
