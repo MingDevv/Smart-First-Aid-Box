@@ -20,6 +20,7 @@
          ทุกครั้งที่เปิดจอ (allowlist ของ edge/server.mjs ไม่มีไฟล์นั้น) -->
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="../css/kiosk.css">
+    <link rel="stylesheet" href="../css/kiosk-card.css">
 </head>
 <body>
 
@@ -101,6 +102,10 @@
                     <h1 class="view-title">เจ็บตรงไหน แตะเลือกได้เลย</h1>
                     <p class="view-lead">ถ้าอาการรุนแรงหรือไม่แน่ใจ ให้กดปุ่มเรียกครูทางขวาล่าง</p>
                 </div>
+                <!-- มาสคอตของตู้ — ที่ว่างทางขวาของหน้าแรกเคยโล่ง (Bank 2026-09-14)
+                     ตกแต่งล้วน จึงเป็น aria-hidden และต้องไม่กินที่ของปุ่มเมื่อจอแคบ -->
+                <img class="start-mascot" src="../images/mascot.webp" alt="" aria-hidden="true"
+                     width="520" height="520" decoding="async">
             </div>
             <div class="start-grid">
                 <button class="start-card start-card-primary" type="button" data-action="go-scan">
