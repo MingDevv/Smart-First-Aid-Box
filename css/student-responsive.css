@@ -411,10 +411,12 @@
         height: 260px;
     }
 
+    /* จอใหญ่ขึ้นก็ยังให้เบราว์เซอร์จัดเอง — ห้ามกลับไปจูนตัวเลขครอปด้วยมืออีก
+       เพราะมันผูกกับรูปชุดใดชุดหนึ่ง แล้วพังเงียบๆ ตอนเปลี่ยนรูป */
     .wound-photo {
-        top: -48%;
-        left: -12%;
-        width: 225%;
+        inset: 0;
+        width: 100%;
+        height: 100%;
     }
 
     .wound-copy {
@@ -1252,4 +1254,22 @@
     .scan-frame::after {
         animation: none !important;
     }
+}
+
+
+/* มาสคอตบนหน้าแรกของนักเรียน — ไม่มีกรอบ ไม่มีเงาทับ (Bank 2026-09-14)
+ * ตัวการ์ตูนมีพื้นโปร่ง ⇒ กรอบสี่เหลี่ยมกับ gradient ที่เคยใช้กับรูปถ่ายตู้
+ * กลายเป็นกล่องเปล่าล้อมตัวละครไว้ · ปล่อยให้มันลอยบนพื้นเขียวตรงๆ ตามภาพต้นฉบับ */
+.home-hero-mascot {
+    display: block;
+    margin: 0;
+}
+.home-hero-mascot img {
+    display: block;
+    width: min(100%, 420px);
+    height: auto;
+    margin-inline: auto;
+}
+@media (min-width: 900px) {
+    .home-hero-mascot img { margin-inline: 0; }
 }
