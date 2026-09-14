@@ -134,7 +134,7 @@ test('one rejected SOS channel preserves the other channel result', async () => 
     const b = browser({ fetch: async () => reply({ success: true }), buzzer: async () => { throw new Error('offline'); } });
     await b.service.sendSos('synthetic');
     assert.equal(b.notices.at(-1).type, 'warning');
-    assert.match(b.notices.at(-1).message, /ผ่าน LINE แล้ว/);
+    assert.match(b.notices.at(-1).message, /แจ้งครูพยาบาลแล้ว/, 'ออดล้มเหลวต้องไม่ลบผลสำเร็จของการแจ้งครู');
 });
 
 test('dashboard stop waits for off completion, prevents double click, and exposes uncertainty', async () => {
@@ -219,18 +219,62 @@ test('all four cloud SOS callers deliver without demanding a sign-in first', asy
     }
 });
 
-test('queued SOS never claims LINE delivery in either the toast or cabinet overlay', async () => {
-    const b = browser({fetch:async()=>reply({success:true,mode:'queued',lineDelivered:false},202),
-        buzzer:async()=>({success:true,mode:'pi-local'})});
+// จอตู้มีคนอ่านคนเดียวคือเด็กที่เพิ่งเจ็บ · Bank ถ่ายรูปมาให้ดู 2026-09-14 ตอนกด SOS จริง
+// แล้วเจอ "ยังยืนยันไม่ได้ทั้งหมด" กับภาษาอังกฤษดิบ ทั้งที่ระบบทำงานถูกทุกอย่าง
+//
+// หลัง WP2 ตู้ไม่ยิง LINE เองแล้ว มันบันทึกลง outbox ให้คลาวด์ส่งต่อ ⇒ `queued` คือทางปกติ
+// ที่สำเร็จ ไม่ใช่ทางที่พลาด · เทสเดิมปักไว้ว่าห้ามเรียก queued ว่าสำเร็จ ซึ่งถูกก่อน WP2
+// และผิดหลังจากนั้น · ข้อกังวลที่แท้จริงยังอยู่และยังถูกปักไว้: **ห้ามอ้างว่า LINE ส่งถึงแล้ว**
+const sosOverlay = async (b) => {
     const kiosk = await read('js/kiosk-app.js');
     const start = kiosk.indexOf('    async function sendSos()');
     const end = kiosk.indexOf('    function onIdleWarning',start);
     assert.ok(start>=0 && end>start);
     vm.runInContext('let sosBusy=false; const el=id=>document.getElementById(id); const storage=()=>null;'+kiosk.slice(start,end),b.context);
     await b.context.sendSos();
-    assert.match(b.notices.at(-1).message,/delivery is pending/);
-    assert.notEqual(b.notices.at(-1).type,'success');
-    assert.match(b.elements.get('sos-overlay-text').textContent,/LINE delivery pending/);
-    assert.doesNotMatch(b.elements.get('sos-overlay-text').textContent,/แจ้ง LINE ถึงครูแล้ว/);
-    assert.notEqual(b.elements.get('sos-overlay-title').textContent,'เรียกครูแล้ว');
+    return { title: b.elements.get('sos-overlay-title').textContent,
+        body: b.elements.get('sos-overlay-text').textContent };
+};
+
+test('a queued SOS reads as done to the student, without claiming LINE was delivered', async () => {
+    const b = browser({fetch:async()=>reply({success:true,mode:'queued',lineDelivered:false},202),
+        buzzer:async()=>({success:true,mode:'pi-local'})});
+    const { title, body } = await sosOverlay(b);
+    assert.equal(title,'แจ้งครูพยาบาลแล้ว','queued คือทางปกติหลัง WP2 ไม่ใช่ความล้มเหลว');
+    assert.equal(body,'รอครูสักครู่นะ');
+    for (const claim of [/LINE/i,/ส่งถึงครูแล้ว/,/delivered/i])
+        assert.doesNotMatch(title+' '+body,claim,'ห้ามอ้างว่า LINE ส่งถึงแล้วทั้งที่ยังอยู่ในคิว');
+});
+
+test('a student who cannot be helped by the screen is told to go find a teacher', async () => {
+    const b = browser({fetch:async()=>reply({success:false},503),buzzer:async()=>({success:false})});
+    const { title, body } = await sosOverlay(b);
+    assert.equal(title,'ยังแจ้งครูไม่ได้');
+    assert.match(body,/ไปตามครูที่อยู่ใกล้ที่สุด/);
+});
+
+// จอนี้เด็กอ่าน ไม่ใช่คนดูแลระบบ — ห้ามมีอังกฤษ ห้ามมีศัพท์ระบบ และต้องสั้นพอที่จะอ่านจบตอนเจ็บ
+test('the cabinet screen speaks Thai a child can act on, with no system jargon', async () => {
+    for (const [label, opts] of [
+        ['queued', {fetch:async()=>reply({success:true,mode:'queued'},202),buzzer:async()=>({success:true,mode:'pi-local'})}],
+        ['failed', {fetch:async()=>reply({success:false},503),buzzer:async()=>({success:false})}],
+        ['demo',   {fetch:async()=>reply({success:true,mode:'simulation'},200),buzzer:async()=>({success:true,mode:'simulation'})}]
+    ]) {
+        const { title, body } = await sosOverlay(browser(opts));
+        const seen = title+' '+body;
+        assert.doesNotMatch(seen,/[A-Za-z]/,`${label}: ห้ามมีตัวอักษรภาษาอังกฤษบนจอตู้`);
+        for (const jargon of [/ยืนยันไม่ได้ทั้งหมด/,/pending/i,/queued/i,/mode/i,/ACK/i])
+            assert.doesNotMatch(seen,jargon,`${label}: "${jargon}" เป็นศัพท์ของคนทำระบบ ไม่ใช่ของเด็ก`);
+        assert.ok(title.length <= 24,`${label}: หัวเรื่องยาวเกินไป (${title.length})`);
+        assert.ok(body.length <= 40,`${label}: คำอธิบายยาวเกินไป (${body.length})`);
+    }
+});
+
+// โหมดสาธิตต้องไม่บอกเด็กว่าเรียกครูแล้ว ทั้งที่ไม่มีใครถูกเรียก
+test('demo mode says plainly that no teacher was called', async () => {
+    const b = browser({fetch:async()=>reply({success:true,mode:'simulation'},200),
+        buzzer:async()=>({success:true,mode:'simulation'})});
+    const { title, body } = await sosOverlay(b);
+    assert.equal(title,'โหมดสาธิต');
+    assert.match(body,/ยังไม่ได้เรียกครูจริง/);
 });

@@ -794,13 +794,25 @@
             const who = student ? `${student.name} (${student.class})` : 'นักเรียนที่ตู้ปฐมพยาบาล';
             // sendSos รายงานผล LINE กับผลออดแยกกันเอง ไม่ OR รวมเป็นสำเร็จเดียว
             const outcome = await NotificationService.sendSos(NotificationService.buildSosFlexMessage(who));
-            const lineOk = outcome.line && outcome.line.success === true && outcome.line.mode !== 'simulation' && outcome.line.mode !== 'queued';
-            const buzzerOk = outcome.buzzer && outcome.buzzer.success === true && outcome.buzzer.mode !== 'simulation';
-            el('sos-overlay-title').textContent = lineOk && buzzerOk ? 'เรียกครูแล้ว' : 'ยังยืนยันไม่ได้ทั้งหมด';
-            el('sos-overlay-text').textContent =
-                `${lineOk ? 'แจ้ง LINE ถึงครูแล้ว' : outcome.line?.mode === 'queued' ? 'SOS saved; LINE delivery pending' : 'ยังยืนยันการแจ้ง LINE ไม่ได้'} · ` +
-                `${buzzerOk ? 'ตู้รับคำสั่งเปิดเสียงแล้ว' : 'ยังยืนยันเสียงที่ตู้ไม่ได้'}` +
-                `${lineOk && buzzerOk ? '' : ' — ให้ไปตามครูที่อยู่ใกล้ที่สุดด้วย'}`;
+            // คนอ่านจอนี้คือเด็กที่เพิ่งเจ็บ ไม่ใช่คนที่ดูแลระบบ
+            //
+            // ของเดิมเอาสถานะทางเทคนิคสามอย่างมาต่อกันเป็นประโยคเดียว แล้วขึ้นหัวว่า
+            // "ยังยืนยันไม่ได้ทั้งหมด" พร้อมภาษาอังกฤษดิบ (Bank ถ่ายรูปหน้าจอตู้มาให้ดู 2026-09-14
+            // ตอนกด SOS จริง) · เด็ก ป.5 อ่านแล้วไม่รู้ว่าต้องทำอะไรต่อ ซึ่งเป็นสิ่งเดียวที่จอนี้ต้องบอก
+            //
+            // **และหลังอัป WP2 มันไม่ได้แค่อ่านยาก มันผิดด้วย** — ตู้ไม่ยิง LINE เองแล้ว มันบันทึกลง
+            // outbox แล้วให้ฝั่งคลาวด์ส่งต่อ ⇒ `mode === 'queued'` กลายเป็น "ทางปกติที่สำเร็จ"
+            // ไม่ใช่ "ทางที่พลาด" · โค้ดเดิมยังนับ queued เป็นความล้มเหลว จอเลยขึ้นเตือนทั้งที่ทุกอย่างดี
+            //
+            // เกณฑ์ใหม่: เรียกครูสำเร็จ = "บันทึกคำขอไว้แล้ว" ไม่ใช่ "LINE ตอบกลับแล้ว"
+            // ผลของออดไม่อยู่บนจอนี้ เพราะเด็กได้ยินเสียงเองอยู่แล้ว และแก้อะไรไม่ได้ถ้ามันไม่ดัง
+            // รายละเอียดพวกนั้นไปอยู่บนการ์ด LINE ของครู ซึ่งเป็นคนที่ใช้มันได้จริง
+            const demo = outcome.line?.mode === 'simulation';
+            const called = outcome.line?.success === true && !demo;
+            el('sos-overlay-title').textContent = demo ? 'โหมดสาธิต'
+                : called ? 'แจ้งครูพยาบาลแล้ว' : 'ยังแจ้งครูไม่ได้';
+            el('sos-overlay-text').textContent = demo ? 'ยังไม่ได้เรียกครูจริง'
+                : called ? 'รอครูสักครู่นะ' : 'ให้ไปตามครูที่อยู่ใกล้ที่สุดทันที';
         } catch (error) {
             console.error('[Kiosk] SOS failed:', error);
             el('sos-overlay-title').textContent = 'เรียกครูไม่สำเร็จ';
