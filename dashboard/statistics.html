@@ -55,14 +55,14 @@
         <aside class="dashboard-sidebar">
             <a class="sidebar-brand" href="../">
                 <img class="sidebar-logo" src="../images/logo_first_aid.webp" width="72" height="72" alt="Smart First Aid Box">
-                <span><strong>First Aid Box</strong><span style="font-family:var(--font-sarabun); letter-spacing:0; font-size:10px;">ครูพยาบาล</span></span>
+                <span><strong>First Aid Box</strong><span style="font-family:var(--font-sarabun); letter-spacing:0; font-size:10px;">หลังบ้านครู</span></span>
             </a>
             <nav class="sidebar-nav" aria-label="เมนูแดชบอร์ด">
                 <a class="sidebar-link" href="/dashboard"><span class="material-symbols-rounded" aria-hidden="true">dashboard</span>ภาพรวม</a>
                 <a class="sidebar-link" href="/dashboard/medicine-management"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>คลังยา</a>
                 <a class="sidebar-link" id="history-nav-link" href="/dashboard/statistics#history"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติ</a>
                 <a class="sidebar-link active" id="statistics-nav-link" href="/dashboard/statistics"><span class="material-symbols-rounded" aria-hidden="true">monitoring</span>สถิติ</a>
-                <a class="sidebar-link" href="/dashboard/roles" data-admin-only><span class="material-symbols-rounded" aria-hidden="true">manage_accounts</span>สิทธิ์ครูพยาบาล</a>
+                <a class="sidebar-link" href="/dashboard/roles" data-admin-only><span class="material-symbols-rounded" aria-hidden="true">manage_accounts</span>สิทธิ์เข้าหลังบ้าน</a>
                 <a class="sidebar-link" href="/dashboard/medicine-management#settings"><span class="material-symbols-rounded" aria-hidden="true">settings</span>ตั้งค่า</a>
             </nav>
             <div class="sidebar-status">
@@ -72,7 +72,7 @@
         </aside>
 
         <main class="dashboard-main animate-fade-in">
-            <header class="dashboard-topbar"><div class="dashboard-greeting"><h1>ประวัติและสถิติ</h1><p>Smart First Aid Box</p></div><button class="dashboard-action" type="button" onclick="AuthService.signOut()">ออกจากระบบ</button></header>
+            <header class="dashboard-topbar"><div class="dashboard-greeting"><h1>ประวัติและสถิติ</h1><p>Smart First Aid Box</p></div><!-- ออกจากระบบอยู่ในเมนูของชิปบัญชีมุมขวาบน (ลบปุ่มซ้ำ 2026-09-14) --></header>
             <section class="db-card sync-panel" aria-label="Shared cabinet data">
                 <p id="data-status" role="status" aria-live="polite">Loading shared cabinet data…</p>
                 <button id="data-refresh" class="dashboard-action" type="button">Refresh data</button>

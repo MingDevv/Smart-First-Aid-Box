@@ -141,7 +141,13 @@ test('dashboard stop waits for off completion, prevents double click, and expose
     const html = await readFile(new URL('../dashboard/index.html', import.meta.url), 'utf8');
     const start = html.indexOf('        async function stopSosBuzzer()');
     assert.notEqual(start, -1, 'teacher must have an actual stop control');
-    const dispatch = html.slice(start, html.indexOf('        async function logout()', start));
+    // ปลายทางเดิมคือ `async function logout()` ซึ่งถูกลบไปตอนเอาปุ่มออกจากระบบที่ซ้ำกับชิปออก
+    // (2026-09-14) · `indexOf` คืน -1 เงียบๆ แล้ว slice ลากยาวไปทั้งไฟล์จนติด HTML เข้ามาใน vm
+    // ⇒ ยืนยันขอบเขตทั้งสองด้าน ไม่ใช่แค่ด้านเริ่ม เพื่อให้การย้ายโค้ดครั้งหน้าแดงแทนที่จะพังลึก
+    const end = html.indexOf("        document.addEventListener('DOMContentLoaded'", start);
+    assert.notEqual(end, -1, 'ต้องหาปลายของบล็อกสคริปต์เจอ ไม่งั้นกำลังรัน HTML เป็น JavaScript');
+    const dispatch = html.slice(start, end);
+    assert.doesNotMatch(dispatch, /<\/?[a-z]/i, 'สิ่งที่ตัดมาต้องเป็น JavaScript ล้วน');
     for (const result of [{ success: true }, { success: false }, { success: true, mode: 'simulation' }]) {
         let resolve, calls = 0;
         const b = browser({ buzzer: state => { assert.equal(state, 'off'); calls++; return new Promise(r => { resolve = r; }); } });

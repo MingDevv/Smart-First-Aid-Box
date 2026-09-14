@@ -13,8 +13,11 @@ function page({ code, userAgent = 'Mozilla/5.0 Safari/Chrome', local = false } =
         return elements.get(selector);
     };
     const context = vm.createContext({ navigator: { userAgent },
-        window: { SFAB_RUNTIME: local ? { transport: 'pi-local' } : undefined },
-        document: { body, readyState: 'complete', addEventListener() {}, createElement() {
+        window: { SFAB_RUNTIME: local ? { transport: 'pi-local' } : undefined, addEventListener() {} },
+        document: { body, readyState: 'complete', addEventListener() {},
+            // ชิปประกาศความกว้างของตัวเองเป็น custom property เพื่อให้หน้ากันที่ให้ได้
+            documentElement: { style: { setProperty() {} } },
+            createElement() {
             const node = { dataset: {}, setAttribute() {}, addEventListener() {}, querySelector: element,
                 contains: () => false, focus() {}, get open() { return modalOpens > 0; },
                 showModal() { modalOpens++; }, close() { modalOpens = 0; } };
@@ -116,5 +119,30 @@ test('the dialog declares its own centring because the global reset kills margin
     assert.ok(block, '#auth-dialog ต้องมีบล็อกของตัวเอง');
     for (const rule of [/margin:\s*auto/, /inset:\s*0/, /position:\s*fixed/]) {
         assert.match(block, rule, String(rule));
+    }
+});
+
+// ชิปบัญชีลอยอยู่นอกเลย์เอาต์ หน้าจึงไม่มีทางรู้ว่ามันมีอยู่ และมันไปทับปุ่มของหน้า
+//
+// Bank เห็นบนหน้าหลักหลังบ้าน 2026-09-14: ชิปนั่งทับปุ่ม "เติมเวชภัณฑ์" พอดี
+// ทางแก้มีสองส่วนที่ต้องอยู่ครบคู่กัน ไม่งั้นกลับไปทับเหมือนเดิมโดยไม่มีอะไรเตือน
+test('the floating account chip reserves its own footprint instead of covering page buttons', async () => {
+    const css = await readFile(new URL('../css/auth.css', import.meta.url), 'utf8');
+    assert.match(source, /--auth-chip-width/, 'auth-ui.js ต้องวัดแล้วประกาศความกว้างจริงของชิป');
+    assert.match(source, /window\.addEventListener\('resize'/, 'หมุนจอแล้วความกว้างเปลี่ยน ต้องวัดใหม่');
+    assert.match(css, /\.dashboard-topbar\s*\{[^}]*padding-right:\s*calc\(var\(--auth-chip-width/s,
+        'หน้าที่มีปุ่มมุมขวาบนต้องกันที่ให้ชิป');
+});
+
+// ชิปมีเมนูออกจากระบบอยู่แล้ว ปุ่มเดิมของแต่ละหน้าจึงซ้ำ และมันนั่งอยู่ตรงจุดที่ชิปทับพอดี
+test('no dashboard page ships a second sign-out control next to the chip', async () => {
+    const pages = ['index', 'statistics', 'medicine-management', 'roles'];
+    for (const page of pages) {
+        const html = await readFile(new URL(`../dashboard/${page}.html`, import.meta.url), 'utf8');
+        const live = html.replace(/<!--[\s\S]*?-->/g, '');
+        assert.doesNotMatch(live, /signOut\(\)|logout\(\)/,
+            `dashboard/${page}.html ต้องไม่มีปุ่มออกจากระบบของตัวเอง — เมนูในชิปเป็นเจ้าของเรื่องนี้`);
+        assert.doesNotMatch(live, /ครูพยาบาล/,
+            `dashboard/${page}.html ยังเอ่ยถึงบทบาทที่ยกเลิกไปแล้ว (nurse ถูกถอด 2026-09-14)`);
     }
 });

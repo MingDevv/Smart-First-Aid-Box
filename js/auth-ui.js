@@ -50,6 +50,19 @@
             + '<button id="google-sign-out" type="button" role="menuitem">ออกจากระบบ</button></div>';
         document.body.appendChild(chip);
 
+        // ชิปลอยทับปุ่มของหน้า เพราะหน้าไม่มีทางรู้ว่ามันมีอยู่
+        //
+        // Bank เจอบนหน้าหลักหลังบ้าน 2026-09-14: ชิปบัญชีนั่งทับปุ่ม "เติมเวชภัณฑ์" พอดี
+        // สิ่งที่ลอยอยู่นอก flow จะชนกับอะไรสักอย่างเสมอ ⇒ ให้ชิปประกาศขนาดตัวเองออกไป
+        // แล้วหน้าที่มีของอยู่มุมนั้นกันที่ไว้ให้ (ดู `.dashboard-topbar` ใน css/auth.css)
+        // วัดจริงแทนที่จะเดา เพราะความกว้างขึ้นกับความยาวชื่อของคนที่ล็อกอินอยู่
+        const publishFootprint = () => {
+            const width = chip.offsetWidth;
+            if (width) document.documentElement.style.setProperty('--auth-chip-width', `${width}px`);
+        };
+        publishFootprint();
+        window.addEventListener('resize', publishFootprint);
+
         const dialog = document.createElement('dialog');
         dialog.id = 'auth-dialog';
         dialog.setAttribute('aria-labelledby', 'auth-dialog-title');
@@ -164,6 +177,7 @@
                     : inAppBrowser ? 'เปิดใน Safari/Chrome'
                     : 'เข้าสู่ระบบ';
             }
+            publishFootprint();   // ป้ายเพิ่งเปลี่ยน ความกว้างจึงเปลี่ยนตาม
 
             if (document.body.dataset.authReady === 'true') { if (dialog.open) dialog.close(); return; }
             if (!gated || state.status === 'loading') return;
