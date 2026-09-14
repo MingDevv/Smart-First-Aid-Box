@@ -27,7 +27,7 @@ async function issue(uid) {
 before(async () => {
     ({auth,db}=firebaseServices());
     for(const [name,role,email,verified] of [
-        // `retired` ถือ role 'nurse' ที่ถูกยกเลิก 2026-09-14 — ต้องถูกปฏิบัติเหมือนนักเรียน ไม่ใช่ staff
+        // `retired` ถือ role 'nurse' ที่ถูกยกเลิกไปแล้ว — ต้องถูกปฏิบัติเหมือนนักเรียน ไม่ใช่ staff
         // `revocable` เป็นครูจริงที่มีไว้ให้เทสถอดสิทธิ์โดยเฉพาะ จะได้ไม่ไปถอดครูที่เทสอื่นใช้อยู่
         ['student',null,'student@tesaban6.ac.th',true],['retired','nurse','retired@tesaban6.ac.th',true],
         ['teacher','teacher','teacher@tesaban6.ac.th',true],['admin','admin','admin@tesaban6.ac.th',true],
@@ -111,7 +111,7 @@ test('deleting a role takes effect on the next command with the same valid token
 test('actual student ID token may send SOS, but cannot forge sender or submit a staff event',async()=>{
     const sent=[];
     const notify=createNotifyHandler({send:async token=>{sent.push(token?.uid??null);return{success:true};}});
-    // การเรียกครูไม่ถูกเกตด้วยตัวตน (Bank 2026-09-14 · กฎเดิมในวิกิข้อ 9) — ไม่มี token ก็ส่งถึง
+    // การเรียกครูไม่ถูกเกตด้วยตัวตน — ไม่มี token ก็ส่งถึง
     // และบัญชีนอกโรงเรียนก็ส่งถึงเหมือนกัน เพียงแต่ไม่ถูกนับเป็นตัวตนที่เชื่อถือได้ จึงส่งแบบไม่ระบุชื่อ
     assert.equal((await invoke(notify,null,{event:'sos'})).status,200);
     assert.equal((await invoke(notify,tokens.get('external'),{event:'sos'})).status,200);

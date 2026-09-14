@@ -1,7 +1,6 @@
 // หน้าใหม่ต้องไม่ทำให้ผู้ใช้รอเครือข่ายเพื่อรู้ว่าตัวเองเป็นใคร
 //
-// `js/auth.js` ไม่เคยมีเทสมาก่อน ทั้งที่มันคือสิ่งที่ทำงานทุกหน้า · Bank รายงาน 2026-09-14 ว่าเว็บช้า
-// เพราะชิปขึ้น "กำลังตรวจสอบบัญชี" ทุกหน้า ⇒ เทสชุดนี้ปักพฤติกรรมที่ทำให้มันหาย และปักเส้นที่ห้ามข้าม:
+// เทสชุดนี้ปักพฤติกรรมของ `js/auth.js` ซึ่งทำงานทุกหน้า และปักเส้นที่ห้ามข้าม:
 // **แคชนี้เร่งการแสดงผลได้ แต่ต้องยอมเซิร์ฟเวอร์ทันทีที่เซิร์ฟเวอร์ตอบ**
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -139,7 +138,7 @@ test('signing out leaves nothing behind for the next page to read', async () => 
     assert.equal(p.calls.signOut, 1);
 });
 
-// `focus` ยิงถี่มากบนมือถือ ทุกครั้งที่สลับแอปกลับมา — ของเดิมแปลว่าเรียก /api/me ทุกครั้ง
+// `focus` ยิงถี่มากบนมือถือ ทุกครั้งที่สลับแอปกลับมา — ถ้าผูก /api/me ไว้กับ focus จะยิงซ้ำทุกครั้ง
 test('returning to the tab does not hammer the server once the session is verified', async () => {
     const p = page({ seed: fresh() });
     await p.service.ready;

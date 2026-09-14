@@ -67,7 +67,7 @@ test('role allowlist, revocation and failures close the command path before MQTT
     assert.equal((await invoke(studentHandler, {method:'GET',headers:{}})).status,401);
     assert.equal((await invoke(studentHandler, {...request(),method:'GET'})).status,403);
     assert.equal(mqttClientStatsForTests().created, 0);
-    // สามบทบาทเท่านั้น (Bank 2026-09-14) — `nurse` ที่ค้างในเอกสารเก่าต้องตกเป็น student ไม่ใช่ผ่าน
+    // สามบทบาทเท่านั้น — `nurse` ที่ค้างในเอกสารเก่าต้องตกเป็น student ไม่ใช่ผ่าน
     for (const role of ['teacher','admin']) {
         const handler = createCommandHandler(createAuthorizer(services({role})));
         assert.equal((await invoke(handler,request({action:'invalid'}))).status,400);
@@ -80,7 +80,7 @@ test('student SOS only accepts its event and forwards exclusively verified ident
         sent.push(token); return { success:true };
     }});
     assert.equal((await invoke(handler,request({messages:[{type:'text',text:'forged'}]}))).status,400);
-    // ไม่มี token ก็ต้องส่งถึงครู (Bank 2026-09-14) — การเรียกครูไม่ถูกเกตด้วยตัวตน ตามกฎเดิมในวิกิข้อ 9
+    // ไม่มี token ก็ต้องส่งถึงครู — การเรียกครูไม่ถูกเกตด้วยตัวตน ตามกฎในวิกิข้อ 9
     // ตัวตนเป็นของแถมที่ทำให้ข้อความมีชื่อ ไม่ใช่เงื่อนไขก่อนส่ง · ฝั่ง send ได้ null ไปตรงๆ
     assert.equal((await invoke(handler,{...request({event:'sos'}),headers:{}})).status,200);
     assert.deepEqual(sent,[null],'ต้องส่งแบบไม่ระบุชื่อ ไม่ใช่ปฏิเสธ');
@@ -100,7 +100,7 @@ test('LINE sends minimal plain text to a configured group and preserves transpor
         globalThis.fetch=async(url,options)=>{ assert.equal(url,'https://api.line.me/v2/bot/message/push');body=JSON.parse(options.body);return{ok:true}; };
         assert.equal((await sendSchoolSos(school)).success,true);
         assert.equal(body.to,'synthetic-group');
-        // SOS จากเว็บใช้การ์ด Flex ภาษาไทยชุดเดียวกับฝั่งตู้ (2026-09-14) ⇒ ครูเห็นหน้าตาเดียวกันทั้งสองทาง
+        // SOS จากเว็บใช้การ์ด Flex ภาษาไทยชุดเดียวกับฝั่งตู้ ⇒ ครูเห็นหน้าตาเดียวกันทั้งสองทาง
         assert.equal(body.messages[0].type,'flex');
         const rendered = JSON.stringify(body.messages[0]);
         // ชื่อต้นอย่างเดียว ไม่เอานามสกุล — ข้อจำกัดเดิมที่ต้องอยู่ต่อแม้เปลี่ยนรูปแบบข้อความ
@@ -146,7 +146,7 @@ test('public Firebase config is an explicit allowlist and missing config fails c
 });
 
 // ค่าสาธารณะที่ห้ามแคช = ปลุก lambda ทุกครั้งที่เปิดหน้า แล้วการโหลด SDK ถึงจะเริ่มได้
-// วัดจริงบน production 2026-09-14: 0.42–1.70 วินาทีต่อหน้า และ `x-vercel-cache: MISS` ทุกครั้ง
+// วัดจริงบน production: 0.42–1.70 วินาทีต่อหน้า และ `x-vercel-cache: MISS` ทุกครั้ง
 // สิ่งที่ต้องไม่พังไปพร้อมกัน: คำตอบตอนตั้งค่าไม่ครบ (503) ต้องไม่ถูกแคชค้าง ไม่งั้นแก้ env แล้วเว็บยังเสียทั้งวัน
 test('public Firebase config is cacheable, but a misconfigured answer never is', async () => {
     const values = { FIREBASE_PROJECT_ID:'synthetic-school-project', FIREBASE_WEB_API_KEY:'synthetic-public-key',

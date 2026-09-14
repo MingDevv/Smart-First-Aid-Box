@@ -34,7 +34,7 @@ async function readJson(req, limit) {
     catch { throw Object.assign(new Error('Invalid JSON'), { status: 400 }); }
 }
 
-// การวิเคราะห์แผลด้วย AI ส่งต่อขึ้น Vercel ตู้ไม่ถือคีย์ Gemini (เคาะ 2026-09-14)
+// การวิเคราะห์แผลด้วย AI ส่งต่อขึ้น Vercel ตู้ไม่ถือคีย์ Gemini
 //
 // เหตุผลที่ไม่ใส่คีย์ไว้ที่ตู้: Gemini ต้องใช้เน็ตอยู่แล้ว การเก็บคีย์ไว้บนการ์ด SD ของตู้
 // ที่ตั้งอยู่กลางทางเดินโรงเรียนจึงไม่ได้ทำให้ทำงานตอนออฟไลน์ได้เพิ่มขึ้นเลยแม้แต่นิดเดียว
@@ -51,8 +51,8 @@ function cloudBase() {
 const CLOUD_ANALYZE_TIMEOUT_MS = 20000;
 
 // เขียนซ้ำจาก USER_ERROR_MSG ใน api/analyze.js โดยตั้งใจ **ห้ามเปลี่ยนเป็น import**
-// เส้นทางจอสัมผัสต้องไม่พึ่ง import ที่ล้มได้ — เหตุผลเดียวกับที่ PR #17 ถอด `import mqtt`
-// ออกจากหัวไฟล์นี้ (99291a5): ไฟล์ใน api/ เป็นของ Vercel ถ้าวันหนึ่งมันไปเรียกอะไรที่ Pi
+// เส้นทางจอสัมผัสต้องไม่พึ่ง import ที่ล้มได้ — เหตุผลเดียวกับที่หัวไฟล์นี้ไม่มี `import mqtt`
+// อยู่ด้วย: ไฟล์ใน api/ เป็นของ Vercel ถ้าวันหนึ่งมันไปเรียกอะไรที่ Pi
 // ไม่มี ตู้จะบูตบริการไม่ขึ้นทั้งใบ แล้วจอสัมผัสตายไปด้วยทั้งที่ไม่เกี่ยวกับ AI เลย
 // กันค่าเพี้ยนด้วยเทส 'the cabinet fallback sentence matches the cloud one' แทนการ import
 export const CLOUD_ANALYZE_ERROR_MSG = 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง';
@@ -81,7 +81,7 @@ async function analyzeViaCloud(req, res) {
 // เดิมโหมดเก็บใน localStorage ของโปรไฟล์ Chromium บนตู้ ซึ่งตั้งได้จากหน้าครูที่เดียว
 // แต่หน้าตู้ไม่มีลิงก์ออกและ Ctrl+L/Ctrl+N ถูก managed policy บล็อก ⇒ ไปหน้าครูไม่ได้เลย
 // โหมดจึงค้างที่ "ยังไม่ได้ตั้ง" ตลอดกาล และตู้ปฏิเสธทุกคำสั่ง — สามอย่างที่แต่ละอย่างถูก
-// พอมารวมกันแล้วทำให้ตู้ใช้งานไม่ได้ (เจอ 2026-09-12)
+// พอมารวมกันแล้วทำให้ตู้ใช้งานไม่ได้
 //
 // ค่าที่ฉีดนี้ **ชนะ localStorage เสมอ** ไม่งั้นจะมีสองแหล่งความจริงเรื่องโหมด
 // ซึ่งเป็นความล้มเหลวที่ระบบสามค่านี้เกิดมาเพื่อกำจัด
@@ -90,7 +90,7 @@ async function analyzeViaCloud(req, res) {
 //
 // เดิมค่าที่ไม่รู้จักจะไม่ฉีดอะไรเลย แล้วเบราว์เซอร์ตกกลับไปอ่าน localStorage
 // ⇒ เครื่องที่เคยตั้ง Real ไว้ แล้วลบ drop-in ทิ้ง **ไม่ได้กลับเป็น unset** แต่ฟื้นคืน Real
-// จาก localStorage เก่า ซึ่งตรงข้ามกับที่ sfab-set-mode.sh สัญญาไว้ (นัยวัดได้จริง R3-1)
+// จาก localStorage เก่า ซึ่งตรงข้ามกับที่ sfab-set-mode.sh สัญญาไว้
 // เทสที่ใช้โปรไฟล์ใหม่ทุกครั้งมองไม่เห็นเคสนี้
 export function normalizeMode(raw) {
     const mode = (raw ?? '').toString().trim().toLowerCase();
@@ -256,8 +256,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     // v26.8.2: one parked keep-alive connection held open, close() WITHOUT
     // closeIdleConnections() resolved in 0.2ms. (Control: the same probe against a socket
     // mid-request did not resolve at all inside 10s, so it can detect a stalled close.)
-    // The earlier claim here — that Chromium's sockets make close() wait out TimeoutStopSec —
-    // was wrong, and deploy/pi/ repeated it; both are corrected.
     //
     // What does hold close() open is an IN-FLIGHT request. A POST /api/command may legitimately
     // run to the firmware ACK budget + 3s, up to 123s (controller.mjs caps ackTimeoutMs at

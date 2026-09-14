@@ -141,8 +141,7 @@ test('dashboard stop waits for off completion, prevents double click, and expose
     const html = await readFile(new URL('../dashboard/index.html', import.meta.url), 'utf8');
     const start = html.indexOf('        async function stopSosBuzzer()');
     assert.notEqual(start, -1, 'teacher must have an actual stop control');
-    // ปลายทางเดิมคือ `async function logout()` ซึ่งถูกลบไปตอนเอาปุ่มออกจากระบบที่ซ้ำกับชิปออก
-    // (2026-09-14) · `indexOf` คืน -1 เงียบๆ แล้ว slice ลากยาวไปทั้งไฟล์จนติด HTML เข้ามาใน vm
+    // `indexOf` คืน -1 เงียบๆ แล้ว slice ลากยาวไปทั้งไฟล์จนติด HTML เข้ามาใน vm
     // ⇒ ยืนยันขอบเขตทั้งสองด้าน ไม่ใช่แค่ด้านเริ่ม เพื่อให้การย้ายโค้ดครั้งหน้าแดงแทนที่จะพังลึก
     const end = html.indexOf("        document.addEventListener('DOMContentLoaded'", start);
     assert.notEqual(end, -1, 'ต้องหาปลายของบล็อกสคริปต์เจอ ไม่งั้นกำลังรัน HTML เป็น JavaScript');
@@ -167,10 +166,8 @@ test('dashboard stop waits for off completion, prevents double click, and expose
 });
 
 
-// การเรียกครูต้องไม่ถูกเกตด้วยการล็อกอิน (Bank 2026-09-14)
-//
-// WP1 เคยใส่เกตไว้ทุกตัวเรียก แล้วเด็กที่ยังไม่ล็อกอินกดเรียกครูไม่ได้เลย ซึ่งขัดกับกฎเดิมในวิกิข้อ 9
-// ที่ว่า SOS/ออด/คู่มือ/LINE ไม่ถูกเกตด้วยตัวตน โหมด นาฬิกา หรือเน็ต · ตัวตนกลายเป็นของแถมที่ทำให้
+// การเรียกครูต้องไม่ถูกเกตด้วยการล็อกอิน — ถ้าใส่เกต เด็กที่ยังไม่ล็อกอินจะเรียกครูไม่ได้เลย
+// SOS/ออด/คู่มือ/LINE ไม่ถูกเกตด้วยตัวตน โหมด นาฬิกา หรือเน็ต · ตัวตนกลายเป็นของแถมที่ทำให้
 // ข้อความมีชื่อ ไม่ใช่เงื่อนไขก่อนส่ง
 test('home SOS reaches the teacher whether or not the student signed in', async () => {
     const html = await read('index.html');
@@ -219,12 +216,10 @@ test('all four cloud SOS callers deliver without demanding a sign-in first', asy
     }
 });
 
-// จอตู้มีคนอ่านคนเดียวคือเด็กที่เพิ่งเจ็บ · Bank ถ่ายรูปมาให้ดู 2026-09-14 ตอนกด SOS จริง
-// แล้วเจอ "ยังยืนยันไม่ได้ทั้งหมด" กับภาษาอังกฤษดิบ ทั้งที่ระบบทำงานถูกทุกอย่าง
+// จอตู้มีคนอ่านคนเดียวคือเด็กที่เพิ่งเจ็บ
 //
-// หลัง WP2 ตู้ไม่ยิง LINE เองแล้ว มันบันทึกลง outbox ให้คลาวด์ส่งต่อ ⇒ `queued` คือทางปกติ
-// ที่สำเร็จ ไม่ใช่ทางที่พลาด · เทสเดิมปักไว้ว่าห้ามเรียก queued ว่าสำเร็จ ซึ่งถูกก่อน WP2
-// และผิดหลังจากนั้น · ข้อกังวลที่แท้จริงยังอยู่และยังถูกปักไว้: **ห้ามอ้างว่า LINE ส่งถึงแล้ว**
+// ตู้ไม่ยิง LINE เอง มันบันทึกลง outbox ให้คลาวด์ส่งต่อ ⇒ `queued` คือทางปกติ
+// ที่สำเร็จ ไม่ใช่ทางที่พลาด · ข้อกังวลที่แท้จริงคือ **ห้ามอ้างว่า LINE ส่งถึงแล้ว**
 const sosOverlay = async (b) => {
     const kiosk = await read('js/kiosk-app.js');
     const start = kiosk.indexOf('    async function sendSos(');

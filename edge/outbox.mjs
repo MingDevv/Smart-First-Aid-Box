@@ -24,7 +24,7 @@ export class CabinetOutbox {
         if (![1, 2].includes(row.drawer)) return;
         const ts = Number.isFinite(Date.parse(row.created_at)) ? row.created_at : new Date().toISOString();
         const identity = row.student_identity ? JSON.parse(row.student_identity) : null;
-        // สามค่า ไม่ใช่สอง (2026-09-15): `cabinet_photo` คือรอบที่ไม่มีบัตรแล้วถ่ายรูปแทน
+        // สามค่า ไม่ใช่สอง: `cabinet_photo` คือรอบที่ไม่มีบัตรแล้วถ่ายรูปแทน
         // ซึ่งต้องแยกจาก `unidentified` ให้ขาด เพราะ `unidentified` วันนี้หมายถึงคำสั่งที่มาจาก
         // MQTT/คลาวด์ซึ่งไม่มีใครยืนอยู่หน้าตู้เลย · ถ้ายุบเป็นค่าเดียว ครูจะแยกไม่ออกว่า
         // แถวนี้คือเด็กที่ลืมบัตรแล้วเรามีรูปให้ดู หรือคือคำสั่งที่ยิงมาจากที่อื่น

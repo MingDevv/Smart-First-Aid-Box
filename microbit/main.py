@@ -1,9 +1,9 @@
 # SFAB cabinet firmware — micro:bit V1.5, MicroPython v1.1.1, USB serial to the Raspberry Pi.
 #
-# Replaces the MakeCode program (last MakeCode revision: git 2a1de19; the students' 2026-09-12
-# build is preserved as a raw dump, harness-audits/sfab-nema-v1-20260912/live-20260912-*.bin).
-# Why the rewrite, decided by Bank 2026-09-12: the ESP32 is gone, the Pi drives the board over
-# USB, and MicroPython is what we can build, flash and verify from the Pi end to end.
+# Replaces the MakeCode program (last MakeCode revision: git 2a1de19; that build is preserved
+# as a raw dump, harness-audits/sfab-nema-v1-20260912/live-20260912-*.bin).
+# Why the rewrite: the ESP32 is gone, the Pi drives the board over USB, and MicroPython is what
+# we can build, flash and verify from the Pi end to end.
 #
 # Frame contract is UNCHANGED from the MakeCode/ESP32 era, so edge/controller.mjs keeps its
 # journal, hold and ACK semantics; only the transport moved from ESP32-HTTP to Pi-USB-serial.
@@ -13,15 +13,15 @@
 #                 BUZZ_DONE1:<id> | BUZZ_DONE0:<id>
 #   Pi -> board : OPEN1:<id>:<epoch> | OPEN2:<id>:<epoch> | BUZZ1:<id> | BUZZ0:<id>
 #
-# Hardware, measured on the cabinet 2026-09-12 (Bank watched every run; wiki smart-first-aid-box §7):
+# Hardware, measured on the cabinet (wiki smart-first-aid-box §7):
 #   two NEMA-17 steppers on two L298N modules, one-hot wave drive, 200 steps = one revolution.
 #   drawer 1 (cut/abrasion) = bottom motor P12 P13 P14 P15, rotating order P12 P14 P13 P15
 #   drawer 2 (insect)       = top motor    P0  P1  P2  P8,  rotating order P0  P2  P1  P8
 #   buzzer on P16 — `music` defaults to P0, which is now a motor coil; P16 is the last free pin.
-#     P5/P11 are wired to buttons A/B in hardware and can never drive it (silent ACK trap, 2026-09-14).
+#     P5/P11 are wired to buttons A/B in hardware and can never drive it (silent ACK trap).
 #     The board stops the buzzer itself after BUZZ_MAX_MS; BUZZ0 still stops it at once.
-# Physical buttons no longer dispense: an ungated button bypassed every safety in the Pi
-# (handoff 2026-09-12 §6.1), and Bank/Nai agreed the board must not start a dispense on its own.
+# Physical buttons no longer dispense: an ungated button bypasses every safety in the Pi, so the
+# board must not start a dispense on its own.
 from microbit import uart, display, sleep, running_time, Image, pin16
 from microbit import pin0, pin1, pin2, pin8, pin12, pin13, pin14, pin15
 import music
@@ -31,10 +31,10 @@ STEP_MS = 5
 HEARTBEAT_MS = 500
 ID_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-'
 
-# ออดดับตัวเองหลังเท่านี้ ไม่ต้องรอใครสั่ง (Bank เคาะ 5 วินาที 2026-09-14)
+# ออดดับตัวเองหลังเท่านี้ ไม่ต้องรอใครสั่ง
 #
 # ของเดิม BUZZ1 เล่น music.pitch(..., -1) = ดังไปเรื่อยๆ และปุ่มปิดมีที่เดียวคือหน้าครูบน Vercel
-# ซึ่งต้องล็อกอิน ⇒ วันที่เทส ไม่มีใครในโรงเรียนปิดออดได้เลย ต้องยิงคำสั่งจากนอกให้
+# ซึ่งต้องล็อกอิน ⇒ ถ้าไม่มีใครล็อกอินได้ ก็ไม่มีใครที่ตู้ปิดออดได้เลย ต้องยิงคำสั่งจากนอกให้
 # ตัวจับเวลาอยู่ที่บอร์ด ไม่ใช่ที่ Pi เพราะถ้า Pi ดับหรือ service ตายกลางคัน ออดต้องยังดับเอง
 # BUZZ0 ยังหยุดได้ทันทีเหมือนเดิม และ BUZZ1 ใหม่เริ่มนับใหม่
 BUZZ_MAX_MS = 5000
