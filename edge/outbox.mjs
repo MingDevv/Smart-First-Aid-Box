@@ -24,8 +24,14 @@ export class CabinetOutbox {
         if (![1, 2].includes(row.drawer)) return;
         const ts = Number.isFinite(Date.parse(row.created_at)) ? row.created_at : new Date().toISOString();
         const identity = row.student_identity ? JSON.parse(row.student_identity) : null;
+        // สามค่า ไม่ใช่สอง (2026-09-15): `cabinet_photo` คือรอบที่ไม่มีบัตรแล้วถ่ายรูปแทน
+        // ซึ่งต้องแยกจาก `unidentified` ให้ขาด เพราะ `unidentified` วันนี้หมายถึงคำสั่งที่มาจาก
+        // MQTT/คลาวด์ซึ่งไม่มีใครยืนอยู่หน้าตู้เลย · ถ้ายุบเป็นค่าเดียว ครูจะแยกไม่ออกว่า
+        // แถวนี้คือเด็กที่ลืมบัตรแล้วเรามีรูปให้ดู หรือคือคำสั่งที่ยิงมาจากที่อื่น
+        // `identity` เก่าที่ค้างใน SQLite ก่อนวันนี้ไม่มีฟิลด์นี้ จึงตกไปที่ `cabinet_card` ตามเดิม
+        const verifiedBy = identity?.verifiedBy || (identity ? 'cabinet_card' : 'unidentified');
         this.add({ id: row.id, kind: 'dispense', cabinetId: this.cabinetId, ts,
-            uid: identity?.studentId || null, studentId: identity?.studentId || null, badgeId: identity?.badgeId || null, verifiedBy: identity ? 'cabinet_card' : 'unidentified', clockTrust: 'untrusted',
+            uid: identity?.studentId || null, studentId: identity?.studentId || null, badgeId: identity?.badgeId || null, verifiedBy, clockTrust: 'untrusted',
             drawer: row.drawer, woundType: row.drawer === 1 ? 'cut_abrasion' : 'insect',
             itemsUsed: [], ack: result?.body?.ack ? 'confirmed' : row.state,
             uncertain: row.state === 'uncertain', historical });
