@@ -1,11 +1,11 @@
 {
   "name": "smart-first-aid-box",
   "version": "1.0.0",
-  "description": "Smart First Aid Box \u2014 IoT Healthcare System for Schools",
+  "description": "Smart First Aid Box — IoT Healthcare System for Schools",
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "npm run test:ui && node tests/local.test.mjs && node --test tests/kiosk-session.test.mjs && node tests/firmware-command-history.test.mjs && node --test tests/cloud-bridge.test.mjs tests/guide-command.test.mjs tests/sos.test.mjs tests/command-retry.test.mjs && npm run test:edge && npm run test:auth",
+    "test": "npm run test:ui && node tests/local.test.mjs && node --test tests/kiosk-session.test.mjs && node tests/firmware-command-history.test.mjs && node --test tests/runtime-cjs-deps.test.mjs tests/cloud-bridge.test.mjs tests/guide-command.test.mjs tests/sos.test.mjs tests/command-retry.test.mjs && npm run test:edge && npm run test:auth",
     "start:edge": "node edge/server.mjs",
     "test:edge": "node --test tests/edge.test.mjs tests/microbit-serial.test.mjs tests/mqtt-cloud.test.mjs && python3 tests/microbit_protocol_test.py",
     "test:ui": "node tests/ui-smoke.test.mjs",
@@ -29,6 +29,9 @@
   "overrides": {
     "gaxios@6.7.1": {
       "uuid": "11.1.1"
+    },
+    "jwks-rsa": {
+      "jose": "^5.10.0"
     }
   },
   "engines": {
