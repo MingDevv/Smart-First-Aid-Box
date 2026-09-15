@@ -31,7 +31,9 @@ export class CabinetOutbox {
         // `identity` เก่าที่ค้างใน SQLite ก่อนวันนี้ไม่มีฟิลด์นี้ จึงตกไปที่ `cabinet_card` ตามเดิม
         const verifiedBy = identity?.verifiedBy || (identity ? 'cabinet_card' : 'unidentified');
         this.add({ id: row.id, kind: 'dispense', cabinetId: this.cabinetId, ts,
-            uid: identity?.studentId || null, studentId: identity?.studentId || null, badgeId: identity?.badgeId || null, verifiedBy, clockTrust: 'untrusted',
+            // รอบที่มาจากเว็บมี `uid` ของบัญชีโรงเรียนแต่ไม่มี `studentId` ของทะเบียนบัตร
+            // ⇒ อ่าน uid ตรงๆ ก่อน แล้วค่อยตกไปที่ studentId ของรอบที่ใช้บัตร
+            uid: identity?.uid || identity?.studentId || null, studentId: identity?.studentId || null, badgeId: identity?.badgeId || null, verifiedBy, clockTrust: 'untrusted',
             drawer: row.drawer, woundType: row.drawer === 1 ? 'cut_abrasion' : 'insect',
             itemsUsed: [], ack: result?.body?.ack ? 'confirmed' : row.state,
             uncertain: row.state === 'uncertain', historical });

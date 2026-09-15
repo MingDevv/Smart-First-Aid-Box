@@ -137,6 +137,33 @@ test('a dispense with no badge reaches LINE as its own kind, not as a cloud comm
     db.close();
 });
 
+// รอบที่สั่งจากเว็บพก uid ของบัญชีโรงเรียนมา แต่ไม่มี studentId ของทะเบียนบัตร
+// whitelist ต้องรับรูปนี้ ไม่งั้น uid ถูกทิ้งเงียบๆ แล้วการ์ดกลับไปเป็น "ยังไม่ทราบว่าเป็นใคร"
+test('a web dispense carries its school-account uid through the outbox and the whitelist', () => {
+    const db = new DatabaseSync(':memory:');
+    const outbox = new CabinetOutbox(db);
+    outbox.record({ id: 'round-web-01', drawer: 1, state: 'confirmed', created_at: new Date().toISOString(),
+        student_identity: JSON.stringify({ studentId: null, badgeId: null, uid: 'GoogUid123', verifiedBy: 'school_account' }) },
+        { body: { ack: true } });
+
+    const event = outbox.pending().find(item => item.id === 'round-web-01');
+    assert.equal(event.verifiedBy, 'school_account');
+    assert.equal(event.uid, 'GoogUid123', 'uid ต้องไม่ถูกดึงมาจาก studentId ซึ่งรอบนี้ไม่มี');
+    assert.equal(event.studentId, null);
+
+    const validated = validateEvent(event, 'box1');
+    assert.equal(validated.uid, 'GoogUid123');
+    assert.equal(validated.verifiedBy, 'school_account');
+    assert.equal(validated.studentId, undefined, 'ไม่มีรหัสทะเบียน ก็ต้องไม่แต่งขึ้นมา');
+
+    // รูปที่อ้าง school_account แต่พก studentId/badgeId มาด้วย = ปนสองแบบ ต้องถูกปฏิเสธ
+    for (const bad of [{ studentId: '0001' }, { badgeId: 'a'.repeat(64) }, { uid: null }, { uid: 42 }]) {
+        assert.throws(() => validateEvent({ ...event, ...bad }, 'box1'), /invalid_event/,
+            `ต้องปฏิเสธรูปที่ผิดสัญญา: ${JSON.stringify(bad)}`);
+    }
+    db.close();
+});
+
 test('the cabinet opens a drawer for someone with no card, and refuses the same command twice', async t => {
     const serial = fakeSerial();
     const controller = new LocalController({ database: ':memory:', mode: 'real', serial });

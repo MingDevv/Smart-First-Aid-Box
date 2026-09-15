@@ -185,7 +185,14 @@ export class CloudBridge {
         // 30-second-old message.
         if (now - doc.ts > MAX_CMD_AGE_MS) return this.reject(id, 'stale');
 
-        const result = await this.controller.command(command);
+        // ใครเป็นคนสั่งจากเว็บ — Vercel ยืนยันโทเคนบัญชีโรงเรียนมาแล้วก่อน publish
+        // เก็บแค่ uid เพราะนั่นคือทั้งหมดที่มากับคำสั่ง · ชื่อถูกแปลงฝั่งคลาวด์ตอนส่ง LINE
+        // ไม่มี uid = คำสั่งที่ไม่มีตัวตน (เช่นออด SOS) ซึ่งยังคงเป็น null เหมือนเดิม
+        const actorUid = typeof doc.actorUid === 'string' && ID.test(doc.actorUid) ? doc.actorUid : null;
+        const identity = command.action === 'open' && actorUid
+            ? { studentId: null, badgeId: null, uid: actorUid, verifiedBy: 'school_account' }
+            : null;
+        const result = await this.controller.command(command, identity);
         await this.publish(this.topics.evt, this.eventFor(command, result));
         await this.publishStatus();
     }

@@ -391,7 +391,12 @@ return async function handler(req, res) {
                 mqttConfigured: mqttConfigured(), retrySafe: true
             });
         }
-        payload = { action: 'open', drawer: compartment };
+        // ส่ง **uid เปล่าๆ** ไปกับคำสั่ง ไม่ส่งชื่อหรืออีเมล
+        //
+        // ชื่อกับอีเมลเป็นข้อมูลส่วนบุคคล และ broker เป็นบริการภายนอก ⇒ ของที่เดินทางบน MQTT
+        // ควรเป็นตัวชี้ที่เปิดอ่านเองไม่ได้ · ฝั่ง Vercel แปลง uid เป็นชื่อตอนจะส่ง LINE เท่านั้น
+        // (`resolveStudent`) ซึ่งได้ชื่อล่าสุดเสมอด้วย ไม่ใช่ชื่อที่แช่แข็งไว้ตอนกดปุ่ม
+        payload = { action: 'open', drawer: compartment, ...(actor ? { actorUid: actor.token.uid } : {}) };
     } else {
         if (state !== 'on' && state !== 'off') {
             return res.status(400).json({

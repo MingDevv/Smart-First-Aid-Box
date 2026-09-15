@@ -69,11 +69,42 @@ test('a student lookup carries the name out and leaves the health record behind'
     for (const secret of ['เพนิซิลลิน', 'ถั่วลิสง', '12345', 'ความลับ'])
         assert.ok(!rendered.includes(secret), `ข้อมูลสุขภาพ/รหัส "${secret}" ต้องไม่ออกไปกับข้อความ LINE`);
 
-    // ตู้ยังส่งตัวตนไม่ได้ — uid เป็น null เสมอ ⇒ ต้องไม่ไปอ่าน Firestore โดยเปล่าประโยชน์
+    // รอบที่ไม่มีตัวตนติดมา (สแกนไม่ผ่าน/ไม่มีบัตร) — uid เป็น null ⇒ ต้องไม่ไปอ่าน Firestore เปล่าๆ
     let reads = 0;
     const counting = { doc: () => { reads++; return { get: async () => ({ exists: false }) }; } };
     assert.equal(await resolveStudent(counting, { uid: null }), null);
     assert.equal(reads, 0, 'ไม่มี uid ก็ไม่ต้องแตะฐานข้อมูล');
+});
+
+// สั่งจากเว็บ = ยืนยันโทเคนบัญชีโรงเรียนมาแล้ว ⇒ ครูต้องเห็นชื่อ ไม่ใช่ "ยังไม่ทราบว่าเป็นนักเรียนคนไหน"
+// ทะเบียนยังผูกกับ uid ของ Google ไม่ได้ ชื่อจึงมาจากบัญชีโรงเรียนไปก่อน
+test('a web dispense names the person from their school account, and the roster wins when it exists', async () => {
+    const missing = { doc: () => ({ get: async () => ({ exists: false }) }) };
+    const auth = { getUser: async uid => ({ displayName: uid === 'goog-1' ? 'ESC404_42 Ratcharat chuenphongtham' : '' }) };
+
+    const fromAccount = await resolveStudent(missing, { uid: 'goog-1', verifiedBy: 'school_account' }, auth);
+    assert.deepEqual(fromAccount, { name: 'ESC404_42 Ratcharat chuenphongtham', room: '' });
+
+    // ทะเบียนมาทีหลังต้องชนะเอง โดยไม่ต้องแก้โค้ด — และได้ชั้นเรียนมาด้วย
+    const roster = { doc: () => ({ get: async () => ({ exists: true, data: () => ({ name: 'เด็กชายรัชรัตน์ ชื่นพงศ์ธรรม', room: 'ม.4/1' }) }) }) };
+    assert.deepEqual(await resolveStudent(roster, { uid: 'goog-1', verifiedBy: 'school_account' }, auth),
+        { name: 'เด็กชายรัชรัตน์ ชื่นพงศ์ธรรม', room: 'ม.4/1' });
+
+    // รอบอื่นต้องไม่ไปถาม Auth — บัตรกับรูปไม่ได้พิสูจน์ว่า uid นี้เป็นบัญชีใคร
+    let asked = 0;
+    const counting = { getUser: async () => { asked++; return { displayName: 'ไม่ควรถูกใช้' }; } };
+    assert.equal(await resolveStudent(missing, { uid: 'goog-1', verifiedBy: 'cabinet_photo' }, counting), null);
+    assert.equal(asked, 0, 'ตัวตนคนละชนิดต้องไม่ถูกแปลงด้วยบัญชี Google');
+
+    // Auth ล่มต้องไม่ทำให้การ์ดส่งไม่ออก — ตกกลับไปเป็น "ยังไม่ทราบ" ได้ แต่ต้องไม่โยน
+    const broken = { getUser: async () => { throw new Error('auth down'); } };
+    assert.equal(await resolveStudent(missing, { uid: 'goog-1', verifiedBy: 'school_account' }, broken), null);
+
+    const rendered = words(dispenseBubble({ ...DISPENSE, uid: 'goog-1', verifiedBy: 'school_account' },
+        { student: fromAccount }));
+    assert.match(rendered, /Ratcharat/);
+    assert.match(rendered, /บัญชีโรงเรียน/, 'ครูต้องรู้ว่าชื่อนี้มาจากการลงชื่อเข้าใช้ ไม่ใช่การถือบัตร');
+    assert.doesNotMatch(rendered, /ยังไม่ทราบว่าเป็นนักเรียนคนไหน/);
 });
 
 // buzzerAck เป็น null แปลว่า "ไม่รู้" ไม่ใช่ "ไม่ดัง" — ครูต้องไม่เข้าใจว่าเด็กได้ยินเสียงแล้ว
