@@ -5,6 +5,30 @@
 .db-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
 .db-table th, .db-table td { padding: 12px; border-bottom: 1px solid var(--border-color); vertical-align: top; overflow-wrap: anywhere; }
 .db-table th { color: var(--primary); background: var(--secondary-light); }
+
+/* รูปใบหน้าของรอบที่ไม่มีบัตร — อยู่ในแถวของมันเอง ไม่ใช่หน้ารวมรูป
+ * คุมความกว้างไว้ ไม่งั้นรูป 640px ดันคอลัมน์อื่นจนตารางอ่านไม่ได้ */
+.history-photo { margin-top: 8px; }
+.history-photo button {
+    min-height: 36px;
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm, 12px);
+    background: #fff;
+    color: var(--primary);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.history-photo button:disabled { opacity: 0.55; cursor: wait; }
+.history-photo img {
+    display: block;
+    width: min(220px, 100%);
+    margin-top: 8px;
+    border-radius: var(--radius-sm, 12px);
+}
+.history-photo p { margin-top: 6px; font-size: 13px; color: var(--text-muted); }
 .db-table caption { text-align: left; padding: 12px; }
 #inventory-preview, #inventory-data { padding: 16px; }
 #history-more { margin-top: 16px; }

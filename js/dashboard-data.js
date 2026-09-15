@@ -10,6 +10,44 @@
         ? record.buzzerAck === true ? 'ตู้ตอบรับให้เปิดเสียงเรียกครู' : record.buzzerAck === false ? 'ตู้ไม่ตอบรับการเปิดเสียง' : 'ยังไม่ทราบผลการเปิดเสียง'
         : ({ confirmed: 'ตู้ตอบรับแล้ว', uncertain: 'ยังไม่ทราบผล · กรุณาตรวจตู้', rejected: 'ตู้ไม่รับคำสั่ง', resolved_by_operator: 'ผู้ดูแลตรวจสอบและปิดรายการแล้ว' })[record.ack] || 'ยังไม่ทราบผล';
     const lineName = value => ({ delivered: 'ส่งเข้า LINE แล้ว', pending: 'รอส่งข้อความ', skipped: 'รายการย้อนหลัง · ไม่ส่งแจ้งเตือน', manual_review: 'ส่งไม่แน่ชัด · ครูควรตรวจ LINE' })[value] || 'ยังไม่ทราบสถานะข้อความ';
+    // บอกทั้งชื่อและ **ที่มาของชื่อ** — บัตรพิสูจน์แค่ว่ามีคนถือบัตรใบนั้น ส่วนบัญชีโรงเรียน
+    // ผ่านการยืนยันโทเคนฝั่งเซิร์ฟเวอร์ · ครูต้องแยกสองอย่างนี้ออกจากกันได้
+    const personName = record => record.accountName ? `${record.accountName} · บัญชีโรงเรียน`
+        : record.verifiedBy === 'school_account' ? 'สั่งจากเว็บด้วยบัญชีโรงเรียน (ยังดึงชื่อไม่ได้)'
+        : record.studentId ? 'บัตรนักเรียนเลขที่ ' + record.studentId
+        : record.verifiedBy === 'cabinet_photo' ? 'ไม่มีบัตร · มีรูปใบหน้า'
+        : 'ไม่ได้ระบุนักเรียน';
+
+    // รูปโหลดเมื่อครูกดเท่านั้น ไม่ใช่โหลดมาพร้อมตาราง — หน้าเด็กไม่ควรถูกดึงมาไว้ล่วงหน้า
+    // ทั้งหน้า และ `<img src>` แนบ Authorization ไม่ได้ ⇒ ต้องดึงเป็น blob ด้วย authorizedFetch
+    function photoControl(record) {
+        const wrap = node('div');
+        wrap.className = 'history-photo';
+        const button = node('button', 'ดูรูปใบหน้า');
+        button.type = 'button';
+        let url = null;
+        button.onclick = async () => {
+            if (url) { URL.revokeObjectURL(url); url = null; wrap.querySelector('img')?.remove(); button.textContent = 'ดูรูปใบหน้า'; return; }
+            button.disabled = true;
+            try {
+                const response = await AuthService.authorizedFetch(`/api/photo?event=${encodeURIComponent(record.eventId)}`,
+                    { signal: AbortSignal.timeout(15000) });
+                // 404 ครอบทั้ง "ไม่มีสิทธิ์" และ "รูปถูกลบตามกำหนดแล้ว" โดยตั้งใจ ⇒ บอกครูตามที่รู้จริง
+                if (!response.ok) throw new Error('not_available');
+                url = URL.createObjectURL(await response.blob());
+                const image = node('img');
+                image.src = url;
+                image.alt = `ภาพใบหน้าของผู้ใช้ตู้ รายการ ${record.eventId}`;
+                wrap.append(image);
+                button.textContent = 'ซ่อนรูป';
+            } catch {
+                wrap.append(node('p', 'ดูรูปไม่ได้ — อาจถูกลบตามกำหนด 7 วันแล้ว'));
+                button.remove();
+            } finally { button.disabled = false; }
+        };
+        wrap.append(button);
+        return wrap;
+    }
     function renderHistory(target, records) {
         if (!target) return;
         target.replaceChildren();
@@ -38,10 +76,13 @@
         const body = node('tbody');
         for (const record of records) {
             const tr = node('tr');
-            const identity = `${record.studentId ? 'บัตรนักเรียนเลขที่ ' + record.studentId : 'ไม่ได้ระบุนักเรียน'} · ${record.kind === 'sos' ? 'เรียกครูฉุกเฉิน' : woundName(record.woundType)}`;
+            const identity = `${personName(record)} · ${record.kind === 'sos' ? 'เรียกครูฉุกเฉิน' : woundName(record.woundType)}`;
             for (const value of [stamp(record.ts) + (record.clockTrust === 'untrusted' ? ' (เวลาตู้ยังไม่ได้ตรวจสอบ)' : ''),
                 `ตู้ ${record.cabinetId} / ${record.drawer ? 'ช่อง ' + record.drawer : 'เรียกครู'}`, resultName(record), identity,
                 lineName(record.lineStatus)]) tr.append(node('td', value));
+            // รอบที่ไม่มีบัตรมีรูปใบหน้าเป็นหลักฐานเดียวว่าใครมาใช้ ⇒ ครูต้องเปิดดูได้จากรายการนั้นเลย
+            // ผูกกับแถว ไม่ทำหน้ารวมรูป — นี่คือหน้าเด็ก ไม่ควรมีที่ให้ไล่ดูเรียงกันทั้งหมด
+            if (record.verifiedBy === 'cabinet_photo') tr.lastChild.append(photoControl(record));
             body.append(tr);
         }
         table.append(body); target.append(table);

@@ -95,7 +95,10 @@ test('rubbish never reaches storage, so nothing breaks later when a teacher open
 test('the unauthenticated view needs the exact token and dies after fifteen minutes', async () => {
     const { db } = store();
     let clock = Date.now();
-    const handler = createPhotoHandler({ services: () => ({ db }), env: ENV, now: () => clock, makeToken: () => 'T'.repeat(43) });
+    // ปฏิเสธการล็อกอินอย่างชัดเจน ไม่ใช่ปล่อยให้ผ่านเพราะ Firebase ใช้ไม่ได้ในเทส
+    // ไม่งั้นเคส "ไม่มีโทเคน" ข้างล่างจะเขียวด้วยเหตุผลที่ไม่เกี่ยวกับสิ่งที่มันตั้งใจตรวจ
+    const denied = async () => { throw new Error('not staff'); };
+    const handler = createPhotoHandler({ services: () => ({ db }), env: ENV, now: () => clock, makeToken: () => 'T'.repeat(43), authorizeRequest: denied });
     await invoke(handler, signed(JPEG, clock));
     const get = (query) => invoke(handler, { method: 'GET', url: `/api/photo?${query}` });
 
@@ -121,6 +124,32 @@ test('the unauthenticated view needs the exact token and dies after fifteen minu
     assert.equal((await get('event=box1~evt-000001&t=' + 'T'.repeat(43))).status, 200, 'ก่อนหมดอายุยังดูได้');
     clock += 2;
     assert.equal((await get('event=box1~evt-000001&t=' + 'T'.repeat(43))).status, 404, 'หมดอายุแล้วต้องดูไม่ได้');
+});
+
+// ครูเปิดรูปจากหน้าประวัติหลังบ้านได้โดยไม่ต้องมีลิงก์จาก LINE
+// อายุ 15 นาทีเป็นของโทเคนที่ลอยอยู่ในแชต ไม่ใช่ของครูที่ล็อกอินอยู่ — ครูต้องย้อนดูได้ตลอด 7 วัน
+test('staff open the photo from the history page without a token, and only staff can', async () => {
+    const { db } = store();
+    const clock = Date.now();
+    let asked = null;
+    const staffOnly = async (req, options) => { asked = options; return { role: 'teacher' }; };
+    const make = authorizeRequest => createPhotoHandler({ services: () => ({ db }), env: ENV, now: () => clock + VIEW_TTL_MS * 10, makeToken: () => 'T'.repeat(43), authorizeRequest });
+
+    await invoke(createPhotoHandler({ services: () => ({ db }), env: ENV, now: () => clock, makeToken: () => 'T'.repeat(43) }), signed(JPEG, clock));
+
+    const asStaff = await invoke(make(staffOnly), { method: 'GET', url: '/api/photo?event=box1~evt-000001' });
+    assert.equal(asStaff.status, 200, 'ครูเปิดได้แม้โทเคนของ LINE หมดอายุไปนานแล้ว');
+    assert.equal(asStaff.headers['content-type'], 'image/jpeg');
+    assert.match(asStaff.headers['cache-control'], /no-store/);
+    assert.deepEqual(asked, { staffOnly: true }, 'ต้องขอสิทธิ์ระดับครู ไม่ใช่แค่บัญชีโรงเรียน');
+
+    const rejected = async () => { throw new Error('not staff'); };
+    const asStudent = await invoke(make(rejected), { method: 'GET', url: '/api/photo?event=box1~evt-000001' });
+    assert.equal(asStudent.status, 404, 'คนที่ไม่ใช่ครูต้องไม่ได้รูป และไม่รู้ว่าเพราะสิทธิ์หรือเพราะไม่มีรูป');
+    assert.equal(asStudent.body, undefined);
+
+    // ไม่มีรูปจริงๆ ก็ตอบ 404 เหมือนกัน แม้ผู้ขอจะเป็นครู
+    assert.equal((await invoke(make(staffOnly), { method: 'GET', url: '/api/photo?event=box1~evt-999999' })).status, 404);
 });
 
 test('the LINE card shows the photo, and says plainly that this person had no card', async () => {
