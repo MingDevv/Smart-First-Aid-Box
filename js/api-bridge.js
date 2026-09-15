@@ -39,9 +39,17 @@ const ApiBridge = {
                     : data.ack.event === 'buzzer_set' && data.ack.id === body.id && data.ack.state === body.state)) {
                 return { ...data, mode: 'pi-local' };
             }
+            // ต้องส่ง `retrySafe` ของ Pi ต่อออกไป ไม่ใช่ทิ้งแล้วประกอบวัตถุใหม่
+            //
+            // `settleDispatch()` ในคีออสก์แปล "ไม่มี retrySafe" เป็น **uncertain** = ส่งไปแล้วไม่รู้ผล
+            // ⇒ คำปฏิเสธที่ชัดเจน (เช่น 401 ที่ยังไม่ได้ส่งคำสั่งออกไปเลย) กลายเป็นหน้าจอ
+            // "ไม่แน่ใจว่าตู้จ่ายของออกมาหรือยัง" ที่ซ่อนปุ่มลองใหม่ และค้างจอไว้ให้คนมาดู
+            // — บอกครูว่าลิ้นชักอาจเปิดไปแล้วทั้งที่ไม่มีอะไรถูกส่ง (Bank เจอกับตัว 2026-09-15)
             return { success: false, mode: 'pi-local', commandId: body.id,
+                retrySafe: data.retrySafe === true,
                 error: data.error || 'Pi ยังยืนยันผลจากตู้ยาไม่ได้' };
         } catch {
+            // ตรงนี้ไม่ใส่ retrySafe โดยตั้งใจ — เน็ตขาดกลางคันคือกรณีที่ "ไม่รู้ว่าส่งถึงหรือยัง" จริงๆ
             return { success: false, mode: 'pi-local', commandId: body.id,
                 error: 'การเชื่อมต่อ Pi ขัดข้อง กรุณาตรวจตู้ก่อน ห้ามสั่งจ่ายซ้ำ' };
         } finally { clearTimeout(timeout); }

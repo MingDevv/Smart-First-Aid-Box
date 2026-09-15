@@ -148,6 +148,35 @@ test('local Demo simulates dispensing; unsupported cloud wounds never become dra
     assert.equal(calls, 0);
 });
 
+// ตู้ปฏิเสธชัดๆ (401 = ยังไม่ได้ส่งคำสั่งออกไปเลย) ต้องไปถึงคีออสก์ว่า "ชัดเจน" ไม่ใช่ "ไม่แน่ใจ"
+//
+// `settleDispatch()` ใน js/kiosk-session.js แปล "ไม่มี retrySafe" เป็น uncertain ซึ่งบนจอแปลว่า
+// "ไม่แน่ใจว่าตู้จ่ายของออกมาหรือยัง" + ซ่อนปุ่มลองใหม่ + ค้างจอไว้ให้คนมาดู
+// ⇒ การทำ field นี้หายระหว่างทางคือการบอกครูว่าลิ้นชักอาจเปิดไปแล้ว ทั้งที่ไม่มีอะไรถูกส่ง
+test('a definite refusal from the Pi stays definite — retrySafe survives the bridge', async () => {
+    const { api } = browser(async (url) => {
+        if (url === '/api/local/status') return reply({ connected: true, ready: true, commandTimeoutMs: 33000 });
+        return reply({ success: false, retrySafe: true, error: 'รอบนี้หมดอายุแล้ว กรุณาถ่ายรูปใบหน้าอีกครั้ง' }, 401);
+    }, realMode(), 'http:', { runtime: { transport: 'pi-local', mode: 'real' } });
+
+    const result = await api.openCompartment('cut');
+    assert.equal(result.success, false);
+    assert.equal(result.retrySafe, true, 'ทิ้ง retrySafe = คำปฏิเสธที่ชัดเจนกลายเป็น uncertain บนจอตู้');
+    assert.match(result.error, /ถ่ายรูปใบหน้า/, 'ต้องส่งข้อความของตู้ต่อ ไม่ใช่กลบด้วยข้อความกลางๆ');
+});
+
+// เน็ตขาดกลางคันคือกรณีที่ "ไม่รู้จริงๆ" — ตรงนี้ต้องไม่ถูกอัปเป็น retrySafe เพื่อความสะดวก
+test('a broken connection stays uncertain, because nobody knows if the command landed', async () => {
+    const { api } = browser(async (url) => {
+        if (url === '/api/local/status') return reply({ connected: true, ready: true, commandTimeoutMs: 33000 });
+        throw new Error('socket hang up');
+    }, realMode(), 'http:', { runtime: { transport: 'pi-local', mode: 'real' } });
+
+    const result = await api.openCompartment('cut');
+    assert.equal(result.success, false);
+    assert.notEqual(result.retrySafe, true);
+});
+
 test('anonymous browser cannot actuate even with forged old settings', async () => {
     for (const settings of [realMode(), demoMode(), {dashboardPin:'1234', dashboard_auth:true}]) {
         let calls = 0;

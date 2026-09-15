@@ -39,9 +39,21 @@ export class StudentSession {
         const value = this.current;
         if (!value || sessionId !== value.sessionId || this.now() >= value.expiresAt) return null;
         if (value.kind === 'photo') {
-            // ตรวจรูปซ้ำตอนสั่งจริง ไม่เชื่อว่าตอนเปิดรอบมันเคยมี — คิวถูกตัดทิ้งได้ระหว่างทาง
-            // (อัปโหลดสำเร็จแล้ว forget() หรือ prune() เก็บไป) และคำสั่งต้องตรงกับใบที่ถ่ายไว้
-            if (commandId !== value.commandId || !this.photos?.has(commandId)) return null;
+            // ⚠️ เคยตรวจ `this.photos.has(commandId)` ซ้ำตรงนี้ด้วย ซึ่ง **ทำให้ฟีเจอร์พังเมื่อเน็ตดี**
+            //
+            // `/api/local/photo` เรียก `sync.wake()` ทันทีที่เก็บรูป (edge/server.mjs) · รอบ sync
+            // อัปรูปขึ้นคลาวด์สำเร็จแล้วเรียก `photos.forget()` ซึ่งลบแถวในเครื่องทิ้งตามกติกา PDPA
+            // ⇒ ระหว่างที่เด็กกำลังเลือกประเภทแผล (สิบวินาทีขึ้นไป) รูปหายไปจากคิวแล้ว
+            // พอกดรับยาจริง การตรวจซ้ำจึงไม่ผ่าน แล้วตอบ 401 ทั้งที่ทุกอย่างถูกต้อง
+            // พิสูจน์จากของจริง 2026-09-15: รอบที่สำเร็จคือรอบที่คำสั่งชนะการอัปโหลดไป 1.1 วินาที
+            //
+            // การตรวจนั้นไม่ได้ซื้อความปลอดภัยอะไรเลยด้วย: ใครก็ POST รูปอะไรก็ได้เข้า
+            // `/api/local/photo` ในวง LAN แล้วได้ `sessionId` มาเหมือนกัน ⇒ เกตตัวจริงคือ
+            // **การถือ `sessionId` ที่สุ่ม 24 ไบต์ ซึ่งคืนให้เฉพาะคนที่ส่งรูปที่ผ่านเกณฑ์**
+            // บวกกับ `commandId` ที่ถูกผูกไว้ตั้งแต่เปิดรอบ · การมีไฟล์ค้างในเครื่องไม่ใช่ตัวตน
+            //
+            // เงื่อนไข "ต้องมีรูปจริง" ยังบังคับอยู่ที่ `beginPhotoRound()` ซึ่งเป็นจังหวะที่ถูกต้อง
+            if (commandId !== value.commandId) return null;
             return { studentId: null, badgeId: null, verifiedBy: 'cabinet_photo' };
         }
         if (value.commandId && value.commandId !== commandId ||
