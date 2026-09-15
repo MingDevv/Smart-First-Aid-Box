@@ -166,7 +166,9 @@
                 <div class="reasoning-card" id="reasoning-container"><span class="material-symbols-rounded" aria-hidden="true">psychology</span><span id="res-reasoning"></span></div>
 
                 <div class="result-actions">
-                    <button class="btn btn-primary" id="btn-confirm-wound" type="button"><span class="material-symbols-rounded">arrow_forward</span><span>เริ่มทำแผล 5 ขั้นตอน</span></button>
+                    <!-- จำนวนขั้นตอนเติมตอนรู้ผลแล้วใน displayResult() — ตัวเลขตายตัวตรงนี้เคยเขียนว่า 5
+                         ซึ่งไม่ตรงกับแผลไหนเลยที่ AI คืนได้ (มีดบาด/ถลอก = 4, แมลงกัดต่อย = 6) -->
+                    <button class="btn btn-primary" id="btn-confirm-wound" type="button"><span class="material-symbols-rounded">arrow_forward</span><span>เริ่มทำแผล</span></button>
                     <button class="btn btn-outline" type="button" onclick="location.href='/student/wound-select'"><span>ไม่ใช่แผลนี้ — เลือกเอง</span></button>
                 </div>
                 <div id="res-icon" hidden></div>
@@ -401,7 +403,8 @@
                 confirmButton.onclick = () => { location.href = '/student/wound-select'; };
                 showToast('AI ยังไม่แน่ใจ โปรดเลือกประเภทแผลด้วยตนเอง', 'warning');
             } else {
-                confirmButton.innerHTML = '<span class="material-symbols-rounded">arrow_forward</span><span>เริ่มทำแผล 5 ขั้นตอน</span>';
+                const stepCount = (woundInfo.steps || []).length;
+                confirmButton.innerHTML = `<span class="material-symbols-rounded">arrow_forward</span><span>เริ่มทำแผล${stepCount ? ` ${stepCount} ขั้นตอน` : ''}</span>`;
                 confirmButton.style.background = '';
                 confirmButton.style.borderColor = '';
                 confirmButton.onclick = () => {
