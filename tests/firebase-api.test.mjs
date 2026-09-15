@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { before, after, test } from 'node:test';
+import { before, beforeEach, after, test } from 'node:test';
 import { createServer } from 'node:net';
 import packet from 'mqtt-packet';
 import { firebaseServices } from '../lib/firebase-admin.js';
-import command, { closeMqttClientForTests } from '../api/command.js';
+import command, { closeMqttClientForTests, resetRateLimitForTests } from '../api/command.js';
 import { createNotifyHandler } from '../api/notify.js';
 import me from '../api/me.js';
 const tokens = new Map();
@@ -61,20 +61,39 @@ before(async () => {
     process.env.MQTT_URL=`mqtt://127.0.0.1:${broker.address().port}`;
     process.env.MQTT_BASE_TOPIC='test/auth';
 });
+beforeEach(() => resetRateLimitForTests());
 after(async()=>{await closeMqttClientForTests();await new Promise(resolve=>broker.close(resolve));await db.terminate();});
 
-test('actual ID tokens produce anonymous 401, student 403 and staff ACK success',async()=>{
+test('actual ID tokens allow verified school users to open drawers and reject invalid identities before publishing',async()=>{
+    const baseline = published;
     const body={action:'open',drawer:1,id:'c-api-auth-test'};
     assert.equal((await invoke(command,null,body)).status,401);
     assert.equal((await invoke(command,'invalid-token',body)).status,401);
-    for(const user of ['student','external','unverified','retired']) assert.equal((await invoke(command,tokens.get(user),body)).status,403);
-    assert.equal(published,0);
-    for(const user of ['teacher','admin']){
+    for(const user of ['external','unverified']) assert.equal((await invoke(command,tokens.get(user),body)).status,403);
+    assert.equal(published,baseline);
+    for(const user of ['student','retired','teacher','admin']){
         const response=await invoke(command,tokens.get(user),{...body,id:'c-auth-'+user});
         assert.equal(response.status,200,user+' must reach existing ACK path');
         assert.equal(response.data.ack.event,'drawer_opened');
     }
-    assert.equal(published,2);
+    assert.equal(published,baseline + 4);
+});
+
+test('actual student and retired-role tokens cannot control the buzzer, but current staff can',async()=>{
+    const baseline = published;
+    for (const user of ['student','retired']) {
+        for (const state of ['on','off']) {
+            const response = await invoke(command,tokens.get(user),{action:'buzzer',state,role:'admin',id:`c-denied-${user}-${state}`});
+            assert.equal(response.status,403);
+        }
+    }
+    assert.equal(published,baseline,'forged body roles never publish a buzzer command');
+    for (const user of ['teacher','admin']) {
+        const response = await invoke(command,tokens.get(user),{action:'buzzer',state:'on',id:'c-buzzer-'+user});
+        assert.equal(response.status,200);
+        assert.equal(response.data.ack.event,'buzzer_set');
+    }
+    assert.equal(published,baseline + 2);
 });
 
 test('own-profile projection never leaks clinical fields or studentNo',async()=>{
@@ -86,6 +105,7 @@ test('own-profile projection never leaks clinical fields or studentNo',async()=>
 });
 
 test('expired, wrong audience/issuer and revoked tokens fail before publishing',async()=>{
+    const baseline = published;
     const parts=tokens.get('student').split('.');
     const payload=JSON.parse(Buffer.from(parts[1],'base64url'));
     for(const patch of [{exp:1},{iat:payload.exp+100},{aud:'different-project'},{iss:'https://securetoken.google.com/other-project'}]){
@@ -96,16 +116,19 @@ test('expired, wrong audience/issuer and revoked tokens fail before publishing',
     await auth.revokeRefreshTokens('api-student');
     assert.equal((await invoke(command,tokens.get('student'),{action:'open',drawer:1})).status,401);
     tokens.set('student',await issue('api-student'));
-    assert.equal(published,2);
+    assert.equal(published,baseline);
 });
 
-test('deleting a role takes effect on the next command with the same valid token',async()=>{
-    // พิสูจน์ทั้งสองด้าน: ก่อนถอดต้องผ่านจริง ไม่งั้น 403 หลังถอดอาจมาจากสาเหตุอื่นตั้งแต่แรก
-    assert.equal((await invoke(command,tokens.get('revocable'),{action:'open',drawer:1,id:'c-before-revoke'})).status,200);
-    assert.equal(published,3);
+test('deleting a staff role immediately removes buzzer access while preserving school-user drawer access',async()=>{
+    const baseline = published;
+    const token = tokens.get('revocable');
+    assert.equal((await invoke(command,token,{action:'buzzer',state:'on',id:'c-before-revoke'})).status,200);
+    assert.equal(published,baseline + 1);
     await db.doc('roles/api-revocable').delete();
-    assert.equal((await invoke(command,tokens.get('revocable'),{action:'buzzer',state:'on',id:'c-no-role-now'})).status,403);
-    assert.equal(published,3);
+    assert.equal((await invoke(command,token,{action:'buzzer',state:'on',id:'c-no-role-now'})).status,403);
+    assert.equal(published,baseline + 1,'revoked staff command must not reach MQTT');
+    assert.equal((await invoke(command,token,{action:'open',drawer:1,id:'c-still-school'})).status,200);
+    assert.equal(published,baseline + 2);
 });
 
 test('actual student ID token may send SOS, but cannot forge sender or submit a staff event',async()=>{
