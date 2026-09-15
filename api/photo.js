@@ -19,6 +19,7 @@ import { firebaseServices } from '../lib/firebase-admin.js';
 import { authenticateCabinet } from '../lib/cabinet-protocol.js';
 import { EVENT_ID } from '../lib/cabinet-protocol.js';
 import { signedResponse, cabinetFailure } from '../lib/cabinet-http.js';
+import { authorize } from '../lib/auth.js';
 
 export const VIEW_TTL_MS = 15 * 60 * 1000;
 export const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -45,10 +46,10 @@ async function readBase64Body(req, limit = MAX_BASE64) {
 const equalToken = (a, b) => typeof a === 'string' && typeof b === 'string' &&
     a.length === b.length && a.length >= 32 && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
-export function createPhotoHandler({ services = firebaseServices, env = process.env, now = Date.now, makeToken = () => randomBytes(32).toString('base64url') } = {}) {
+export function createPhotoHandler({ services = firebaseServices, env = process.env, now = Date.now, makeToken = () => randomBytes(32).toString('base64url'), authorizeRequest = authorize } = {}) {
     return async (req, res) => {
         res.setHeader('Cache-Control', 'private, no-store');
-        if (req.method === 'GET') return viewPhoto(req, res, { services, now });
+        if (req.method === 'GET') return viewPhoto(req, res, { services, now, authorizeRequest });
         if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'POST required' });
         try {
             const raw = await readBase64Body(req);
@@ -82,20 +83,30 @@ export function createPhotoHandler({ services = firebaseServices, env = process.
     };
 }
 
-async function viewPhoto(req, res, { services, now }) {
-    // เส้นทางนี้ไม่มีการล็อกอินโดยเจตนา — LINE เป็นคนดึง · ความปลอดภัยอยู่ที่โทเคนล้วน
+async function viewPhoto(req, res, { services, now, authorizeRequest = authorize }) {
+    // สองทางเข้า และคนละเหตุผลกัน:
+    //   • มีโทเคน (`?t=`) — LINE เป็นคนดึง มันล็อกอินแทนครูไม่ได้ · ความปลอดภัยอยู่ที่โทเคนล้วน
+    //     และอายุสั้น 15 นาที ตามที่อธิบายไว้หัวไฟล์
+    //   • ไม่มีโทเคน — ครูเปิดจากหน้าประวัติหลังบ้าน ⇒ ต้องเป็น staff ที่ยืนยันโทเคนแล้วเท่านั้น
+    //     ไม่ผูกกับอายุ 15 นาที เพราะครูต้องย้อนดูได้ตลอดที่รูปยังไม่ถูกตัดตามกำหนด 7 วัน
+    // `<img src>` แนบ Authorization ไม่ได้ ⇒ หน้าหลังบ้านต้องดึงเป็น blob ด้วย authorizedFetch
     try {
         const url = new URL(req.url || '', 'https://sfab.invalid');
         const key = url.searchParams.get('event') || '';
         const token = url.searchParams.get('t') || '';
         if (!/^[A-Za-z0-9_-]{1,48}~[A-Za-z0-9_-]{8,80}$/.test(key)) return res.status(404).end();
+        if (!token) {
+            // ล้มเหลวด้วย 404 เหมือนทุกทาง ไม่บอกว่าเพราะไม่มีสิทธิ์หรือเพราะไม่มีรูป
+            try { await authorizeRequest(req, { staffOnly: true }); }
+            catch { return res.status(404).end(); }
+        }
         const { db } = services();
         const snap = await db.doc(`photos/${key}`).get();
         // ไม่มีรูป โทเคนผิด และหมดอายุ ตอบ 404 เหมือนกันหมด ไม่บอกว่าพลาดตรงไหน
         if (!snap.exists) return res.status(404).end();
         const data = snap.data();
-        if (!equalToken(token, data.viewToken)) return res.status(404).end();
-        if (now() >= Date.parse(data.viewExpiresAt)) return res.status(404).end();
+        if (token && !equalToken(token, data.viewToken)) return res.status(404).end();
+        if (token && now() >= Date.parse(data.viewExpiresAt)) return res.status(404).end();
         const image = Buffer.from(data.jpegBase64, 'base64');
         res.setHeader('Content-Type', 'image/jpeg');
         res.setHeader('Content-Length', String(image.length));

@@ -10,8 +10,73 @@
         ? record.buzzerAck === true ? 'ตู้ตอบรับให้เปิดเสียงเรียกครู' : record.buzzerAck === false ? 'ตู้ไม่ตอบรับการเปิดเสียง' : 'ยังไม่ทราบผลการเปิดเสียง'
         : ({ confirmed: 'ตู้ตอบรับแล้ว', uncertain: 'ยังไม่ทราบผล · กรุณาตรวจตู้', rejected: 'ตู้ไม่รับคำสั่ง', resolved_by_operator: 'ผู้ดูแลตรวจสอบและปิดรายการแล้ว' })[record.ack] || 'ยังไม่ทราบผล';
     const lineName = value => ({ delivered: 'ส่งเข้า LINE แล้ว', pending: 'รอส่งข้อความ', skipped: 'รายการย้อนหลัง · ไม่ส่งแจ้งเตือน', manual_review: 'ส่งไม่แน่ชัด · ครูควรตรวจ LINE' })[value] || 'ยังไม่ทราบสถานะข้อความ';
+    // บอกทั้งชื่อและ **ที่มาของชื่อ** — บัตรพิสูจน์แค่ว่ามีคนถือบัตรใบนั้น ส่วนบัญชีโรงเรียน
+    // ผ่านการยืนยันโทเคนฝั่งเซิร์ฟเวอร์ · ครูต้องแยกสองอย่างนี้ออกจากกันได้
+    const personName = record => record.accountName ? `${record.accountName} · บัญชีโรงเรียน`
+        : record.verifiedBy === 'school_account' ? 'สั่งจากเว็บด้วยบัญชีโรงเรียน (ยังดึงชื่อไม่ได้)'
+        : record.studentId ? 'บัตรนักเรียนเลขที่ ' + record.studentId
+        : record.verifiedBy === 'cabinet_photo' ? 'ไม่มีบัตร · มีรูปใบหน้า'
+        : 'ไม่ได้ระบุนักเรียน';
+
+    // ภาพใบหน้าที่โหลดมาแล้วต้องถูกปล่อยคืนเสมอ ไม่ใช่เฉพาะตอนครูกดซ่อน
+    //
+    // `URL.createObjectURL` ผูก blob ไว้กับ document จนกว่าจะ revoke ⇒ การรีเฟรช เปลี่ยนตัวกรอง
+    // โหลดหน้าถัดไป หรือออกจากระบบ ล้วนลบ DOM ทิ้งโดยที่รูปยังค้างอยู่ในหน่วยความจำของแท็บ
+    // นี่คือภาพใบหน้าเด็ก การค้างอยู่หลังออกจากระบบไม่ใช่แค่เรื่องหน่วยความจำ
+    const liveObjectUrls = new Set();
+    function releasePhotoUrls() {
+        for (const url of liveObjectUrls) URL.revokeObjectURL(url);
+        liveObjectUrls.clear();
+    }
+
+    // รูปโหลดเมื่อครูกดเท่านั้น ไม่ใช่โหลดมาพร้อมตาราง — หน้าเด็กไม่ควรถูกดึงมาไว้ล่วงหน้า
+    // ทั้งหน้า และ `<img src>` แนบ Authorization ไม่ได้ ⇒ ต้องดึงเป็น blob ด้วย authorizedFetch
+    function photoControl(record) {
+        const wrap = node('div');
+        wrap.className = 'history-photo';
+        const button = node('button', 'ดูรูปใบหน้า');
+        button.type = 'button';
+        let url = null;
+        const hide = () => {
+            if (!url) return;
+            URL.revokeObjectURL(url);
+            liveObjectUrls.delete(url);
+            url = null;
+            wrap.querySelector('img')?.remove();
+            button.textContent = 'ดูรูปใบหน้า';
+        };
+        button.onclick = async () => {
+            if (url) return hide();
+            // จำรอบไว้ก่อนยิง แล้วตรวจอีกทีตอนคำตอบกลับมา — เหมือน `load()` และ js/students.js
+            // คำตอบที่มาช้ากว่าการออกจากระบบ ต้องไม่สร้าง object URL ขึ้นมาใหม่หลังล้างจอไปแล้ว
+            const generation = revision;
+            button.disabled = true;
+            try {
+                const response = await AuthService.authorizedFetch(`/api/photo?event=${encodeURIComponent(record.eventId)}`,
+                    { signal: AbortSignal.timeout(15000) });
+                // 404 ครอบทั้ง "ไม่มีสิทธิ์" และ "รูปถูกลบตามกำหนดแล้ว" โดยตั้งใจ ⇒ บอกครูตามที่รู้จริง
+                if (!response.ok) throw new Error('not_available');
+                const blob = await response.blob();
+                if (generation !== revision || !AuthService.isStaff() || !wrap.isConnected) return;
+                url = URL.createObjectURL(blob);
+                liveObjectUrls.add(url);
+                const image = node('img');
+                image.src = url;
+                image.alt = `ภาพใบหน้าของผู้ใช้ตู้ รายการ ${record.eventId}`;
+                wrap.append(image);
+                button.textContent = 'ซ่อนรูป';
+            } catch {
+                if (generation !== revision || !wrap.isConnected) return;
+                wrap.append(node('p', 'ดูรูปไม่ได้ — อาจถูกลบตามกำหนด 7 วันแล้ว'));
+                button.remove();
+            } finally { button.disabled = false; }
+        };
+        wrap.append(button);
+        return wrap;
+    }
     function renderHistory(target, records) {
         if (!target) return;
+        releasePhotoUrls();
         target.replaceChildren();
         if (!records.length) { target.append(node('p', 'ยังไม่มีรายการใช้งานที่ส่งมาจากตู้')); return; }
         const recent = target.id === 'recent-timeline';
@@ -38,10 +103,18 @@
         const body = node('tbody');
         for (const record of records) {
             const tr = node('tr');
-            const identity = `${record.studentId ? 'บัตรนักเรียนเลขที่ ' + record.studentId : 'ไม่ได้ระบุนักเรียน'} · ${record.kind === 'sos' ? 'เรียกครูฉุกเฉิน' : woundName(record.woundType)}`;
-            for (const value of [stamp(record.ts) + (record.clockTrust === 'untrusted' ? ' (เวลาตู้ยังไม่ได้ตรวจสอบ)' : ''),
+            const identity = `${personName(record)} · ${record.kind === 'sos' ? 'เรียกครูฉุกเฉิน' : woundName(record.woundType)}`;
+            const cells = [stamp(record.ts) + (record.clockTrust === 'untrusted' ? ' (เวลาตู้ยังไม่ได้ตรวจสอบ)' : ''),
                 `ตู้ ${record.cabinetId} / ${record.drawer ? 'ช่อง ' + record.drawer : 'เรียกครู'}`, resultName(record), identity,
-                lineName(record.lineStatus)]) tr.append(node('td', value));
+                lineName(record.lineStatus)].map(value => node('td', value));
+            // รอบที่ไม่มีบัตรมีรูปใบหน้าเป็นหลักฐานเดียวว่าใครมาใช้ ⇒ ครูต้องเปิดดูได้จากรายการนั้นเลย
+            // ผูกกับแถว ไม่ทำหน้ารวมรูป — นี่คือหน้าเด็ก ไม่ควรมีที่ให้ไล่ดูเรียงกันทั้งหมด
+            //
+            // วางในช่อง "นักเรียน / การใช้งาน" ตรงๆ ไม่ใช่ `tr.lastChild` ซึ่งคือช่องสถานะ LINE
+            // และจะย้ายไปเองเงียบๆ ทุกครั้งที่มีคนเพิ่มคอลัมน์ท้ายตาราง
+            const identityCell = cells[3];
+            if (record.verifiedBy === 'cabinet_photo') identityCell.append(photoControl(record));
+            for (const cell of cells) tr.append(cell);
             body.append(tr);
         }
         table.append(body); target.append(table);
@@ -87,6 +160,7 @@
     }
     function clear() {
         rows = []; nextCursor = null;
+        releasePhotoUrls();
         for (const id of ['history-table', 'recent-timeline', 'inventory-data', 'inventory-preview']) byId(id)?.replaceChildren();
         for (const id of ['stat-cases-today', 'stat-ai-scans', 'stat-total-items', 'stat-low-stock']) text(id, '—');
         for (const id of ['stat-stock-note', 'stats-summary', 'clearing-state', 'alerts-panel', 'dashboard-summary', 'cabinet-status-text', 'cabinet-last-update']) text(id, '');

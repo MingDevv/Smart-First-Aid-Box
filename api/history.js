@@ -1,4 +1,5 @@
 import { FieldPath } from 'firebase-admin/firestore';
+import { firebaseServices } from '../lib/firebase-admin.js';
 import { authorize, accessFailure, apiHeaders, AccessError } from '../lib/auth.js';
 import { inventoryProjection } from '../lib/cabinet-events.js';
 import { createInventoryHandler } from '../lib/inventory-route.js';
@@ -15,8 +16,25 @@ function project(doc) {
         verifiedBy: row.verifiedBy ?? null, itemsUsed: row.itemsUsed || [] });
     return result;
 }
+/** เติมชื่อให้แถวที่สั่งจากเว็บ — หนึ่งคำขอต่อหนึ่งหน้า ไม่ใช่หนึ่งคำขอต่อหนึ่งแถว
+ *
+ * `getUsers` รับได้ 100 ตัวระบุต่อครั้ง ซึ่งเท่ากับ LIMIT ของหน้านี้พอดี ⇒ ราคาคงที่
+ * ชื่อไม่ได้ถูกเก็บลงเหตุการณ์โดยตั้งใจ (เหตุการณ์เก็บแต่ uid) จึงต้องแปลงตอนอ่าน
+ * แปลงไม่ได้ก็ปล่อยว่าง — หน้าเว็บมีข้อความของตัวเองสำหรับกรณีนั้น ไม่ใช่ทำทั้งหน้าพัง
+ */
+async function withAccountNames(rows, auth) {
+    const uids = [...new Set(rows.filter(row => row.verifiedBy === 'school_account' && row.uid).map(row => row.uid))];
+    if (!uids.length || !auth?.getUsers) return rows;
+    let names = new Map();
+    try {
+        const found = await auth.getUsers(uids.map(uid => ({ uid })));
+        names = new Map((found?.users || []).map(user => [user.uid, (user.displayName || '').trim()]));
+    } catch { return rows; }
+    return rows.map(row => row.verifiedBy === 'school_account' && names.get(row.uid)
+        ? { ...row, accountName: names.get(row.uid) } : row);
+}
 export function createHistoryHandler({ authorizeRequest = authorize, now = Date.now,
-    inventory = createInventoryHandler() } = {}) {
+    services = firebaseServices, inventory = createInventoryHandler() } = {}) {
     return async (req, res) => {
         const query = new URL(req.url || '/api/history', 'https://sfab.invalid').searchParams;
         // คลังเวชภัณฑ์อยู่ใต้ endpoint นี้เพราะ Vercel จำกัด serverless function ไว้ 12 ตัว
@@ -45,7 +63,10 @@ export function createHistoryHandler({ authorizeRequest = authorize, now = Date.
             ]);
             const docs = page.docs.slice(0, LIMIT);
             const last = docs.at(-1);
-            return res.status(200).json({ rows: docs.map(doc => project(doc)),
+            let adminAuth = null;
+            try { ({ auth: adminAuth } = services()); } catch { /* ชื่อเป็นของเสริม ไม่ใช่เหตุให้ประวัติทั้งหน้าพัง */ }
+            const rows = await withAccountNames(docs.map(doc => project(doc)), adminAuth);
+            return res.status(200).json({ rows,
                 nextCursor: page.size > LIMIT ? Buffer.from(JSON.stringify([last.data().syncedAt, last.id])).toString('base64url') : null,
                 inventory: stock ? stock.docs.map(doc => ({ cabinetId: doc.id, ...inventoryProjection(doc.data()) })) : null,
                 cabinets: cabinets.docs.map(doc => ({ cabinetId: doc.id, lastSeen: doc.data().lastSeen ?? null,

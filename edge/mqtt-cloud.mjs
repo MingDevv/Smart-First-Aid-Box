@@ -7,6 +7,10 @@
 // This module must never sit on the local path's import chain: the `mqtt` package is loaded
 // lazily in startCloudBridge(), so a cabinet without node_modules (or without MQTT_URL) still
 // boots its touchscreen service exactly as before.
+// นำเข้าได้ปลอดภัยแม้ไฟล์นี้ห้ามอยู่บนสายนำเข้าของเส้นทางในเครื่อง — `cabinet-protocol.js`
+// พึ่งแต่ `node:crypto` และ `edge/student-session.mjs` ซึ่งอยู่บนเส้นทางนั้นก็นำเข้ามันอยู่แล้ว
+import { ACCOUNT_UID } from '../lib/cabinet-protocol.js';
+
 const ID = /^[a-zA-Z0-9_-]{8,64}$/;
 // Same three freshness rules as the ESP32 firmware (MAX_CMD_AGE_MS, future_ts, clock_not_ready):
 // a command that sat in a queue while the network was down must not open the cabinet when the
@@ -185,7 +189,16 @@ export class CloudBridge {
         // 30-second-old message.
         if (now - doc.ts > MAX_CMD_AGE_MS) return this.reject(id, 'stale');
 
-        const result = await this.controller.command(command);
+        // ใครเป็นคนสั่งจากเว็บ — Vercel ยืนยันโทเคนบัญชีโรงเรียนมาแล้วก่อน publish
+        // เก็บแค่ uid เพราะนั่นคือทั้งหมดที่มากับคำสั่ง · ชื่อถูกแปลงฝั่งคลาวด์ตอนส่ง LINE
+        // ไม่มี uid = คำสั่งที่ไม่มีตัวตน (เช่นออด SOS) ซึ่งยังคงเป็น null เหมือนเดิม
+        // ใช้สัญญาเดียวกับฝั่ง ingest — `ID` เป็นของรหัสคำสั่ง (8–64) ไม่ใช่ของ uid บัญชี (1–128)
+        // ถ้าสองด่านใช้คนละกฎ uid จะผ่านตรงนี้แล้วไปตายตอน ingest ซึ่งทำทั้งชุดตก
+        const actorUid = typeof doc.actorUid === 'string' && ACCOUNT_UID.test(doc.actorUid) ? doc.actorUid : null;
+        const identity = command.action === 'open' && actorUid
+            ? { studentId: null, badgeId: null, uid: actorUid, verifiedBy: 'school_account' }
+            : null;
+        const result = await this.controller.command(command, identity);
         await this.publish(this.topics.evt, this.eventFor(command, result));
         await this.publishStatus();
     }

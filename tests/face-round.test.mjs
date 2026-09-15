@@ -12,6 +12,7 @@ import { CabinetOutbox } from '../edge/outbox.mjs';
 import { LocalController } from '../edge/controller.mjs';
 import { createLocalServer } from '../edge/server.mjs';
 import { CabinetSync } from '../edge/sync.mjs';
+import { ACCOUNT_UID } from '../lib/cabinet-protocol.js';
 import { validateEvent } from '../lib/cabinet-events.js';
 import { authenticateCabinet, responseSignature } from '../lib/cabinet-protocol.js';
 
@@ -134,6 +135,68 @@ test('a dispense with no badge reaches LINE as its own kind, not as a cloud comm
     outbox.record({ id: 'round-0002', drawer: 1, state: 'confirmed', created_at: new Date().toISOString(),
         student_identity: JSON.stringify({ studentId: '0001', badgeId: 'a'.repeat(64) }) }, { body: { ack: true } });
     assert.equal(outbox.pending().find(item => item.id === 'round-0002').verifiedBy, 'cabinet_card');
+    db.close();
+});
+
+// รอบที่สั่งจากเว็บพก uid ของบัญชีโรงเรียนมา แต่ไม่มี studentId ของทะเบียนบัตร
+// whitelist ต้องรับรูปนี้ ไม่งั้น uid ถูกทิ้งเงียบๆ แล้วการ์ดกลับไปเป็น "ยังไม่ทราบว่าเป็นใคร"
+test('a web dispense carries its school-account uid through the outbox and the whitelist', () => {
+    const db = new DatabaseSync(':memory:');
+    const outbox = new CabinetOutbox(db);
+    outbox.record({ id: 'round-web-01', drawer: 1, state: 'confirmed', created_at: new Date().toISOString(),
+        student_identity: JSON.stringify({ studentId: null, badgeId: null, uid: 'GoogUid123', verifiedBy: 'school_account' }) },
+        { body: { ack: true } });
+
+    const event = outbox.pending().find(item => item.id === 'round-web-01');
+    assert.equal(event.verifiedBy, 'school_account');
+    assert.equal(event.uid, 'GoogUid123', 'uid ต้องไม่ถูกดึงมาจาก studentId ซึ่งรอบนี้ไม่มี');
+    assert.equal(event.studentId, null);
+
+    const validated = validateEvent(event, 'box1');
+    assert.equal(validated.uid, 'GoogUid123');
+    assert.equal(validated.verifiedBy, 'school_account');
+    assert.equal(validated.studentId, undefined, 'ไม่มีรหัสทะเบียน ก็ต้องไม่แต่งขึ้นมา');
+
+    // รูปที่อ้าง school_account แต่พก studentId/badgeId มาด้วย = ปนสองแบบ ต้องถูกปฏิเสธ
+    for (const bad of [{ studentId: '0001' }, { badgeId: 'a'.repeat(64) }, { uid: null }, { uid: 42 }]) {
+        assert.throws(() => validateEvent({ ...event, ...bad }, 'box1'), /invalid_event/,
+            `ต้องปฏิเสธรูปที่ผิดสัญญา: ${JSON.stringify(bad)}`);
+    }
+    db.close();
+});
+
+// ด่านฝั่งตู้กับด่านฝั่ง ingest ต้องเห็น uid ตรงกันทุกค่า
+//
+// ถ้าไม่ตรง: uid ผ่าน MQTT แล้วไปตายตอน ingest ซึ่ง validate ทั้งชุดก่อนเขียน
+// ⇒ เหตุการณ์ใบเดียวทำทั้งชุดตก และ outbox วนส่งซ้ำไม่จบ · เคสนี้จึงเทียบ "ความเห็นตรงกัน"
+// ไม่ใช่เทียบกับรายการค่าที่เขียนไว้ตายตัว ซึ่งจะตกยุคทันทีที่ด้านใดด้านหนึ่งเปลี่ยน
+test('the cabinet and the ingest gate agree on exactly which account uids are valid', () => {
+    const db = new DatabaseSync(':memory:');
+    const outbox = new CabinetOutbox(db);
+    const accepts = uid => {
+        outbox.record({ id: `round-${Math.abs(uid.length * 7 + uid.charCodeAt(0))}-${uid.slice(0, 6)}`.padEnd(8, 'x').slice(0, 40),
+            drawer: 1, state: 'confirmed', created_at: new Date().toISOString(),
+            student_identity: JSON.stringify({ studentId: null, badgeId: null, uid, verifiedBy: 'school_account' }) },
+            { body: { ack: true } });
+        const row = outbox.pending().at(-1);
+        try { return validateEvent({ ...row, uid }, 'box1').uid === uid; } catch { return false; }
+    };
+
+    for (const uid of [
+        'api-student',            // uid จริงของ Auth emulator ที่เรพนี้ใช้อยู่ — มีขีด
+        'account_123',            // ขีดล่าง
+        'PhP0pqZJANY4ZgICEjcyQ8Ec4tY2',  // รูปแบบ 28 ตัวอักษรของการเข้าสู่ระบบด้วย Google
+        'a'.repeat(65),           // ยาวกว่าเพดาน 64 ของรหัสคำสั่ง แต่ยังอยู่ในเพดาน 128 ของบัญชี
+        'a'                       // สั้นกว่าขั้นต่ำ 8 ของรหัสคำสั่ง แต่ uid สั้นแบบนี้มีได้
+    ]) {
+        assert.equal(ACCOUNT_UID.test(uid), true, `ด่านฝั่งตู้ต้องรับ ${uid}`);
+        assert.equal(accepts(uid), true, `ด่านฝั่ง ingest ต้องรับ ${uid} ด้วย ไม่งั้นทั้งชุดตก`);
+    }
+
+    for (const uid of ['', 'a'.repeat(129), 'has space', 'ที่ไม่ใช่ ascii', 'semi;colon']) {
+        assert.equal(ACCOUNT_UID.test(uid), false, `ด่านฝั่งตู้ต้องปฏิเสธ ${JSON.stringify(uid)}`);
+        assert.equal(accepts(uid), false, `ด่านฝั่ง ingest ต้องปฏิเสธ ${JSON.stringify(uid)} เหมือนกัน`);
+    }
     db.close();
 });
 
