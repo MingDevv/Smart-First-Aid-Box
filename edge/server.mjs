@@ -179,7 +179,7 @@ export async function createLocalServer({ controller, root = ROOT, mode = proces
                     if (req.body.action === 'open') {
                         identity = studentSession.identify(req.body.studentSession, req.body.id);
                         // ข้อความนี้ขึ้นบนจอตู้ตรงๆ ⇒ ต้องเป็นภาษาไทยเหมือนทุกคำตอบของตู้
-                        // ของเดิมเป็นอังกฤษและเด็กหน้าตู้อ่านไม่รู้เรื่อง (เห็นจริงบนจอ 2026-09-15)
+                        // ของเดิมเป็นอังกฤษ ซึ่งเด็กหน้าตู้อ่านไม่รู้เรื่อง
                         if (!identity) return json(res, 401, { success: false, retrySafe: true, error: 'รอบนี้หมดอายุแล้ว กรุณาสแกนบัตรใหม่ หรือถ่ายรูปใบหน้าอีกครั้งเพื่อเริ่มรอบใหม่' });
                     }
                     const result = await controller.command(req.body, identity);

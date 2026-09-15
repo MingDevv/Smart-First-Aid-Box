@@ -183,7 +183,8 @@ test('anonymous browser cannot actuate even with forged old settings', async () 
         const { api, storage } = browser(async () => { calls++; }, settings, 'https:', {staff:false, signedIn:false});
         assert.equal(storage.getOperatingMode(), 'unset');
         assert.equal(api.operatingMode(), 'unset');
-        for (const result of [await api.openCompartment('cut'), await api.triggerBuzzer('on')]) {
+        // จ่ายของและการหยุดเสียงยังต้องถูกปฏิเสธก่อนแตะเครือข่าย
+        for (const result of [await api.openCompartment('cut'), await api.triggerBuzzer('off')]) {
             assert.equal(result.success, false);
             assert.equal(result.mode, 'unauthorized');
             assert.equal(result.retrySafe, true);
@@ -192,10 +193,25 @@ test('anonymous browser cannot actuate even with forged old settings', async () 
     }
 });
 
-// Bank เคาะ 2026-09-15: คนที่เจ็บคือคนที่ต้องกดเปิดช่องยา ⇒ เกตของ open คือ "ล็อกอินหรือยัง"
-// ไม่ใช่บทบาท · ออดยังเป็นของครู เพราะมันเรียกคนทั้งห้องพยาบาล
-// เคสนี้คือเคสที่หน้าเว็บพังจริงเมื่อ 2026-09-15 (นักเรียนล็อกอินแล้วแต่ไม่มีปุ่มให้กด)
-test('signed-in student opens a drawer but still cannot ring the buzzer', async () => {
+// ออด SOS ต้องดังแม้ไม่มีใครล็อกอิน — คนที่เจ็บอาจไม่มีบัญชีโรงเรียน หรือล็อกอินไม่ทัน
+// เคสนี้จึงตรวจว่ามันถูก "ส่งออกไปจริง" ไม่ใช่แค่ไม่ถูกปฏิเสธ
+test('an anonymous SOS still rings the buzzer, and skips the preflight it cannot authenticate', async () => {
+    const requests = [];
+    const { api } = browser(async (url, options) => {
+        requests.push({ url, method: options?.method || 'GET' });
+        return reply({ success: true, ack: ack(JSON.parse(options.body)) });
+    }, realMode(), 'https:', { staff: false, signedIn: false });
+
+    const ring = await api.triggerBuzzer('on');
+    assert.equal(ring.success, true);
+    assert.equal(ring.mode, 'mqtt');
+    // preflight อ่านสถานะตู้ต้องใช้โทเคน ⇒ รอบไม่มีตัวตนต้องยิง POST ใบเดียวเท่านั้น
+    assert.deepEqual(requests, [{ url: '/api/command', method: 'POST' }]);
+});
+
+// คนที่เจ็บคือคนที่ต้องกดเปิดช่องยา ⇒ เกตของ open คือ "ล็อกอินหรือยัง" ไม่ใช่บทบาท
+// ส่วนเสียงออด: ดังได้ แต่หยุดไม่ได้ เพราะเสียงที่ใครก็ปิดได้ไม่ใช่สัญญาณขอความช่วยเหลือ
+test('signed-in student opens a drawer and rings the buzzer, but cannot silence it', async () => {
     const requests = [];
     const { api } = browser(async (url, options) => {
         requests.push({ url, options });
@@ -205,12 +221,13 @@ test('signed-in student opens a drawer but still cannot ring the buzzer', async 
 
     assert.equal((await api.openCompartment('cut')).success, true);
     assert.equal((await api.getHardwareStatus()).connected, true);
+    assert.equal((await api.triggerBuzzer('on')).success, true);
 
-    const buzzer = await api.triggerBuzzer('on');
-    assert.equal(buzzer.success, false);
-    assert.equal(buzzer.mode, 'unauthorized');
+    const silence = await api.triggerBuzzer('off');
+    assert.equal(silence.success, false);
+    assert.equal(silence.mode, 'unauthorized');
     // ปุ่มที่กดไม่ได้ต้องไม่แตะเครือข่ายเลย ไม่ใช่ยิงไปให้เซิร์ฟเวอร์ปฏิเสธแล้วค่อยบอกทีหลัง
-    assert.equal(requests.filter(r => r.options.body && JSON.parse(r.options.body).action === 'buzzer').length, 0);
+    assert.equal(requests.filter(r => r.options.body && JSON.parse(r.options.body).state === 'off').length, 0);
 });
 
 const listenerSource = await readFile(new URL('../js/mqtt-bridge.js', import.meta.url), 'utf8');

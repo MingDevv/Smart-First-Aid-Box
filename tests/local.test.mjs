@@ -35,8 +35,15 @@ function browser(runtime) {
     assert.deepEqual(JSON.parse(b.values.get('sfab_ui_preferences')),{largeText:true});
     assert.equal(b.storage.getOperatingMode(),'unset');
     assert.equal((await b.api.openCompartment('cut')).mode,'unauthorized');
-    assert.equal((await b.api.triggerBuzzer('on')).mode,'unauthorized');
+    // หยุดเสียงเป็นของครู ⇒ เบราว์เซอร์ไม่มีตัวตนต้องถูกปฏิเสธก่อนแตะเครือข่าย
+    assert.equal((await b.api.triggerBuzzer('off')).mode,'unauthorized');
     assert.equal(b.calls(),0);
+    // แต่ "ดัง" ต้องพยายามส่งจริงแม้ไม่มีใครล็อกอิน — ที่นี่ fetch ปลอมโยนทิ้ง จึงได้ผลล้มเหลว
+    // ของเส้น mqtt ไม่ใช่ unauthorized · สิ่งที่เคสนี้ยืนยันคือ "ไม่ได้ถูกเกตสิทธิ์ตัดทิ้ง"
+    const ring = await b.api.triggerBuzzer('on');
+    assert.equal(ring.success,false);
+    assert.notEqual(ring.mode,'unauthorized');
+    assert.ok(b.calls()>0,'ออด SOS ต้องถูกยิงออกไปจริง ไม่ใช่ถูกปฏิเสธเงียบๆ ในเบราว์เซอร์');
     assert.equal(b.storage.addHistoryEntry({uid:'forged'}).success,false);
     assert.equal(JSON.parse(b.values.get('smart_first_aid_history')).length,1);
 }

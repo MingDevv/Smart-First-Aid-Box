@@ -55,9 +55,10 @@ test('role allowlist, revocation and failures close the command path before MQTT
         [{ error:'auth/internal-error' }, request({}), 503],
         [{ token:{...school,email_verified:false},role:'admin' }, request({}), 403],
         [{ token:{...school,email:'a@elsewhere.test'},role:'teacher' }, request({}), 403],
-        // บทบาทที่ browser ส่งมาใน body ไม่ใช่อำนาจ — นักเรียนอ้าง role:'admin' ก็ยังสั่งออดไม่ได้
-        [{}, request({action:'buzzer',state:'on',role:'admin'}), 403],
-        [{role:'owner'}, request({action:'buzzer',state:'on'}),403],
+        // บทบาทที่ browser ส่งมาใน body ไม่ใช่อำนาจ — นักเรียนอ้าง role:'admin' ก็ยังหยุดเสียงไม่ได้
+        // ใช้ state:'off' เพราะ 'on' เปิดให้ทุกคนแล้ว การทดสอบเกตสิทธิ์จึงต้องยิงไปที่ฝั่งที่ยังกั้นอยู่
+        [{}, request({action:'buzzer',state:'off',role:'admin'}), 403],
+        [{role:'owner'}, request({action:'buzzer',state:'off'}),403],
         [{failRole:true},request({}),503]
     ]) {
         resetRateLimitForTests();
@@ -76,9 +77,15 @@ test('role allowlist, revocation and failures close the command path before MQTT
     if (mqttUrl === undefined) delete process.env.MQTT_URL; else process.env.MQTT_URL = mqttUrl;
     assert.equal(studentStatus.status,200);
     assert.equal(studentStatus.data.mqttConfigured,false);
-    // ...แต่ยังสั่งออดไม่ได้ ถึงจะล็อกอินแล้วก็ตาม
+    // ...แต่ยังหยุดเสียงออดไม่ได้ ถึงจะล็อกอินแล้วก็ตาม
     resetRateLimitForTests();
-    assert.equal((await invoke(studentHandler,request({action:'buzzer',state:'on'}))).status,403);
+    assert.equal((await invoke(studentHandler,request({action:'buzzer',state:'off'}))).status,403);
+    // ส่วนการ "สั่งให้ดัง" ต้องผ่านเกตสิทธิ์แม้ไม่มี Authorization header เลย
+    // 503 คือ MQTT ยังไม่ได้ตั้งค่าในเทส ซึ่งอยู่หลังเกตสิทธิ์ ⇒ พิสูจน์ว่าไม่ได้ถูกตัดที่ 401/403
+    resetRateLimitForTests();
+    const anonymousSos = await invoke(studentHandler, {method:'POST',headers:{},body:{action:'buzzer',state:'on'}});
+    assert.ok(![401,403].includes(anonymousSos.status),
+        `SOS ที่ไม่ได้ล็อกอินต้องไม่ถูกเกตสิทธิ์ตัดทิ้ง (ได้ ${anonymousSos.status})`);
     assert.equal(mqttClientStatsForTests().created, 0);
     // สามบทบาทเท่านั้น — `nurse` ที่ค้างในเอกสารเก่าต้องตกเป็น student ไม่ใช่ผ่าน
     for (const role of ['teacher','admin']) {
