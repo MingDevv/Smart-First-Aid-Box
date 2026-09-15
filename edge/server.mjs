@@ -178,7 +178,9 @@ export async function createLocalServer({ controller, root = ROOT, mode = proces
                     let identity = null;
                     if (req.body.action === 'open') {
                         identity = studentSession.identify(req.body.studentSession, req.body.id);
-                        if (!identity) return json(res, 401, { success: false, retrySafe: true, error: 'Scan student card to start a new round' });
+                        // ข้อความนี้ขึ้นบนจอตู้ตรงๆ ⇒ ต้องเป็นภาษาไทยเหมือนทุกคำตอบของตู้
+                        // ของเดิมเป็นอังกฤษ ซึ่งเด็กหน้าตู้อ่านไม่รู้เรื่อง
+                        if (!identity) return json(res, 401, { success: false, retrySafe: true, error: 'รอบนี้หมดอายุแล้ว กรุณาสแกนบัตรใหม่ หรือถ่ายรูปใบหน้าอีกครั้งเพื่อเริ่มรอบใหม่' });
                     }
                     const result = await controller.command(req.body, identity);
                     if (identity && result.status >= 400 && !result.body.uncertain) {

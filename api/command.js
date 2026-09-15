@@ -4,14 +4,16 @@
 //   JavaScript ในเบราว์เซอร์เปิดอ่านได้หมด ใครกด View Source ก็เห็นรหัส broker
 //   แล้วสั่งเปิดตู้ยาได้จากที่ไหนก็ได้ รหัสที่ publish ได้จึงต้องอยู่ใน env ของ Vercel
 //   Server-only credentials; browser requests use Firebase ID tokens.
-// Cloud status and open commands require a verified school account; the buzzer still requires staff.
+// Cloud status and open commands require a verified school account. Ringing the SOS buzzer needs no
+// account at all; silencing it is staff-only.
 import mqtt from 'mqtt';
 import { authorize, accessFailure, apiHeaders, AccessError, STAFF_ROLES } from '../lib/auth.js';
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-// โรงเรียนทั้งโรงออกเน็ตผ่าน IP สาธารณะเดียว ⇒ ตั้งแต่นักเรียนสั่งเปิดเองได้ (2026-09-15)
-// เพดานต่อ IP กลายเป็นเพดานของทุกคนพร้อมกัน ไม่ใช่เครื่องมือกันคนก่อกวนอีกต่อไป
-// แกนที่มีความหมายคือ uid ซึ่งทุกคำสั่งมีแน่นอนแล้วเพราะต้องล็อกอินก่อนเสมอ
+// โรงเรียนทั้งโรงออกเน็ตผ่าน IP สาธารณะเดียว ⇒ เมื่อนักเรียนสั่งเปิดช่องยาเองได้ เพดานต่อ IP
+// กลายเป็นเพดานของทุกคนพร้อมกัน ไม่ใช่เครื่องมือกันคนก่อกวนอีกต่อไป
+// แกนที่แยกคนออกจากกันได้จริงคือ uid ซึ่งมีทุกคำสั่งที่ต้องล็อกอิน
+// ออด SOS ที่ยิงได้โดยไม่ล็อกอินไม่มี uid ⇒ เหลือเพดานต่อ IP กับเพดานรวมเป็นตัวกันของมัน
 const MAX_REQUESTS_PER_USER = 4;
 const MAX_REQUESTS_PER_IP = 30;
 // เพดานรวมทุก IP กันกรณีมีคนยิงจากหลายที่พร้อมกัน เซอร์โวจะได้ไม่ถูกสั่งรัว
@@ -52,7 +54,8 @@ function checkRateLimit(ip, uid) {
     // นับทั้งสองถังเสมอ ไม่ใช้ `||` ลัด — ถังที่ไม่ถูกนับในรอบที่อีกถังเต็ม จะทำให้คนที่ยิงรัว
     // "ได้โควตาคืน" ทุกครั้งที่เพื่อนร่วม IP ชนเพดานก่อน
     const ipOver = overBudget(`ip:${ip}`, MAX_REQUESTS_PER_IP, now);
-    const userOver = overBudget(`uid:${uid}`, MAX_REQUESTS_PER_USER, now);
+    // ออด SOS ยิงได้โดยไม่ล็อกอิน ⇒ ไม่มี uid ให้นับ เหลือเพดานต่อ IP กับเพดานรวมเป็นตัวกัน
+    const userOver = uid ? overBudget(`uid:${uid}`, MAX_REQUESTS_PER_USER, now) : false;
     return ipOver || userOver;
 }
 
@@ -314,10 +317,16 @@ return async function handler(req, res) {
         return res.status(405).json({ success: false, error: 'Method Not Allowed', retrySafe: true });
     }
     // บัญชีโรงเรียนที่ยืนยันแล้วก็พอสำหรับอ่านสถานะและเปิดช่องยา — เกต staff ย้ายไปอยู่กับ
-    // action ที่ต้องการมันจริงๆ (buzzer) ข้างล่าง แทนที่จะปิดทั้งไฟล์ (Bank เคาะ 2026-09-15)
-    let actor;
+    // action ที่ต้องการมันจริงๆ (buzzer off) ข้างล่าง แทนที่จะปิดทั้งไฟล์
+    //
+    // **ออด SOS ดังได้โดยไม่ต้องล็อกอิน**: คนที่เจ็บอาจไม่ใช่เจ้าของ
+    // เครื่อง ไม่มีบัญชีโรงเรียน หรือล็อกอินไม่ทัน · การขอให้ล็อกอินก่อนเรียกคนช่วย คือการ
+    // กันคนออกจากความช่วยเหลือในนาทีที่ต้องการมันที่สุด ⇒ ยอมแลกกับความเสี่ยงเรื่องคนก่อกวน
+    // ซึ่งกันด้วยเพดานต่อ IP/รวม ข้างล่าง และ `SFAB_CLOUD_ACTIONS` ฝั่งตู้
+    const ringingSos = req.method === 'POST' && req.body?.action === 'buzzer' && req.body?.state === 'on';
+    let actor = null;
     try { actor = await authorizeRequest(req); }
-    catch (error) { return accessFailure(res, error); }
+    catch (error) { if (!ringingSos) return accessFailure(res, error); }
 
     // localStorage ไม่ใช่แหล่งจริงว่าขาลง MQTT ใช้ได้หรือไม่ — ให้ server รายงานเอง
     if (req.method === 'GET') {
@@ -337,7 +346,7 @@ return async function handler(req, res) {
     }
 
     const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown-ip';
-    if (checkRateLimit(clientIp, actor.token.uid)) {
+    if (checkRateLimit(clientIp, actor?.token?.uid || null)) {
         console.warn(`[MQTT Command] Rate limit exceeded for IP: ${clientIp}`);
         return res.status(429).json({
             success: false,
@@ -356,9 +365,10 @@ return async function handler(req, res) {
         });
     }
 
-    // ออดเรียกคนทั้งห้องพยาบาลและหยุดได้จากหน้าครูเท่านั้น ⇒ ยังเป็นของ staff
-    // ส่วน open เปิดให้บัญชีโรงเรียนที่ล็อกอินแล้วทุกคน เพราะคนที่เจ็บคือคนที่ต้องกด
-    if (action === 'buzzer' && !STAFF_ROLES.includes(actor.role)) {
+    // ออด "ดัง" = ใครกดก็ได้ ไม่ต้องล็อกอิน
+    // ออด "หยุด" = ครูเท่านั้น — ไม่งั้นคนที่ก่อเหตุปิดปาก SOS ของตัวเองได้ และเสียงที่ใครก็
+    // ปิดได้ไม่ใช่สัญญาณขอความช่วยเหลือ · ไม่ได้ล็อกอิน (`actor` เป็น null) ก็หยุดไม่ได้เช่นกัน
+    if (action === 'buzzer' && state !== 'on' && !STAFF_ROLES.includes(actor?.role)) {
         return accessFailure(res, new AccessError(403, 'staff_role_required'));
     }
 

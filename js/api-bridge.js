@@ -39,9 +39,17 @@ const ApiBridge = {
                     : data.ack.event === 'buzzer_set' && data.ack.id === body.id && data.ack.state === body.state)) {
                 return { ...data, mode: 'pi-local' };
             }
+            // ต้องส่ง `retrySafe` ของ Pi ต่อออกไป ไม่ใช่ทิ้งแล้วประกอบวัตถุใหม่
+            //
+            // `settleDispatch()` ในคีออสก์แปล "ไม่มี retrySafe" เป็น **uncertain** = ส่งไปแล้วไม่รู้ผล
+            // ⇒ คำปฏิเสธที่ชัดเจน (เช่น 401 ที่ยังไม่ได้ส่งคำสั่งออกไปเลย) กลายเป็นหน้าจอ
+            // "ไม่แน่ใจว่าตู้จ่ายของออกมาหรือยัง" ที่ซ่อนปุ่มลองใหม่ และค้างจอไว้ให้คนมาดู
+            // — บอกครูว่าลิ้นชักอาจเปิดไปแล้ว ทั้งที่ไม่มีอะไรถูกส่ง
             return { success: false, mode: 'pi-local', commandId: body.id,
+                retrySafe: data.retrySafe === true,
                 error: data.error || 'Pi ยังยืนยันผลจากตู้ยาไม่ได้' };
         } catch {
+            // ตรงนี้ไม่ใส่ retrySafe โดยตั้งใจ — เน็ตขาดกลางคันคือกรณีที่ "ไม่รู้ว่าส่งถึงหรือยัง" จริงๆ
             return { success: false, mode: 'pi-local', commandId: body.id,
                 error: 'การเชื่อมต่อ Pi ขัดข้อง กรุณาตรวจตู้ก่อน ห้ามสั่งจ่ายซ้ำ' };
         } finally { clearTimeout(timeout); }
@@ -49,6 +57,10 @@ const ApiBridge = {
 
     // GET may establish MQTT and receive retained hardware metadata (4.5s + 2s).
     MQTT_STATUS_TIMEOUT_MS: 8000,
+    // ออด SOS ของคนที่ยังไม่ได้ล็อกอินข้ามการ preflight (ซึ่งต้องใช้โทเคน) แล้วยิง POST ตรง
+    // เซิร์ฟเวอร์ตรวจ `hardware.connected` ให้อยู่แล้วก่อน publish · งบนี้ต้องคลุมงบ ACK
+    // ของเฟิร์มแวร์ (สูงสุด 120 วิ) ไม่ได้ จึงตั้งเท่าค่าเริ่มต้นที่ใช้กับลิ้นชัก = 45 วิ
+    ANON_BUZZER_TIMEOUT_MS: 45000,
 
     isHardwareConfigured(settings) {
         if (!settings || !settings.esp32Url) return false;
@@ -99,11 +111,13 @@ const ApiBridge = {
     },
 
     // Keep the deadline active through JSON body consumption, not only response headers.
-    async fetchJson(url, options, timeoutMs) {
+    async fetchJson(url, options, timeoutMs, { anonymous = false } = {}) {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), timeoutMs);
         try {
-            const send = url === '/api/command' && !this.isPiLocal()
+            // `anonymous` มีไว้ให้ออด SOS เท่านั้น — `authorizedFetch` โยนทิ้งตั้งแต่ยังไม่ยิง
+            // ถ้าไม่มีใครล็อกอินอยู่ ซึ่งจะทำให้คนที่กำลังเจ็บเรียกครูไม่ได้
+            const send = url === '/api/command' && !this.isPiLocal() && !anonymous
                 ? window.AuthService?.authorizedFetch.bind(window.AuthService) : fetch;
             if (!send) throw new Error('School sign-in required');
             const response = await send(url, { ...options, signal: controller.signal });
@@ -113,8 +127,22 @@ const ApiBridge = {
         } finally { clearTimeout(timeout); }
     },
 
-    async sendMqttCommand(body) {
-        let hardware;
+    async sendMqttCommand(body, { anonymous = false } = {}) {
+        let hardware = null;
+        // preflight อ่านสถานะตู้ ซึ่งเป็น endpoint ที่ต้องล็อกอิน ⇒ รอบที่ไม่มีตัวตนข้ามไปเลย
+        // แล้วให้เซิร์ฟเวอร์เป็นคนตรวจความพร้อมก่อน publish (มันตรวจอยู่แล้วทุกครั้ง)
+        if (anonymous) {
+            const { response, data } = await this.fetchJson('/api/command', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            }, this.ANON_BUZZER_TIMEOUT_MS, { anonymous: true }).catch(() => ({ response: null, data: {} }));
+            if (response?.ok && data.success && this.isCommandAck(data.ack, body)) {
+                return { success: true, mode: 'mqtt', commandId: body.id, mqttConfigured: true };
+            }
+            return { success: false, mode: 'mqtt', commandId: body.id,
+                retrySafe: data.retrySafe === true,
+                error: data.error || 'ยังยืนยันว่าออดดังไม่ได้ กรุณาเรียกครูที่อยู่ใกล้ที่สุด' };
+        }
         try {
             const { response, data } = await this.fetchJson('/api/command', {}, this.MQTT_STATUS_TIMEOUT_MS);
             if (response.ok && data.mqttConfigured === false) {
@@ -319,15 +347,24 @@ const ApiBridge = {
         if (this.isPiLocal()) {
             return this.sendLocalCommand({ action: 'buzzer', state: state === 'on' ? 'on' : 'off', id: commandId });
         }
-        if (!window.AuthService?.isStaff()) {
-            return { success: false, mode: 'unauthorized', retrySafe: true, error: 'เฉพาะครูที่ได้รับสิทธิ์เท่านั้น' };
+        // เสียงออกจาก SOS ต้องดังทุกครั้งที่มีคนกด **ไม่ว่าจะล็อกอินอยู่หรือไม่**
+        // คนที่เจ็บอาจไม่ใช่เจ้าของเครื่อง และการขอให้ล็อกอินก่อนเรียกคนช่วย คือการกันคนออกจาก
+        // ความช่วยเหลือในนาทีที่ต้องการมันที่สุด
+        //
+        // **แต่การ "หยุด" เสียงยังเป็นของครู** — ถ้าใครก็กดหยุดได้ คนที่ก่อเหตุก็ปิดปาก SOS
+        // ของตัวเองได้ · ฝั่งครูหยุดจากหน้า dashboard ซึ่งล็อกอินอยู่แล้ว
+        const wantsOn = state === 'on';
+        if (!wantsOn && !window.AuthService?.isStaff()) {
+            return { success: false, mode: 'unauthorized', retrySafe: true,
+                error: 'เฉพาะครูที่ได้รับสิทธิ์เท่านั้นที่หยุดเสียงได้' };
         }
+        const anonymous = wantsOn && window.AuthService?.isSignedIn?.() !== true;
         const mqttResult = await this.sendMqttCommand({
             action: 'buzzer',
-            state: state === 'on' ? 'on' : 'off',
+            state: wantsOn ? 'on' : 'off',
             id: commandId,
             ts: Date.now()
-        });
+        }, { anonymous });
         if (mqttResult.success) return { success: true, mode: 'mqtt' };
 
 

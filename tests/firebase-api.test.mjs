@@ -79,21 +79,32 @@ test('actual ID tokens allow verified school users to open drawers and reject in
     assert.equal(published,baseline + 4);
 });
 
-test('actual student and retired-role tokens cannot control the buzzer, but current staff can',async()=>{
+// เสียงขอความช่วยเหลือต้องดังได้เสมอ แม้ไม่มีบัญชีเลย · แต่การหยุดเสียงเป็นของครู
+// ไม่งั้นคนที่ก่อเหตุปิดปาก SOS ของตัวเองได้
+test('anyone may ring the SOS buzzer, including with no token at all, but only staff may silence it',async()=>{
     const baseline = published;
-    for (const user of ['student','retired']) {
-        for (const state of ['on','off']) {
-            const response = await invoke(command,tokens.get(user),{action:'buzzer',state,role:'admin',id:`c-denied-${user}-${state}`});
-            assert.equal(response.status,403);
-        }
+    for (const [label,token] of [['anonymous',null],['invalid',  'invalid-token'],
+        ['student',tokens.get('student')],['retired',tokens.get('retired')]]) {
+        const response = await invoke(command,token,{action:'buzzer',state:'on',id:`c-ring-${label}`});
+        assert.equal(response.status,200,`${label} must be able to ring for help`);
+        assert.equal(response.data.ack.event,'buzzer_set');
     }
-    assert.equal(published,baseline,'forged body roles never publish a buzzer command');
+    assert.equal(published,baseline + 4);
+
+    // หยุดเสียง: บทบาทที่ browser ส่งมาใน body ไม่ใช่อำนาจ และไม่มีโทเคนก็หยุดไม่ได้
+    for (const [label,token] of [['anonymous',null],['student',tokens.get('student')],
+        ['retired',tokens.get('retired')]]) {
+        const response = await invoke(command,token,{action:'buzzer',state:'off',role:'admin',id:`c-silence-${label}`});
+        assert.ok([401,403].includes(response.status),`${label} must not silence an SOS (got ${response.status})`);
+    }
+    assert.equal(published,baseline + 4,'forged body roles never publish a silence command');
+
     for (const user of ['teacher','admin']) {
-        const response = await invoke(command,tokens.get(user),{action:'buzzer',state:'on',id:'c-buzzer-'+user});
+        const response = await invoke(command,tokens.get(user),{action:'buzzer',state:'off',id:'c-buzzer-off-'+user});
         assert.equal(response.status,200);
         assert.equal(response.data.ack.event,'buzzer_set');
     }
-    assert.equal(published,baseline + 2);
+    assert.equal(published,baseline + 6);
 });
 
 test('own-profile projection never leaks clinical fields or studentNo',async()=>{
@@ -119,13 +130,14 @@ test('expired, wrong audience/issuer and revoked tokens fail before publishing',
     assert.equal(published,baseline);
 });
 
-test('deleting a staff role immediately removes buzzer access while preserving school-user drawer access',async()=>{
+test('deleting a staff role immediately removes the power to silence, while preserving school-user drawer access',async()=>{
     const baseline = published;
     const token = tokens.get('revocable');
-    assert.equal((await invoke(command,token,{action:'buzzer',state:'on',id:'c-before-revoke'})).status,200);
+    // ใช้ 'off' เป็นตัววัด เพราะ 'on' เปิดให้ทุกคนแล้ว จึงแยกไม่ออกว่าบทบาทถูกถอดจริงหรือยัง
+    assert.equal((await invoke(command,token,{action:'buzzer',state:'off',id:'c-before-revoke'})).status,200);
     assert.equal(published,baseline + 1);
     await db.doc('roles/api-revocable').delete();
-    assert.equal((await invoke(command,token,{action:'buzzer',state:'on',id:'c-no-role-now'})).status,403);
+    assert.equal((await invoke(command,token,{action:'buzzer',state:'off',id:'c-no-role-now'})).status,403);
     assert.equal(published,baseline + 1,'revoked staff command must not reach MQTT');
     assert.equal((await invoke(command,token,{action:'open',drawer:1,id:'c-still-school'})).status,200);
     assert.equal(published,baseline + 2);

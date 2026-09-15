@@ -73,7 +73,7 @@ test('the photo of the event about to be ingested goes first, and stale photos a
     db.close();
 });
 
-test('a photo round opens only for the command it was taken for, and only while the photo is there', () => {
+test('a photo round opens only for the command it was taken for, and survives the upload deleting the photo', () => {
     const db = new DatabaseSync(':memory:');
     const outbox = new CabinetOutbox(db);
     const photos = new CabinetPhotos(db);
@@ -94,11 +94,21 @@ test('a photo round opens only for the command it was taken for, and only while 
     const identity = session.identify(round.sessionId, 'round-0001');
     assert.deepEqual(identity, { studentId: null, badgeId: null, verifiedBy: 'cabinet_photo' });
 
-    // อัปโหลดสำเร็จแล้วตู้ลบรูปทิ้ง — ตั๋วที่ค้างอยู่ต้องใช้เปิดลิ้นชักรอบใหม่ไม่ได้
+    // ⚠️ เคสนี้เคย assert กลับด้าน และนั่นคือบั๊กที่ทำให้ "ไม่มีบัตร" ใช้ไม่ได้จริงเมื่อเน็ตดี
+    //
+    // `/api/local/photo` ปลุก sync ทันทีที่เก็บรูป · อัปสำเร็จแล้ว `forget()` ลบรูปตามกติกา PDPA
+    // ระหว่างที่เด็กเลือกประเภทแผลอยู่ ⇒ ถ้าตั๋วตายตอนรูปถูกลบ ก็ไม่มีใครกดรับยาทันเลย
+    // เว้นแต่จะกดเร็วกว่ารอบ sync
+    //
+    // ตั๋วยังต้องผูกกับคำสั่งเดิมใบเดียวเหมือนเดิม — ข้อนั้นทดสอบไว้แล้วที่บรรทัด 'รูปหนึ่งใบใช้ได้กับคำสั่งเดียว'
+    // ซึ่งคือสิ่งที่กันรอบใหม่จริงๆ ไม่ใช่การมีไฟล์ค้างอยู่ในเครื่อง
     photos.forget('round-0001');
-    assert.equal(session.identify(round.sessionId, 'round-0001'), null);
+    assert.deepEqual(session.identify(round.sessionId, 'round-0001'),
+        { studentId: null, badgeId: null, verifiedBy: 'cabinet_photo' },
+        'รูปถูกอัปขึ้นคลาวด์แล้วลบทิ้ง ไม่ได้แปลว่ารอบนี้ใช้ไม่ได้ — ครูได้เห็นรูปแล้วด้วยซ้ำ');
+    assert.equal(session.identify(round.sessionId, 'round-อื่น'), null,
+        'แต่ตั๋วเดิมต้องยังเปิดคำสั่งใบอื่นไม่ได้ ถึงรูปจะไม่อยู่ในเครื่องแล้ว');
 
-    photos.store('round-0001', jpeg);
     now += 600001;
     assert.equal(session.identify(round.sessionId, 'round-0001'), null, 'ตั๋วต้องหมดอายุเหมือนรอบที่ใช้บัตร');
     db.close();
