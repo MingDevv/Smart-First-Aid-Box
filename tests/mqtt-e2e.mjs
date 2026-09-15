@@ -64,7 +64,9 @@ async function fixture(t, onCommand, status = {}) {
             headers: { 'x-forwarded-for': `test-${++requestNumber}` } };
         const res = { statusCode: 200, setHeader() {}, status(code) { this.statusCode = code; return this; },
             json(body) { resolve({ status: this.statusCode, body }); }, end() { resolve({ status: this.statusCode }); } };
-        Promise.resolve(api.createCommandHandler(async () => ({ role: 'nurse' }))(req, res)).catch(reject);
+        // uid ต่างกันทุกคำขอด้วยเหตุผลเดียวกับที่ x-forwarded-for ต่างกัน: ถังจำกัดอัตรานับต่อ uid
+        // ด้วยแล้ว การใช้ uid เดียวทั้งไฟล์จะทำให้เคสกลางๆ ล้มด้วย 429 ที่ไม่เกี่ยวกับสิ่งที่ตรวจ
+        Promise.resolve(api.createCommandHandler(async () => ({ role: 'teacher', token: { uid: `test-${requestNumber}` } }))(req, res)).catch(reject);
     });
     return { invoke, commands, api, event, async setStatus(change) {
         hardware = { ...hardware, ...change }; await advertise(); await delay(60);

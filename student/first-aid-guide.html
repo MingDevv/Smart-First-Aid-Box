@@ -247,7 +247,11 @@
             <span><strong id="hardware-status-label">กำลังเชื่อมต่อตู้ยา</strong><br><span id="hardware-log">กำลังเตรียมคำสั่งปลดล็อก...</span></span>
         </div>
 
-        <button class="btn btn-primary unlock-button" data-staff-only id="manual-open-drawer-btn" type="button" onclick="startTreatment()">
+        <!-- เคยติด `data-staff-only` ซึ่ง css/auth.css ซ่อนด้วย display:none ⇒ นักเรียนที่ล็อกอินแล้ว
+             เดินมาจากการสแกน AI เจอหน้าที่ไม่มีปุ่มอะไรให้กดเลย และหน้าไม่ได้บอกด้วยว่าทำไม
+             (Bank เจอกับตัวบนมือถือ 2026-09-15 ทั้งบัญชีนักเรียนและ it@) · ตอนนี้เกตคือ "ล็อกอินหรือยัง"
+             ซึ่ง `data-requires-auth` เด้งกล่องลงชื่อเข้าใช้ให้ตรงจุดที่มือเพิ่งแตะ แทนการซ่อนเงียบๆ -->
+        <button class="btn btn-primary unlock-button" data-requires-auth="เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน จึงจะสั่งเปิดช่องยาได้" id="manual-open-drawer-btn" type="button" onclick="startTreatment()">
             <span class="material-symbols-rounded" aria-hidden="true">lock_open</span>
             <span>ปลดล็อกช่อง <span id="drawer-button-number">1</span> &amp; เริ่มทำแผล</span>
         </button>
