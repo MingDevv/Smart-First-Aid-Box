@@ -4,14 +4,18 @@
 //   JavaScript ในเบราว์เซอร์เปิดอ่านได้หมด ใครกด View Source ก็เห็นรหัส broker
 //   แล้วสั่งเปิดตู้ยาได้จากที่ไหนก็ได้ รหัสที่ publish ได้จึงต้องอยู่ใน env ของ Vercel
 //   Server-only credentials; browser requests use Firebase ID tokens.
-// Cloud status and commands require a verified school account and a current staff role.
+// Cloud status and open commands require a verified school account; the buzzer still requires staff.
 import mqtt from 'mqtt';
-import { authorize, accessFailure, apiHeaders } from '../lib/auth.js';
+import { authorize, accessFailure, apiHeaders, AccessError, STAFF_ROLES } from '../lib/auth.js';
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const MAX_REQUESTS_PER_IP = 10;
+// โรงเรียนทั้งโรงออกเน็ตผ่าน IP สาธารณะเดียว ⇒ ตั้งแต่นักเรียนสั่งเปิดเองได้ (2026-09-15)
+// เพดานต่อ IP กลายเป็นเพดานของทุกคนพร้อมกัน ไม่ใช่เครื่องมือกันคนก่อกวนอีกต่อไป
+// แกนที่มีความหมายคือ uid ซึ่งทุกคำสั่งมีแน่นอนแล้วเพราะต้องล็อกอินก่อนเสมอ
+const MAX_REQUESTS_PER_USER = 4;
+const MAX_REQUESTS_PER_IP = 30;
 // เพดานรวมทุก IP กันกรณีมีคนยิงจากหลายที่พร้อมกัน เซอร์โวจะได้ไม่ถูกสั่งรัว
-const MAX_REQUESTS_GLOBAL = 12;
+const MAX_REQUESTS_GLOBAL = 30;
 
 // Firmware advertises its measured motor budget. Include connect/status overhead
 // in the browser deadline; Vercel allows 180 seconds for this handler.
@@ -23,7 +27,19 @@ const STATUS_MAX_AGE_MS = 5000;
 const rateLimitMap = new Map();
 let globalWindow = { count: 0, resetTime: 0 };
 
-function checkRateLimit(ip) {
+function overBudget(key, max, now) {
+    const windowData = rateLimitMap.get(key) || { count: 0, resetTime: now + RATE_LIMIT_WINDOW_MS };
+    if (now > windowData.resetTime) {
+        windowData.count = 1;
+        windowData.resetTime = now + RATE_LIMIT_WINDOW_MS;
+    } else {
+        windowData.count++;
+    }
+    rateLimitMap.set(key, windowData);
+    return windowData.count > max;
+}
+
+function checkRateLimit(ip, uid) {
     const now = Date.now();
 
     if (now > globalWindow.resetTime) {
@@ -33,15 +49,11 @@ function checkRateLimit(ip) {
     }
     if (globalWindow.count > MAX_REQUESTS_GLOBAL) return true;
 
-    const windowData = rateLimitMap.get(ip) || { count: 0, resetTime: now + RATE_LIMIT_WINDOW_MS };
-    if (now > windowData.resetTime) {
-        windowData.count = 1;
-        windowData.resetTime = now + RATE_LIMIT_WINDOW_MS;
-    } else {
-        windowData.count++;
-    }
-    rateLimitMap.set(ip, windowData);
-    return windowData.count > MAX_REQUESTS_PER_IP;
+    // นับทั้งสองถังเสมอ ไม่ใช้ `||` ลัด — ถังที่ไม่ถูกนับในรอบที่อีกถังเต็ม จะทำให้คนที่ยิงรัว
+    // "ได้โควตาคืน" ทุกครั้งที่เพื่อนร่วม IP ชนเพดานก่อน
+    const ipOver = overBudget(`ip:${ip}`, MAX_REQUESTS_PER_IP, now);
+    const userOver = overBudget(`uid:${uid}`, MAX_REQUESTS_PER_USER, now);
+    return ipOver || userOver;
 }
 
 function mqttConfigured() {
@@ -301,7 +313,10 @@ return async function handler(req, res) {
     if (!['GET', 'POST'].includes(req.method)) {
         return res.status(405).json({ success: false, error: 'Method Not Allowed', retrySafe: true });
     }
-    try { await authorizeRequest(req, { staffOnly: true }); }
+    // บัญชีโรงเรียนที่ยืนยันแล้วก็พอสำหรับอ่านสถานะและเปิดช่องยา — เกต staff ย้ายไปอยู่กับ
+    // action ที่ต้องการมันจริงๆ (buzzer) ข้างล่าง แทนที่จะปิดทั้งไฟล์ (Bank เคาะ 2026-09-15)
+    let actor;
+    try { actor = await authorizeRequest(req); }
     catch (error) { return accessFailure(res, error); }
 
     // localStorage ไม่ใช่แหล่งจริงว่าขาลง MQTT ใช้ได้หรือไม่ — ให้ server รายงานเอง
@@ -322,7 +337,7 @@ return async function handler(req, res) {
     }
 
     const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown-ip';
-    if (checkRateLimit(clientIp)) {
+    if (checkRateLimit(clientIp, actor.token.uid)) {
         console.warn(`[MQTT Command] Rate limit exceeded for IP: ${clientIp}`);
         return res.status(429).json({
             success: false,
@@ -339,6 +354,12 @@ return async function handler(req, res) {
             error: 'คำสั่งไม่ถูกต้อง (action ต้องเป็น open หรือ buzzer)',
             mqttConfigured: mqttConfigured(), retrySafe: true
         });
+    }
+
+    // ออดเรียกคนทั้งห้องพยาบาลและหยุดได้จากหน้าครูเท่านั้น ⇒ ยังเป็นของ staff
+    // ส่วน open เปิดให้บัญชีโรงเรียนที่ล็อกอินแล้วทุกคน เพราะคนที่เจ็บคือคนที่ต้องกด
+    if (action === 'buzzer' && !STAFF_ROLES.includes(actor.role)) {
+        return accessFailure(res, new AccessError(403, 'staff_role_required'));
     }
 
     if (id !== undefined && !commandIdIsValid(id)) {
@@ -441,6 +462,13 @@ export async function closeMqttClientForTests() {
     if (!state) return;
     await endClient(state.client);
     if (activeClientState === state) activeClientState = null;
+}
+
+// ถังนับถูกคีย์ด้วย uid แล้ว ⇒ เทสหลายเคสในไฟล์เดียวที่ใช้ uid เดียวกันจะกินโควตากันเอง
+// และล้มด้วย 429 ที่ไม่เกี่ยวกับสิ่งที่มันกำลังตรวจ · ล้างถังก่อนเคสที่นับจำนวนคำสั่งจริงจัง
+export function resetRateLimitForTests() {
+    rateLimitMap.clear();
+    globalWindow = { count: 0, resetTime: 0 };
 }
 
 export function mqttClientStatsForTests() {

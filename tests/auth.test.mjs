@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { createAuthorizer, isSchoolIdentity } from '../lib/auth.js';
 import { firebaseEnvironment } from '../lib/firebase-admin.js';
 import firebaseConfig from '../api/firebase-config.js';
-import { createCommandHandler, mqttClientStatsForTests } from '../api/command.js';
+import { createCommandHandler, mqttClientStatsForTests, resetRateLimitForTests } from '../api/command.js';
 import { createNotifyHandler, sendSchoolSos } from '../api/notify.js';
 
 const school = { uid: 'test-student', email: 'student@tesaban6.ac.th', email_verified: true, name: 'First Surname',
@@ -55,9 +55,12 @@ test('role allowlist, revocation and failures close the command path before MQTT
         [{ error:'auth/internal-error' }, request({}), 503],
         [{ token:{...school,email_verified:false},role:'admin' }, request({}), 403],
         [{ token:{...school,email:'a@elsewhere.test'},role:'teacher' }, request({}), 403],
-        [{}, request({role:'admin'}), 403], [{role:'owner'}, request({}),403],
+        // บทบาทที่ browser ส่งมาใน body ไม่ใช่อำนาจ — นักเรียนอ้าง role:'admin' ก็ยังสั่งออดไม่ได้
+        [{}, request({action:'buzzer',state:'on',role:'admin'}), 403],
+        [{role:'owner'}, request({action:'buzzer',state:'on'}),403],
         [{failRole:true},request({}),503]
     ]) {
+        resetRateLimitForTests();
         const handler = createCommandHandler(createAuthorizer(services(options)));
         const result = await invoke(handler, req);
         assert.equal(result.status, expected);
@@ -65,10 +68,21 @@ test('role allowlist, revocation and failures close the command path before MQTT
     }
     const studentHandler = createCommandHandler(createAuthorizer(services()));
     assert.equal((await invoke(studentHandler, {method:'GET',headers:{}})).status,401);
-    assert.equal((await invoke(studentHandler, {...request(),method:'GET'})).status,403);
+    // นักเรียนที่ล็อกอินแล้วอ่านสถานะตู้ได้ (Bank เคาะ 2026-09-15) — เดิมบรรทัดนี้คาดหวัง 403
+    // บังคับปิด MQTT ระหว่างเช็ค เพื่อไม่ให้เทสไปเปิดคอนเนคชันจริงถ้าเครื่องคนรันตั้งค่าไว้
+    const mqttUrl = process.env.MQTT_URL;
+    process.env.MQTT_URL = '';
+    const studentStatus = await invoke(studentHandler, {...request(),method:'GET'});
+    if (mqttUrl === undefined) delete process.env.MQTT_URL; else process.env.MQTT_URL = mqttUrl;
+    assert.equal(studentStatus.status,200);
+    assert.equal(studentStatus.data.mqttConfigured,false);
+    // ...แต่ยังสั่งออดไม่ได้ ถึงจะล็อกอินแล้วก็ตาม
+    resetRateLimitForTests();
+    assert.equal((await invoke(studentHandler,request({action:'buzzer',state:'on'}))).status,403);
     assert.equal(mqttClientStatsForTests().created, 0);
     // สามบทบาทเท่านั้น — `nurse` ที่ค้างในเอกสารเก่าต้องตกเป็น student ไม่ใช่ผ่าน
     for (const role of ['teacher','admin']) {
+        resetRateLimitForTests();
         const handler = createCommandHandler(createAuthorizer(services({role})));
         assert.equal((await invoke(handler,request({action:'invalid'}))).status,400);
     }

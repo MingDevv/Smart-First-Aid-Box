@@ -216,7 +216,7 @@ const ApiBridge = {
     // Check if the hardware (ESP32 controller connected to micro:bit) is online
     async getHardwareStatus() {
         const settings = this.getSettings();
-        if (!this.isPiLocal() && !window.AuthService?.isStaff()) {
+        if (!this.isPiLocal() && !window.AuthService?.isSignedIn()) {
             return { connected: false, ready: false, mode: 'unauthorized' };
         }
         if (this.isPiLocal()) {
@@ -255,8 +255,10 @@ const ApiBridge = {
     async openCompartment(woundId, studentSession, presetId = null) {
         const settings = this.getSettings();
         const isDemo = this.isDemoMode();
-        if (!this.isPiLocal() && !window.AuthService?.isStaff()) {
-            return { success: false, mode: 'unauthorized', retrySafe: true, error: 'เฉพาะครูที่ได้รับสิทธิ์เท่านั้น' };
+        // เปิดช่องยาคืองานของนักเรียนที่เจ็บ ไม่ใช่ของครู ⇒ เกตคือ "ล็อกอินบัญชีโรงเรียนแล้วหรือยัง"
+        // ไม่ใช่บทบาท · เสียงออด (triggerBuzzer) ยังเป็นของครูอยู่ เพราะมันเรียกคนทั้งห้องพยาบาล
+        if (!this.isPiLocal() && !window.AuthService?.isSignedIn()) {
+            return { success: false, mode: 'unauthorized', retrySafe: true, error: 'กรุณาเข้าสู่ระบบด้วยบัญชีโรงเรียนก่อนสั่งเปิดช่องยา' };
         }
         const woundCompartmentMap = {
             cut_abrasion: 1,

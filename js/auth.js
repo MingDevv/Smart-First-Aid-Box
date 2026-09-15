@@ -104,6 +104,11 @@
     const service = {
         get state() { return state; },
         isStaff() { return state.status === 'ready' && staff.includes(state.role); },
+        // ล็อกอินแล้วด้วยบัญชีโรงเรียน โดยไม่สนบทบาท — `ready` เกิดได้ทางเดียวคือผ่าน refresh()
+        // ซึ่งบังคับ emailVerified + โดเมน @tesaban6.ac.th ไปแล้ว (ที่ไม่ผ่านถูก signOut เป็น
+        // 'forbidden') ⇒ ไม่ต้องตรวจโดเมนซ้ำที่นี่ และห้ามใช้ auth.currentUser แทน เพราะตัวนั้น
+        // เป็นจริงก่อน /api/me ตอบ = ช่วงที่ยังไม่รู้ว่าเซิร์ฟเวอร์รับบัญชีนี้ไหม
+        isSignedIn() { return state.status === 'ready'; },
         subscribe(callback) { listeners.add(callback); callback(state); return () => listeners.delete(callback); },
         async signIn() {
             await service.ready;

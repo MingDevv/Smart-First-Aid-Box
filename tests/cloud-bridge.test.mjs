@@ -30,10 +30,12 @@ function storageStub(seed = {}) {
 // js/storage.js ตัวจริงถูกโหลดเข้า context เดียวกับ js/api-bridge.js เหมือนสองแท็ก <script>
 // บนหน้าเว็บจริง แทนการปลอม window.StorageService — ของปลอมคือสิ่งที่ปิดตาเราไม่ให้เห็น
 // ว่าไฟล์จริงไม่เคยแขวนตัวเองไว้บน window มาตลอด
-function browser(fetch, settings = realMode(), protocol = 'https:', { staff = true, runtime } = {}) {
+function browser(fetch, settings = realMode(), protocol = 'https:', { staff = true, signedIn = true, runtime } = {}) {
     const deadlines = [];
     const window = { location: { protocol }, SFAB_RUNTIME: runtime,
-        AuthService: { isStaff: () => staff, authorizedFetch: fetch },
+        // `isStaff` ของจริงต้องผ่าน status==='ready' ก่อนเสมอ ⇒ สถานะ "เป็นครูแต่ยังไม่ล็อกอิน"
+        // ไม่มีอยู่จริง · ผูกไว้ที่นี่ด้วย เพื่อไม่ให้เทสสร้างโลกที่โค้ดจริงสร้างไม่ได้
+        AuthService: { isStaff: () => staff && signedIn, isSignedIn: () => signedIn, authorizedFetch: fetch },
         crypto: { randomUUID: () => '12345678-1234-1234-1234-123456789abc' } };
     const context = vm.createContext({ window, fetch, AbortController, console, clearTimeout,
         localStorage: storageStub({ smart_first_aid_settings: settings }), sessionStorage: storageStub(),
@@ -146,10 +148,10 @@ test('local Demo simulates dispensing; unsupported cloud wounds never become dra
     assert.equal(calls, 0);
 });
 
-test('student/anonymous browser cannot actuate even with forged old settings', async () => {
+test('anonymous browser cannot actuate even with forged old settings', async () => {
     for (const settings of [realMode(), demoMode(), {dashboardPin:'1234', dashboard_auth:true}]) {
         let calls = 0;
-        const { api, storage } = browser(async () => { calls++; }, settings, 'https:', {staff:false});
+        const { api, storage } = browser(async () => { calls++; }, settings, 'https:', {staff:false, signedIn:false});
         assert.equal(storage.getOperatingMode(), 'unset');
         assert.equal(api.operatingMode(), 'unset');
         for (const result of [await api.openCompartment('cut'), await api.triggerBuzzer('on')]) {
@@ -159,6 +161,27 @@ test('student/anonymous browser cannot actuate even with forged old settings', a
         }
         assert.equal(calls, 0);
     }
+});
+
+// Bank เคาะ 2026-09-15: คนที่เจ็บคือคนที่ต้องกดเปิดช่องยา ⇒ เกตของ open คือ "ล็อกอินหรือยัง"
+// ไม่ใช่บทบาท · ออดยังเป็นของครู เพราะมันเรียกคนทั้งห้องพยาบาล
+// เคสนี้คือเคสที่หน้าเว็บพังจริงเมื่อ 2026-09-15 (นักเรียนล็อกอินแล้วแต่ไม่มีปุ่มให้กด)
+test('signed-in student opens a drawer but still cannot ring the buzzer', async () => {
+    const requests = [];
+    const { api } = browser(async (url, options) => {
+        requests.push({ url, options });
+        if (!options.body) return reply(ready);
+        return reply({ success: true, ack: ack(JSON.parse(options.body)) });
+    }, realMode(), 'https:', { staff: false, signedIn: true });
+
+    assert.equal((await api.openCompartment('cut')).success, true);
+    assert.equal((await api.getHardwareStatus()).connected, true);
+
+    const buzzer = await api.triggerBuzzer('on');
+    assert.equal(buzzer.success, false);
+    assert.equal(buzzer.mode, 'unauthorized');
+    // ปุ่มที่กดไม่ได้ต้องไม่แตะเครือข่ายเลย ไม่ใช่ยิงไปให้เซิร์ฟเวอร์ปฏิเสธแล้วค่อยบอกทีหลัง
+    assert.equal(requests.filter(r => r.options.body && JSON.parse(r.options.body).action === 'buzzer').length, 0);
 });
 
 const listenerSource = await readFile(new URL('../js/mqtt-bridge.js', import.meta.url), 'utf8');
