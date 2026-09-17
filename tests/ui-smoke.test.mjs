@@ -204,6 +204,22 @@ assert.match(
     'First-aid flow must include the desktop wound overview and instruction panel'
 );
 
+// ทางเข้าหลังบ้านต้องมองไม่เห็นเลย เว้นแต่คนนั้นเป็นครูจริง — ทั้งหน้าแรกและ /student
+//
+// `data-staff-only` ซ่อนเมื่อ body[data-staff] ไม่ใช่ 'true' และค่านั้นมาจาก AuthService.isStaff()
+// ซึ่งเป็นจริงต่อเมื่อ **ล็อกอินเสร็จแล้ว และบทบาทอยู่ใน ['teacher','admin']**
+// ⇒ ครอบทั้ง "ยังไม่ล็อกอิน" และ "ล็อกอินด้วยบัญชีโรงเรียนที่เป็น student"
+//
+// ⚠️ นี่เป็นการซ่อนทางเข้า ไม่ใช่การกันการเข้าถึง · ด่านจริงคือ data-auth-required="staff"
+// ที่ body ของหน้า /dashboard/ และการตรวจ role ฝั่งเซิร์ฟเวอร์ ⇒ เกตด้านล่างตรวจทั้งสองชั้น
+for (const [label, html] of [['index.html', landingHtml], ['student/index.html', studentHomeHtml]]) {
+    const dashboardLinks = [...html.matchAll(/<a\b[^>]*href=["']\/?dashboard\/?["'][^>]*>/gi)];
+    assert.ok(dashboardLinks.length > 0, `${label} must still offer the staff dashboard entry`);
+    for (const link of dashboardLinks) {
+        assert.match(link[0], /\bdata-staff-only\b/,
+            `${label} must mark the /dashboard/ entry data-staff-only — a student, or anyone not signed in, must not see it`);
+    }
+}
 const dashboardHtml = await readFile(path.join(rootDir, 'dashboard', 'index.html'), 'utf8');
 const medicineManagementHtml = await readFile(path.join(rootDir, 'dashboard', 'medicine-management.html'), 'utf8');
 const statisticsHtml = await readFile(path.join(rootDir, 'dashboard', 'statistics.html'), 'utf8');
