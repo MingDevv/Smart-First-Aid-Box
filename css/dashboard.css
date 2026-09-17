@@ -1,33 +1,33 @@
-/* หน้าครู โทนมิ้นต์สว่าง */
+/* CSS/DASHBOARD.CSS — หลังบ้านครู (design handoff 2026-09-17 · Teacher Dashboard)
+ *
+ * แถบข้างพื้นขาว เมนูที่เปิดอยู่เป็นแผ่นสีฟ้าอ่อน · พื้นหน้าฟ้าจางมาก · การ์ดขาวมุม 20–22px
+ * ชิปบัญชี (js/auth-ui.js) วางในช่อง data-auth-slot ท้ายแถบข้าง = การ์ดบัญชีของดีไซน์
+ * ค่าสีทั้งหมดอ้าง css/global.css · โทเคน --db-* เก็บไว้เพราะ tests/ui-smoke.test.mjs เฝ้าอยู่ */
 :root {
-    --db-sidebar: oklch(0.49 0.10 195);
-    --db-sidebar-dark: oklch(0.40 0.09 200);
+    --db-sidebar: #fff;
+    --db-sidebar-width: 272px;
+    --db-canvas: var(--bg-canvas);
     --db-card-bg: #fff;
-    --db-border: oklch(0.88 0.018 190);
+    --db-border: var(--border-color);
     --db-text: var(--text-main);
     --db-muted: var(--text-muted);
 }
 
 body.dashboard-body {
     min-width: 320px;
-    background: oklch(0.965 0.012 165) !important;
-    color: var(--text-main) !important;
-}
-
-body.dashboard-body h1,
-body.dashboard-body h2,
-body.dashboard-body h3,
-body.dashboard-body h4 {
-    color: var(--text-main) !important;
+    background: var(--db-canvas);
+    color: var(--text-main);
 }
 
 .dashboard-shell {
     display: grid;
-    grid-template-columns: 232px minmax(0, 1fr);
+    grid-template-columns: var(--db-sidebar-width) minmax(0, 1fr);
     width: 100%;
     min-height: 100vh;
     min-height: 100dvh;
 }
+
+/* ─── แถบข้าง ───────────────────────────────────────────────────────────── */
 
 .dashboard-sidebar {
     position: sticky;
@@ -36,64 +36,71 @@ body.dashboard-body h4 {
     height: 100vh;
     height: 100dvh;
     flex-direction: column;
-    padding: 22px 16px 16px;
-    background: linear-gradient(180deg, var(--db-sidebar), var(--db-sidebar-dark));
-    color: #fff;
+    gap: 22px;
+    padding: 22px 20px;
+    border-right: 1px solid var(--db-border);
+    background: var(--db-sidebar);
 }
 
 .sidebar-brand {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 0 8px 24px;
+    gap: 11px;
+    color: inherit;
+}
+
+.sidebar-brand:hover {
+    color: inherit;
 }
 
 .sidebar-logo {
     width: 38px;
     height: 38px;
-    border-radius: 12px;
+    border-radius: 11px;
     object-fit: cover;
 }
 
 .sidebar-brand strong {
     display: block;
-    color: #fff;
+    color: var(--text-hero);
     font-family: var(--font-prompt);
-    font-size: 13px;
+    font-size: 15px;
     line-height: 1.25;
 }
 
-.sidebar-brand span {
+.sidebar-brand-sub {
     display: block;
-    margin-top: 2px;
-    color: oklch(0.91 0.02 185);
-    font-family: var(--font-mono);
-    font-size: 8px;
-    letter-spacing: .08em;
+    color: var(--text-muted);
+    font-size: 10.5px;
 }
 
 .sidebar-nav {
     display: grid;
-    gap: 6px;
+    gap: 5px;
 }
 
 .sidebar-link {
     display: flex;
     min-height: 46px;
     align-items: center;
-    gap: 10px;
-    padding: 10px 13px;
+    gap: 11px;
+    padding: 0 13px;
     border-radius: 13px;
-    color: oklch(0.95 0.012 185);
-    font-size: 13px;
+    color: oklch(0.40 0.035 240);
+    font-size: 13.5px;
     font-weight: 600;
+    transition: background 0.18s, color 0.18s;
 }
 
-.sidebar-link:hover,
-.sidebar-link.active {
-    background: oklch(1 0 0 / .18);
-    color: #fff;
-    text-decoration: none;
+.sidebar-link:hover {
+    background: var(--surface-soft);
+    color: var(--text-hero);
+}
+
+.sidebar-link.active,
+.sidebar-link[aria-current='page'] {
+    background: var(--primary-light);
+    color: oklch(0.42 0.15 248);
 }
 
 .sidebar-link .material-symbols-rounded {
@@ -101,481 +108,850 @@ body.dashboard-body h4 {
 }
 
 .sidebar-status {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
     margin-top: auto;
-    padding: 13px;
-    border: 1px solid oklch(1 0 0 / .17);
+    padding: 14px;
+    border: 1px solid var(--db-border);
     border-radius: 16px;
-    background: oklch(1 0 0 / .11);
+    background: var(--surface-soft);
 }
 
 .sidebar-status-title {
     display: flex;
     align-items: center;
-    gap: 7px;
-    margin-bottom: 3px;
-    font-family: var(--font-prompt);
-    font-size: 11px;
-    font-weight: 700;
+    gap: 9px;
+    color: oklch(0.28 0.035 240);
+    font-size: 13px;
+    font-weight: 600;
 }
 
 .sidebar-status-dot {
+    position: relative;
+    display: inline-flex;
     width: 8px;
     height: 8px;
+    flex: 0 0 auto;
     border-radius: 50%;
-    background: oklch(0.79 0.18 145);
-    box-shadow: 0 0 0 4px oklch(0.79 0.18 145 / .12);
+    background: var(--success);
+}
+
+.sidebar-status-dot::after {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--success);
+    content: '';
+    animation: ping 2.4s ease-out infinite;
 }
 
 .sidebar-status-meta {
-    color: oklch(0.88 0.018 185);
-    font-size: 9px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
 }
 
-.dashboard-main {
+/* ชิปบัญชีในแถบข้าง — กลายเป็นการ์ดเต็มความกว้าง ชื่อและเมนูออกจากระบบอยู่ในตัวมันเอง */
+.sidebar-account {
+    display: block;
+}
+
+.dashboard-sidebar #auth-chip {
+    position: relative;
+    top: auto;
+    right: auto;
+    display: block;
+}
+
+.dashboard-sidebar #auth-chip-button {
+    width: 100%;
+    max-width: none;
+    min-height: 56px;
+    justify-content: flex-start;
+    padding: 10px 12px;
+    border-radius: 14px;
+    box-shadow: none;
+}
+
+.dashboard-sidebar #auth-chip-button:hover {
+    background: var(--surface-soft);
+}
+
+.dashboard-sidebar #auth-menu {
+    top: auto;
+    right: 0;
+    bottom: calc(100% + 8px);
+    left: 0;
     min-width: 0;
-    padding: 26px 30px 36px;
+    max-width: none;
+}
+
+/* ─── ตัวเนื้อหา ────────────────────────────────────────────────────────── */
+
+.dashboard-main {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 20px;
+    padding: 26px 28px 44px;
 }
 
 .dashboard-topbar {
     display: flex;
-    align-items: flex-start;
+    flex-wrap: wrap;
+    align-items: flex-end;
     justify-content: space-between;
-    gap: 18px;
-    margin-bottom: 22px;
+    gap: 16px;
+}
+
+.dashboard-greeting {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 5px;
 }
 
 .dashboard-greeting h1 {
-    margin-bottom: 4px;
-    font-size: 25px;
+    font-size: clamp(24px, 2.6vw, 32px);
 }
 
 .dashboard-greeting p {
-    color: var(--text-muted);
-    font-size: 12px;
+    color: var(--text-body);
+    font-size: 13.5px;
 }
 
 .dashboard-actions {
     display: flex;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .dashboard-action {
     display: inline-flex;
-    min-height: 44px;
+    min-height: 46px;
     align-items: center;
     justify-content: center;
-    gap: 7px;
-    padding: 9px 13px;
-    border: 1px solid var(--border-color);
-    border-radius: 13px;
+    gap: 8px;
+    padding: 0 18px;
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
     background: #fff;
-    color: var(--text-main);
+    color: oklch(0.30 0.035 240);
     cursor: pointer;
-    font-size: 11px;
+    font-size: 13.5px;
     font-weight: 600;
+    transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
+}
+
+.dashboard-action .material-symbols-rounded {
+    font-size: 19px;
+}
+
+.dashboard-action:hover:not(:disabled) {
+    border-color: var(--scan);
+    color: var(--text-hero);
+    transform: translateY(-1px);
+}
+
+.dashboard-action:disabled {
+    cursor: wait;
+    opacity: 0.6;
 }
 
 .dashboard-action.primary {
     border-color: var(--primary);
     background: var(--primary);
     color: #fff;
+    box-shadow: 0 14px 26px -20px oklch(0.45 0.16 250 / 0.95);
 }
 
-.dashboard-action:hover {
-    transform: translateY(-1px);
-    text-decoration: none;
+.dashboard-action.primary:hover:not(:disabled) {
+    border-color: var(--primary-hover);
+    color: #fff;
 }
 
+.dashboard-action.soft {
+    border-color: transparent;
+    background: var(--primary-light);
+    color: var(--primary-ink);
+}
+
+/* แถบเตือน (SOS / รายการที่ยืนยัน LINE ไม่ได้) — ว่างจนกว่าสคริปต์จะเติมข้อความ */
+#alerts-panel:empty {
+    display: none;
+}
+
+#alerts-panel,
+.alert-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border: 1px solid oklch(0.86 0.07 45);
+    border-radius: 18px;
+    background: var(--accent-light);
+    color: oklch(0.42 0.09 45);
+    font-size: 13.5px;
+}
+
+.alert-banner.danger {
+    border-color: oklch(0.87 0.06 35);
+    background: var(--danger-light);
+    color: var(--danger);
+}
+
+/* การ์ดตัวเลข */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-    margin-bottom: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+    gap: 14px;
 }
 
 .stat-item {
-    position: relative;
-    overflow: hidden;
-    min-height: 112px;
-    padding: 16px 18px;
-    border: 1px solid var(--db-border);
-    border-radius: 18px;
-    background: #fff;
-    box-shadow: var(--shadow-sm);
-}
-
-.stat-item.alert-stat {
-    border-color: oklch(0.86 0.07 40);
-    background: var(--accent-light);
-}
-
-.stat-val {
-    margin-top: 4px;
-    color: var(--text-main);
-    font-family: var(--font-prompt);
-    font-size: 30px;
-    font-weight: 700;
-    line-height: 1.1;
-}
-
-.stat-lbl {
-    color: var(--text-muted);
-    font-size: 11px;
-}
-
-.stat-note {
-    margin-top: 3px;
-    color: var(--text-muted);
-    font-size: 10px;
-}
-
-.stat-note.positive {
-    color: oklch(0.55 0.13 150);
-}
-
-.alert-stat .stat-val,
-.alert-stat .stat-note {
-    color: oklch(0.52 0.15 35);
-}
-
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-    gap: 16px;
-}
-
-.db-card {
-    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
     padding: 18px;
     border: 1px solid var(--db-border);
     border-radius: 20px;
     background: #fff;
-    box-shadow: var(--shadow-sm);
+}
+
+.stat-item.alert-stat {
+    border-color: oklch(0.86 0.07 45);
+    background: oklch(0.98 0.025 60);
+}
+
+.stat-lbl {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.stat-val {
+    color: var(--text-hero);
+    font-family: var(--font-prompt);
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.stat-note {
+    color: var(--text-muted);
+    font-size: 11.5px;
+}
+
+.stat-note.positive {
+    color: oklch(0.48 0.13 155);
+}
+
+.alert-stat .stat-lbl,
+.alert-stat .stat-note {
+    color: oklch(0.45 0.08 50);
+}
+
+.alert-stat .stat-val {
+    color: oklch(0.42 0.13 45);
+}
+
+/* การ์ดทั่วไป */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.db-card {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px;
+    border: 1px solid var(--db-border);
+    border-radius: 22px;
+    background: #fff;
+}
+
+.db-card h2,
+.db-card h3 {
+    font-size: 17px;
+}
+
+.db-card h3 {
+    font-size: 15px;
+}
+
+.db-card > p {
+    color: var(--text-body);
+    font-size: 13.5px;
+    line-height: 1.6;
 }
 
 .db-card-header {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 12px;
-}
-
-.db-card-header h2,
-.db-card-header h3 {
-    font-size: 15px;
 }
 
 .db-card-header a {
-    color: var(--primary);
-    font-size: 10px;
+    color: var(--primary-link);
+    font-size: 12.5px;
     font-weight: 600;
-}
-
-.inventory-preview {
-    display: grid;
-    gap: 4px;
-}
-
-.inventory-row {
-    display: grid;
-    grid-template-columns: 44px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 0;
-    border-bottom: 1px solid oklch(0.93 0.012 190);
-}
-
-.inventory-row:last-child {
-    border-bottom: 0;
-}
-
-.inventory-image {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background: var(--secondary-light);
-    object-fit: cover;
-}
-
-.inventory-name {
-    overflow: hidden;
-    margin-bottom: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.inventory-track {
-    height: 5px;
-    overflow: hidden;
-    border-radius: 999px;
-    background: oklch(0.91 0.015 190);
-}
-
-.inventory-fill {
-    height: 100%;
-    border-radius: inherit;
-    background: var(--primary);
-}
-
-.inventory-fill.low {
-    background: var(--accent);
-}
-
-.inventory-qty {
-    color: var(--text-muted);
-    font-family: var(--font-mono);
-    font-size: 9px;
-    text-align: right;
-}
-
-.timeline-container {
-    display: grid;
-    gap: 5px;
-}
-
-.timeline-item {
-    display: grid;
-    grid-template-columns: 42px minmax(0, 1fr) auto;
+.db-card-actions {
+    display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
-    padding: 8px 0;
-    border-bottom: 1px solid oklch(0.93 0.012 190);
 }
 
-.timeline-item:last-child {
+.table-wrapper:empty {
+    display: none;
+}
+
+/* แถวข้อความสถานะจากสคริปต์ (data-status, stop-sos-status, inv-status…) */
+.db-card [role='status'] {
+    color: var(--text-body);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+/* ฟอร์มและ select ในการ์ด */
+.db-card label {
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.db-card select,
+.db-card input[type='text'],
+.db-card input[type='number'],
+.db-card input[type='email'],
+.db-card input[type='search'] {
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--text-main);
+    font: inherit;
+}
+
+.db-card select {
+    padding-right: 32px;
+}
+
+/* รายการใช้งานล่าสุด (js/dashboard-data.js สร้าง <ol class="recent-activity">) */
+.recent-activity {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.recent-activity li {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 11px 12px;
+    border: 1px solid oklch(0.95 0.012 240);
+    border-radius: 14px;
+    background: oklch(0.99 0.006 240);
+}
+
+.recent-activity strong {
+    color: oklch(0.28 0.035 240);
+    font-size: 13px;
+}
+
+.recent-activity p {
+    color: var(--text-muted);
+    font-size: 11.5px;
+    overflow-wrap: anywhere;
+}
+
+#recent-timeline > p,
+#inventory-preview > p,
+#inventory-data > p {
+    color: var(--text-muted);
+    font-size: 12.5px;
+    line-height: 1.6;
+}
+
+#inventory-preview h3,
+#inventory-data h3 {
+    margin-top: 6px;
+    font-size: 14px;
+}
+
+/* ตารางประวัติ (db-table) — หัวตาราง mono ตามดีไซน์ */
+.table-wrapper {
+    max-width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--db-border);
+    border-radius: 16px;
+}
+
+.db-table {
+    width: 100%;
+    min-width: 680px;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    text-align: left;
+}
+
+.db-table caption {
+    padding: 12px 16px;
+    color: var(--text-muted);
+    font-size: 12px;
+    text-align: left;
+}
+
+.db-table th {
+    padding: 14px 16px;
+    border-bottom: 1px solid oklch(0.94 0.015 240);
+    background: var(--surface-soft);
+    color: oklch(0.50 0.10 245);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+}
+
+.db-table td {
+    padding: 13px 16px;
+    border-bottom: 1px solid oklch(0.96 0.01 240);
+    color: oklch(0.38 0.03 240);
+    vertical-align: top;
+    overflow-wrap: anywhere;
+}
+
+.db-table tbody tr:last-child td {
     border-bottom: 0;
 }
 
-.timeline-thumb {
-    width: 42px;
-    height: 42px;
+/* รูปใบหน้าของรอบที่ไม่มีบัตร — อยู่ในแถวของมันเอง ไม่ใช่หน้ารวมรูป
+ * คุมความกว้างไว้ ไม่งั้นรูป 640px ดันคอลัมน์อื่นจนตารางอ่านไม่ได้ */
+.history-photo {
+    margin-top: 8px;
+}
+
+.history-photo button {
+    min-height: 36px;
+    padding: 6px 12px;
+    border: 1px solid var(--border-strong);
     border-radius: 12px;
-    object-fit: cover;
-}
-
-.timeline-title {
-    font-size: 11px;
+    background: #fff;
+    color: var(--primary-link);
+    font: inherit;
+    font-size: 13px;
     font-weight: 600;
+    cursor: pointer;
 }
 
-.timeline-meta {
-    margin-top: 2px;
-    color: var(--text-muted);
-    font-size: 9px;
+.history-photo button:disabled {
+    opacity: 0.55;
+    cursor: wait;
 }
 
-.timeline-bar {
-    width: 42px;
-    height: 6px;
-    overflow: hidden;
-    border-radius: 999px;
-    background: oklch(0.91 0.015 190);
-}
-
-.timeline-bar span {
+.history-photo img {
     display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: var(--primary);
+    width: min(220px, 100%);
+    margin-top: 8px;
+    border-radius: 12px;
 }
 
-.alert-banner {
-    display: flex;
-    align-items: flex-start;
-    gap: 9px;
-    margin-bottom: 12px;
-    padding: 11px 13px;
-    border: 1px solid oklch(0.87 0.06 35);
-    border-radius: 15px;
-    background: var(--danger-light);
-    color: var(--danger);
-    font-size: 11px;
-}
-
-.alert-banner.warning {
-    border-color: oklch(0.86 0.07 45);
-    background: var(--accent-light);
-    color: oklch(0.43 0.10 36);
-}
-
-.dashboard-nav {
-    display: flex;
-    gap: 6px;
-    margin: 0 0 18px;
-    padding: 5px;
-    border: 1px solid var(--db-border);
-    border-radius: 15px;
-    background: #fff;
-}
-
-.nav-item {
-    flex: 1;
-    padding: 9px 8px;
-    border-radius: 11px;
+.history-photo p {
+    margin-top: 6px;
     color: var(--text-muted);
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
-    text-align: center;
+    font-size: 13px;
 }
 
-.nav-item:hover,
-.nav-item.active {
-    background: var(--primary-light);
-    color: var(--primary);
+#history-more {
+    align-self: flex-start;
 }
 
-.dashboard-header {
+/* ฟอร์มตรวจนับเวชภัณฑ์ — เพิ่ม 2026-09-14 พร้อมทางเขียน inventory ครั้งแรกของระบบ */
+.inv-help {
+    color: var(--text-body);
+    font-size: 13.5px;
+    line-height: 1.6;
+}
+
+.inv-form {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 24px;
-    border-bottom: 1px solid var(--db-border);
-    background: #fff;
-}
-
-.dashboard-title {
-    color: var(--text-main);
-    font-family: var(--font-prompt);
-    font-size: 17px;
-    font-weight: 700;
-}
-
-body.dashboard-body > .container,
-body.dashboard-body #dashboard-content > .container {
-    width: min(100%, 1160px);
-    max-width: 1160px;
-    min-height: auto;
-    padding: 24px;
-    border: 0;
-    background: transparent !important;
-    box-shadow: none;
-}
-
-.lock-screen {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 22px;
-    background: linear-gradient(145deg, oklch(0.93 0.04 165), oklch(0.96 0.015 190));
-}
-
-.lock-card {
-    width: min(100%, 370px);
-    padding: 26px;
-    border: 1px solid var(--db-border);
-    border-radius: 28px;
-    background: #fff;
-    box-shadow: 0 28px 70px -40px oklch(0.30 0.03 200 / .7);
-    text-align: center;
-}
-
-.lock-mark {
-    display: grid;
-    width: 58px;
-    height: 58px;
-    margin: 0 auto 12px;
-    place-items: center;
-    border-radius: 18px;
-    background: var(--primary-light);
-    color: var(--primary);
-}
-
-.pin-dot-container {
-    display: flex;
-    justify-content: center;
+    flex-wrap: wrap;
+    align-items: flex-end;
     gap: 14px;
-    margin: 22px 0;
 }
 
-.pin-dot {
-    width: 13px;
-    height: 13px;
-    border: 2px solid oklch(0.76 0.04 190);
-    border-radius: 50%;
-    background: #fff;
-}
-
-.pin-dot.filled {
-    border-color: var(--primary);
-    background: var(--primary);
-    box-shadow: 0 0 0 4px var(--primary-light);
-}
-
-.pin-pad {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 9px;
-}
-
-.pin-btn {
-    min-height: 54px;
-    border: 1px solid var(--db-border);
-    border-radius: 16px;
-    background: var(--bg-main);
-    color: var(--text-main);
-    cursor: pointer;
-    font-family: var(--font-mono);
-    font-size: 17px;
-    font-weight: 600;
-}
-
-.pin-btn:hover,
-.pin-btn:active {
-    border-color: var(--primary);
-    background: var(--primary-light);
-}
-
-.med-list {
-    display: grid;
-    gap: 8px;
-}
-
-.med-item,
-.med-card {
+.inv-field {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    min-width: 0;
+    flex: 1 1 200px;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.inv-field-narrow {
+    flex: 0 1 150px;
+}
+
+.inv-field input,
+.inv-field select,
+.inv-item-row input {
+    min-height: 44px;   /* เป้าแตะขั้นต่ำ — ครูกรอกจากไอแพดเป็นหลัก */
+    padding: 8px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--text-main);
+    font: inherit;
+}
+
+.inv-items {
+    flex: 1 1 100%;
+    margin: 0;
     padding: 12px 14px;
     border: 1px solid var(--db-border);
-    border-radius: 15px;
-    background: var(--bg-main);
+    border-radius: 14px;
 }
 
-.med-item-image {
-    width: 48px;
-    height: 48px;
-    flex: 0 0 auto;
-    border: 1px solid var(--db-border);
-    border-radius: 13px;
+.inv-items legend {
+    padding: 0 6px;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.inv-item-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.inv-item-row input:nth-child(1) { flex: 2 1 180px; min-width: 0; }
+.inv-item-row input:nth-child(2) { flex: 0 1 90px; }
+.inv-item-row input:nth-child(3) { flex: 0 1 110px; }
+
+.inv-status {
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.inv-status:empty {
+    display: none;
+}
+
+.inv-status[data-tone='success'] { color: var(--success-hover); }
+.inv-status[data-tone='danger'] { color: var(--danger); }
+
+.inv-summary {
+    padding: 14px 16px;
+    border: 1px solid oklch(0.95 0.012 240);
+    border-radius: 14px;
+    background: oklch(0.99 0.006 240);
+}
+
+.inv-summary h4 {
+    margin: 0 0 4px;
+    font-size: 15px;
+}
+
+.inv-summary p {
+    margin: 0 0 6px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.inv-summary p[data-tone='danger'] {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+.inv-summary ul {
+    margin: 0;
+    padding-left: 20px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+/* ─── ทะเบียนนักเรียน (dashboard/students.html · js/students.js) ──────────────────── */
+
+.roster-status {
+    min-height: 24px;
+    color: var(--text-body);
+    font-size: 13.5px;
+    white-space: pre-wrap;
+}
+
+.roster-field {
+    display: grid;
+    gap: 6px;
+}
+
+.roster-field input,
+.roster-field textarea {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
     background: #fff;
-    object-fit: cover;
+    color: var(--text-main);
+    font: inherit;
 }
 
-.med-info { min-width: 0; flex: 1; }
-.med-name { color: var(--text-main); font-size: 13px; font-weight: 600; }
-.med-expiry, .med-details { margin-top: 2px; color: var(--text-muted); font-size: 10px; }
-.med-stock { text-align: center; }
-.med-qty { display: block; color: var(--primary); font-family: var(--font-mono); font-size: 16px; font-weight: 600; }
-.med-qty.low-stock { color: var(--accent); }
-.status-badge, .med-status-badge { margin-left: 5px; padding: 3px 6px; border-radius: 999px; font-size: 9px; }
-.status-expired { background: var(--danger-light); color: var(--danger); }
-.status-warning, .status-low { background: var(--accent-light); color: var(--accent); }
-.status-normal { background: var(--success-light); color: var(--success); }
-.stock-control { display: flex; align-items: center; gap: 7px; }
-.stock-control-btn { display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid var(--db-border); border-radius: 10px; background: #fff; color: var(--text-main); cursor: pointer; }
-.chart-container { position: relative; width: 100%; height: 260px; }
+.roster-field textarea {
+    min-height: 96px;
+    resize: vertical;
+}
 
+.roster-field input[type='file'] {
+    padding: 9px 12px;
+}
+
+.roster-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.roster-form-actions {
+    grid-column: 1 / -1;
+}
+
+.roster-table {
+    min-width: 560px;
+}
+
+/* ปุ่มในตารางถูกสร้างจากสคริปต์เป็น <button> เปล่า */
+.roster-table td button {
+    min-height: 36px;
+    margin: 2px 4px 2px 0;
+    padding: 6px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--primary-link);
+    cursor: pointer;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+.roster-table td button:hover:not(:disabled) {
+    border-color: var(--scan);
+}
+
+.roster-table td button:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+#preview-rows {
+    max-height: 400px;
+    overflow: auto;
+}
+
+#preview-rows table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+#preview-rows td {
+    padding: 10px 14px;
+    border-bottom: 1px solid oklch(0.96 0.01 240);
+    vertical-align: top;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.roster-history {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.roster-history p {
+    padding: 10px 12px;
+    border: 1px solid oklch(0.95 0.012 240);
+    border-radius: 12px;
+    background: oklch(0.99 0.006 240);
+    color: oklch(0.38 0.03 240);
+    font-size: 13px;
+}
+
+.roster-dialog {
+    /* จัดกลางเอง — global.css ล้าง margin:auto ของ <dialog> (ดูคอมเมนต์ใน css/auth.css) */
+    position: fixed;
+    inset: 0;
+    width: min(94vw, 540px);
+    height: fit-content;
+    max-height: 90vh;
+    margin: auto;
+    overflow: auto;
+    padding: 24px;
+    border: 1px solid var(--border-panel);
+    border-radius: 22px;
+    background: #fff;
+    color: var(--text-main);
+}
+
+.roster-dialog::backdrop {
+    background: oklch(0.27 0.025 240 / 0.55);
+    backdrop-filter: blur(3px);
+}
+
+.roster-dialog > p {
+    margin: 14px 0;
+    color: var(--text-body);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+#print-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 20px;
+    border: 1px solid var(--border-strong);
+    border-radius: 16px;
+    text-align: center;
+}
+
+#print-card h2 {
+    font-size: 21px;
+}
+
+#card-qr {
+    max-width: 100%;
+    height: auto;
+}
+
+@media print {
+    body > * { visibility: hidden; }
+    .roster-dialog[open], #print-card, #print-card * { visibility: visible; }
+    .roster-dialog[open] { position: absolute; inset: 0; max-height: none; border: 0; overflow: visible; }
+    .roster-dialog > p, .roster-dialog > .db-card-actions { display: none; }
+    #print-card { width: 85mm; padding: 4mm; }
+    #card-qr { width: 40mm; height: 40mm; }
+    .dashboard-sidebar { display: none; }
+    .dashboard-shell { display: block; }
+    .dashboard-main.roster-shell { padding: 0; }
+    .roster-shell > :not(dialog) { display: none; }
+}
+
+/* ─── สิทธิ์เข้าหลังบ้าน (dashboard/roles.html) ─────────────────────────────────── */
+
+.roles-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+.roles-field {
+    display: flex;
+    flex: 1 1 260px;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.roles-field-narrow {
+    flex: 0 1 200px;
+}
+
+.roles-field input,
+.roles-field select {
+    min-height: 46px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--text-main);
+    font: inherit;
+}
+
+.roles-help {
+    color: var(--text-body);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.roles-status {
+    padding: 11px 13px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.roles-status:empty {
+    display: none;
+}
+
+.roles-status[data-tone='ok'] {
+    background: var(--success-light);
+    color: var(--success-hover);
+}
+
+.roles-status[data-tone='bad'] {
+    background: var(--danger-light);
+    color: var(--danger-hover);
+}
+
+.roles-table {
+    min-width: 560px;
+}
+
+.roles-table td.roles-email {
+    word-break: break-all;
+}
+
+.roles-empty {
+    padding: 22px 10px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.badge-admin {
+    background: oklch(0.95 0.045 300);
+    color: oklch(0.45 0.15 300);
+}
+
+.roles-revoke {
+    min-height: 38px;
+    padding: 6px 14px;
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--danger);
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.roles-revoke:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* สถานะว่างเปล่า */
 .db-empty-state {
     display: grid;
-    min-height: 220px;
+    min-height: 200px;
     place-items: center;
     padding: 28px 18px;
     color: var(--text-muted);
@@ -597,96 +973,85 @@ body.dashboard-body #dashboard-content > .container {
 .db-empty-state strong {
     display: block;
     margin-bottom: 3px;
-    color: var(--text-main);
+    color: var(--text-hero);
     font-family: var(--font-prompt);
     font-size: 13px;
 }
 
-.db-empty-state span:last-child {
-    font-size: 10px;
+.dashboard-footnote {
+    margin-top: auto;
+    color: oklch(0.55 0.025 240);
+    font-size: 11.5px;
 }
 
-@media (min-width: 900px) {
-    .config-form-grid {
+@media (max-width: 900px) {
+    .dashboard-shell {
+        grid-template-columns: 1fr;
+    }
+
+    /* จอแคบ: แถบข้างกลายเป็นหัวหน้า — แบรนด์กับชิปบัญชีแถวบน เมนูแถวล่าง */
+    .dashboard-sidebar {
+        position: relative;
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0 18px;
+        grid-template-areas: 'brand account' 'nav nav';
+        grid-template-columns: minmax(0, 1fr) auto;
+        height: auto;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 16px;
+        border-right: 0;
+        border-bottom: 1px solid var(--db-border);
     }
 
-    .config-form-grid > hr,
-    .config-form-grid > h4,
-    .config-form-grid > p,
-    .config-form-grid > button {
-        grid-column: 1 / -1;
-    }
+    .sidebar-brand { grid-area: brand; }
+    .sidebar-account { grid-area: account; }
+    .sidebar-nav { grid-area: nav; }
 
-    .config-form-grid > button {
+    .dashboard-sidebar #auth-chip-button {
         width: auto;
-        min-width: 220px;
-        justify-self: end;
+        min-height: 44px;
+        padding: 8px 14px;
+        border-radius: 999px;
     }
-}
 
-body.dashboard-body .form-input {
-    border-color: var(--db-border) !important;
-    background: #fff !important;
-    color: var(--text-main) !important;
-}
+    .dashboard-sidebar #auth-menu {
+        top: calc(100% + 8px);
+        bottom: auto;
+        left: auto;
+        min-width: 240px;
+    }
 
-body.dashboard-body .form-label {
-    color: var(--text-main) !important;
-}
+    .sidebar-nav {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
 
-body.dashboard-body .app-footer {
-    color: var(--text-muted) !important;
-}
+    .sidebar-link {
+        min-height: 44px;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 8px;
+        font-size: 12.5px;
+    }
 
-@media (max-width: 860px) {
-    .dashboard-shell { grid-template-columns: 1fr; }
-    .dashboard-sidebar { position: relative; height: auto; padding: 14px; }
-    .sidebar-brand { padding-bottom: 12px; }
-    .sidebar-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .sidebar-link { flex-direction: column; gap: 2px; padding: 8px 5px; font-size: 12px; min-height: 44px; }
-    .sidebar-status { display: none; }
-    .dashboard-main { padding: 20px 16px 30px; }
-    .dashboard-grid { grid-template-columns: 1fr; }
+    .sidebar-status {
+        display: none;
+    }
+
+    .dashboard-main {
+        padding: 20px 16px 30px;
+    }
 }
 
 @media (max-width: 620px) {
-    .dashboard-topbar { flex-direction: column; }
-    .dashboard-actions { width: 100%; }
-    .dashboard-action { flex: 1; }
-    .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .stat-item { min-height: 108px; }
-}
+    .dashboard-actions {
+        width: 100%;
+    }
 
-/* ฟอร์มตรวจนับเวชภัณฑ์ — เพิ่ม 2026-09-14 พร้อมทางเขียน inventory ครั้งแรกของระบบ */
-.inv-help { margin: 0 0 12px; color: var(--text-muted); font-size: 14px; line-height: 1.6; }
-.inv-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; }
-.inv-field { display: flex; flex: 1 1 200px; min-width: 0; flex-direction: column; gap: 6px; }
-.inv-field-narrow { flex: 0 1 150px; }
-.inv-field label { color: var(--text-muted); font-size: 13px; font-weight: 600; }
-.inv-field input, .inv-field select,
-.inv-item-row input {
-    min-height: 44px;   /* เป้าแตะขั้นต่ำ — ครูกรอกจากไอแพดเป็นหลัก */
-    padding: 8px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm, 10px);
-    background: #fff;
-    font: inherit;
-    color: var(--text-main);
+    .dashboard-action {
+        flex: 1;
+    }
+
+    .roster-form {
+        grid-template-columns: 1fr;
+    }
 }
-.inv-items { flex: 1 1 100%; margin: 0; padding: 12px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-sm, 10px); }
-.inv-items legend { padding: 0 6px; color: var(--text-muted); font-size: 13px; font-weight: 600; }
-.inv-item-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
-.inv-item-row input:nth-child(1) { flex: 2 1 180px; min-width: 0; }
-.inv-item-row input:nth-child(2) { flex: 0 1 90px; }
-.inv-item-row input:nth-child(3) { flex: 0 1 110px; }
-.inv-status { margin: 12px 0 0; font-weight: 600; color: var(--text-muted); }
-.inv-status[data-tone='success'] { color: var(--success); }
-.inv-status[data-tone='danger'] { color: var(--danger); }
-.inv-summary { margin-bottom: 16px; }
-.inv-summary h4 { margin: 0 0 4px; font-size: 15px; color: var(--text-main); }
-.inv-summary p { margin: 0 0 6px; color: var(--text-muted); }
-.inv-summary p[data-tone='danger'] { color: var(--danger); font-weight: 600; }
-.inv-summary ul { margin: 0; padding-left: 20px; color: var(--text-muted); }

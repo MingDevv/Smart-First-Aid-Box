@@ -3,23 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#078683">
+    <meta name="theme-color" content="#ffffff">
     <title>แดชบอร์ดครู — Smart First Aid Box</title>
     <link rel="stylesheet" href="../css/global.css">
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="../css/auth.css">
     <script src="../js/auth.js" defer></script>
     <script src="../js/auth-ui.js" defer></script>
-    <link rel="stylesheet" href="../css/dashboard-data.css">
     <script src="../js/dashboard-data.js" defer></script>
 </head>
+<!-- หลังบ้านครู › ภาพรวม (design handoff 2026-09-17 · Teacher Dashboard)
+     ตัวเลขทุกช่องเติมจาก js/dashboard-data.js — ไม่มีตัวเลขตัวอย่างในหน้า ขีด — คือยังไม่โหลด
+     ชิปบัญชีอยู่ท้ายแถบข้าง (data-auth-slot) = การ์ดบัญชีของดีไซน์ · ออกจากระบบอยู่ในเมนูของชิป -->
 <body data-auth-required="staff" class="dashboard-body">
     <div id="dashboard-content">
         <div class="dashboard-shell">
             <aside class="dashboard-sidebar">
-                <a class="sidebar-brand" href="../">
-                    <img class="sidebar-logo" src="../images/logo_first_aid.webp" width="72" height="72" alt="Smart First Aid Box">
-                    <span><strong>First Aid Box</strong><span style="font-family:var(--font-sarabun); letter-spacing:0; font-size:10px;">หลังบ้านครู</span></span>
+                <a class="sidebar-brand" href="/">
+                    <img class="sidebar-logo" src="../images/logo_first_aid.webp" width="38" height="38" alt="">
+                    <span><strong>First Aid Box</strong><span class="sidebar-brand-sub">หลังบ้านครู</span></span>
                 </a>
                 <nav class="sidebar-nav" aria-label="เมนูแดชบอร์ด">
                     <a class="sidebar-link active" aria-current="page" href="/dashboard"><span class="material-symbols-rounded" aria-hidden="true">dashboard</span>ภาพรวม</a>
@@ -29,36 +31,35 @@
                     <a class="sidebar-link" href="/dashboard/roles" data-admin-only><span class="material-symbols-rounded" aria-hidden="true">manage_accounts</span>สิทธิ์เข้าหลังบ้าน</a>
                 </nav>
                 <div class="sidebar-status">
-                    <div class="sidebar-status-title"><span class="sidebar-status-dot" id="cabinet-dot"></span><span id="cabinet-status-text">กำลังตรวจสอบตู้</span></div>
+                    <div class="sidebar-status-title"><span class="sidebar-status-dot" id="cabinet-dot" aria-hidden="true"></span><span id="cabinet-status-text">กำลังตรวจสอบตู้</span></div>
                     <div class="sidebar-status-meta" id="cabinet-last-update">อัปเดตล่าสุด —</div>
                 </div>
+                <div class="sidebar-account" data-auth-slot></div>
             </aside>
 
             <main class="dashboard-main animate-fade-in">
-
                 <header class="dashboard-topbar">
                     <div class="dashboard-greeting">
+                        <span class="eyebrow">DASHBOARD</span>
                         <h1>ภาพรวมการใช้งานตู้</h1>
                         <p id="dashboard-summary">กำลังโหลดประวัติและจำนวนเวชภัณฑ์</p>
                     </div>
                     <div class="dashboard-actions">
-
+                        <button class="dashboard-action" id="stop-sos-button" type="button" onclick="stopSosBuzzer()">
+                            <span class="material-symbols-rounded" aria-hidden="true">volume_off</span>หยุดเสียง SOS ที่ตู้
+                        </button>
                         <a class="dashboard-action primary" href="/dashboard/medicine-management#add"><span class="material-symbols-rounded" aria-hidden="true">add</span>เติมเวชภัณฑ์</a>
-                        <!-- ออกจากระบบอยู่ในเมนูของชิปบัญชีมุมขวาบนแล้ว ปุ่มที่นี่ซ้ำและนั่งทับกันพอดี (ลบ 2026-09-14) -->
+                        <!-- ออกจากระบบอยู่ในเมนูของชิปบัญชีในแถบข้างแล้ว ปุ่มที่นี่ซ้ำ (ลบ 2026-09-14) -->
                     </div>
                 </header>
 
-                <section class="db-card" aria-label="ควบคุมเสียงฉุกเฉิน" style="margin-bottom:20px; padding:18px;">
-                    <button class="dashboard-action" id="stop-sos-button" type="button" onclick="stopSosBuzzer()" style="min-height:44px;">
-                        <span class="material-symbols-rounded" aria-hidden="true">volume_off</span>หยุดเสียง SOS ที่ตู้
-                    </button>
-                    <p id="stop-sos-status" role="status" style="margin:10px 0 0;">ใช้เมื่อครูรับทราบเหตุแล้ว การหยุดเสียงไม่ยกเลิกข้อความ LINE ที่ส่งไป</p>
+                <section class="db-card" aria-label="ควบคุมเสียงฉุกเฉินและข้อมูลการใช้งานตู้">
+                    <p id="stop-sos-status" role="status">ใช้ปุ่ม "หยุดเสียง SOS ที่ตู้" เมื่อครูรับทราบเหตุแล้ว การหยุดเสียงไม่ยกเลิกข้อความ LINE ที่ส่งไป</p>
+                    <p id="data-status" role="status" aria-live="polite">กำลังโหลดข้อมูลการใช้งาน…</p>
+                    <div class="db-card-actions">
+                        <button id="data-refresh" class="dashboard-action" type="button"><span class="material-symbols-rounded" aria-hidden="true">refresh</span>อัปเดตข้อมูล</button>
+                    </div>
                 </section>
-
-                <section class="db-card sync-panel" aria-label="ข้อมูลการใช้งานตู้">
-                <p id="data-status" role="status" aria-live="polite">กำลังโหลดข้อมูลการใช้งาน…</p>
-                <button id="data-refresh" class="dashboard-action" type="button">อัปเดตข้อมูล</button>
-            </section>
                 <div id="alerts-panel" role="status"></div>
 
                 <section class="stats-grid" aria-label="สถิติสำคัญ">
@@ -70,7 +71,7 @@
                     <article class="stat-item">
                         <div class="stat-lbl">รายการที่ต้องตรวจสอบ</div>
                         <div class="stat-val" id="stat-ai-scans">—</div>
-                        <div class="stat-note" id="stat-ai-note">เฉพาะรายการที่โหลดแล้ว</div>
+                        <div class="stat-note" id="stat-ai-note">AI ไม่มั่นใจ · รอครูยืนยัน</div>
                     </article>
                     <article class="stat-item">
                         <div class="stat-lbl">รายการที่แสดง</div>
@@ -86,14 +87,16 @@
 
                 <section class="dashboard-grid">
                     <article class="db-card">
-                        <div class="db-card-header"><h2>คลังเวชภัณฑ์</h2><a href="medicine-management.html">จัดการคลัง <span aria-hidden="true">→</span></a></div>
-                        <div class="shared-unavailable" id="inventory-preview">กำลังโหลดจำนวนเวชภัณฑ์</div>
+                        <div class="db-card-header"><h2>คลังเวชภัณฑ์</h2><a href="/dashboard/medicine-management">จัดการคลัง <span aria-hidden="true">→</span></a></div>
+                        <div id="inventory-preview">กำลังโหลดจำนวนเวชภัณฑ์</div>
                     </article>
                     <article class="db-card">
-                        <div class="db-card-header"><h2>การใช้งานล่าสุด</h2><a href="statistics.html">ดูทั้งหมด <span aria-hidden="true">→</span></a></div>
-                        <div class="table-wrapper" id="recent-timeline">กำลังโหลดรายการล่าสุด</div>
+                        <div class="db-card-header"><h2>การใช้งานล่าสุด</h2><a href="/dashboard/statistics">ดูทั้งหมด <span aria-hidden="true">→</span></a></div>
+                        <div id="recent-timeline">กำลังโหลดรายการล่าสุด</div>
                     </article>
                 </section>
+
+                <p class="dashboard-footnote">พัฒนาโดย CRMS6 Team · โรงเรียนเทศบาล 6 นครเชียงราย</p>
             </main>
         </div>
     </div>

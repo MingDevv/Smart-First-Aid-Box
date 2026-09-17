@@ -3,119 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#102728">
+    <meta name="theme-color" content="#ffffff">
     <title>สแกนแผลด้วย AI — Smart First Aid Box</title>
     <link rel="stylesheet" href="../css/global.css">
-    <style>
-        body.scan-body { display: flex; justify-content: center; background: oklch(0.19 0.025 200); }
-        .scan-app { position: relative; width: min(100%, 460px); min-height: 100vh; min-height: 100dvh; overflow: hidden; background: oklch(0.21 0.025 200); color: #fff; }
-        .scan-header { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; min-height: 68px; padding: 8px 12px; }
-        .scan-header .icon-button { background: oklch(1 0 0 / 0.12); color: #fff; }
-        .scan-header-title { color: #fff; font-family: var(--font-prompt); font-size: 17px; font-weight: 700; text-align: center; }
-        .scan-main { padding: 0 16px 22px; }
-        .source-container { position: relative; min-height: calc(100dvh - 96px); overflow: hidden; }
-        #camera-view, #upload-view { display: none; }
-        #camera-view.active, #upload-view.active { display: flex; min-height: calc(100dvh - 96px); flex-direction: column; }
-        .camera-stage { position: relative; flex: 1; min-height: 480px; overflow: hidden; border-radius: 25px; background-color: oklch(0.16 0.02 200); background-image: url('../images/wound_cut_abrasion.webp'); background-repeat: no-repeat; background-position: -55px -38px; background-size: 850px 850px; }
-        .video-feed { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: inherit; object-fit: cover; background: transparent; }
-        .camera-shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, oklch(0.12 0.02 200 / 0.20), transparent 26%, transparent 66%, oklch(0.10 0.02 200 / 0.66)); }
-        .scan-prompt { position: absolute; top: 18px; left: 50%; display: flex; align-items: center; gap: 7px; transform: translateX(-50%); padding: 8px 12px; border-radius: 999px; background: oklch(0.18 0.025 200 / 0.82); color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; backdrop-filter: blur(8px); }
-        .scan-prompt .material-symbols-rounded { color: oklch(0.82 0.16 165); font-size: 18px; }
-        .scan-frame { position: absolute; top: 50%; left: 50%; width: 78%; aspect-ratio: 1.08; transform: translate(-50%, -48%); border: 2px solid oklch(0.82 0.18 165); border-radius: 22px; box-shadow: 0 0 0 999px oklch(0.10 0.02 200 / 0.24), inset 0 0 25px oklch(0.82 0.18 165 / 0.13); }
-        .scan-frame::after { position: absolute; right: 8px; bottom: 12px; left: 8px; height: 2px; border-radius: 999px; background: oklch(0.82 0.18 165); box-shadow: 0 0 14px oklch(0.82 0.18 165); content: ''; animation: scanLine 2.2s ease-in-out infinite; }
-        .camera-tip { position: absolute; right: 18px; bottom: 18px; left: 18px; display: flex; align-items: center; gap: 9px; padding: 12px 14px; border-radius: 16px; background: oklch(0.16 0.02 200 / 0.84); color: oklch(0.95 0.012 180); font-size: 12px; backdrop-filter: blur(8px); }
-        .camera-tip .material-symbols-rounded { color: oklch(0.82 0.18 165); }
-        .scan-controls { display: grid; grid-template-columns: 58px 78px 58px; justify-content: center; align-items: center; gap: 22px; padding: 18px 6px 4px; }
-        .scan-control { display: grid; width: 56px; height: 56px; place-items: center; border: 1px solid oklch(1 0 0 / 0.16); border-radius: 18px; background: oklch(1 0 0 / 0.10); color: #fff; cursor: pointer; }
-        .capture-button { display: grid; width: 76px; height: 76px; place-items: center; border: 5px solid #fff; border-radius: 50%; background: oklch(0.76 0.15 165); color: oklch(0.25 0.04 190); cursor: pointer; box-shadow: 0 0 0 4px oklch(1 0 0 / 0.14); }
-        .capture-button .material-symbols-rounded { font-size: 30px; font-variation-settings: 'FILL' 1; }
-        .upload-panel { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 16px; }
-        .upload-zone { display: flex; min-height: 360px; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 28px; border: 2px dashed oklch(0.68 0.08 180); border-radius: 25px; background: oklch(1 0 0 / 0.07); color: oklch(0.91 0.015 180); cursor: pointer; text-align: center; }
-        .upload-zone.dragover { border-color: oklch(0.82 0.18 165); background: oklch(0.82 0.18 165 / 0.12); }
-        .upload-icon { display: grid; width: 66px; height: 66px; place-items: center; border-radius: 21px; background: oklch(1 0 0 / 0.10); color: oklch(0.82 0.18 165); }
-        .upload-icon .material-symbols-rounded { font-size: 34px; }
-        .upload-text { max-width: 260px; color: oklch(0.75 0.018 185); font-size: 12px; }
-        .preview-container { display: none; min-height: calc(100dvh - 96px); flex-direction: column; gap: 14px; }
-        .preview-img { width: 100%; min-height: 430px; flex: 1; border-radius: 25px; background: oklch(0.16 0.02 200); object-fit: cover; }
-        .preview-actions { display: grid; grid-template-columns: 1fr 1.35fr; gap: 10px; }
-        .preview-actions .btn-outline { border-color: oklch(1 0 0 / 0.20); background: oklch(1 0 0 / 0.08); color: #fff; }
-        .scan-manual-link { margin-top: 12px; border-color: oklch(1 0 0 / 0.16); background: transparent; color: oklch(0.88 0.015 180); }
-        .scanning-overlay { position: absolute; inset: 0; z-index: 20; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 30px; border-radius: 25px; background: oklch(0.15 0.025 200 / 0.90); backdrop-filter: blur(12px); }
-        .scan-loader { position: relative; width: 76px; height: 76px; margin-bottom: 24px; border: 2px solid oklch(1 0 0 / 0.15); border-radius: 22px; }
-        .scan-loader::before { position: absolute; inset: 14px; border: 3px solid oklch(0.82 0.18 165); border-top-color: transparent; border-radius: 50%; content: ''; animation: spin 900ms linear infinite; }
-        .status-log { max-width: 280px; color: oklch(0.92 0.02 180); font-size: 13px; text-align: center; }
-        .result-container { display: none; min-height: 100dvh; background: var(--bg-main); color: var(--text-main); }
-        .result-container.is-visible { display: block; }
-        .result-media { position: relative; height: 260px; overflow: hidden; }
-        .result-media img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; display: block; object-fit: cover; object-position: center; }
-        .result-media::after { position: absolute; inset: 0; background: linear-gradient(to bottom, oklch(0.16 0.02 200 / 0.42), transparent 45%, oklch(0.16 0.02 200 / 0.10)); content: ''; }
-        .result-back { position: absolute; top: 16px; left: 14px; z-index: 2; background: oklch(0.20 0.025 200 / 0.70); color: #fff; backdrop-filter: blur(8px); }
-        .result-done { position: absolute; top: 20px; right: 14px; z-index: 2; display: flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: 999px; background: oklch(0.30 0.06 165 / 0.86); color: #fff; font-size: 11px; font-weight: 600; }
-        .result-content { padding: 18px 20px 28px; }
-        .result-chips { display: flex; gap: 8px; margin-bottom: 11px; }
-        .result-chip { display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 999px; background: var(--primary-light); color: oklch(0.38 0.07 190); font-size: 11px; font-weight: 600; }
-        .result-chip.confidence { background: oklch(0.93 0.055 45); color: oklch(0.47 0.12 35); }
-        .result-title { margin-bottom: 2px; font-size: 25px; }
-        .result-en { display: none; }
-        .result-desc { margin: 12px 0 14px; color: var(--text-muted); font-size: 13px; line-height: 1.55; }
-        .result-info, .result-warning, .reasoning-card { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 11px; padding: 13px 14px; border-radius: 17px; font-size: 12px; line-height: 1.45; }
-        .result-info { background: var(--primary-light); color: oklch(0.36 0.06 190); }
-        .result-warning { background: var(--accent-light); color: oklch(0.41 0.09 36); }
-        .reasoning-card { display: none; border: 1px solid var(--border-color); background: #fff; color: var(--text-muted); }
-        .result-actions { display: grid; gap: 9px; margin-top: 16px; }
-        .result-actions .btn-primary { min-height: 62px; border-radius: 20px; font-size: 17px; }
-        @keyframes scanLine { 0%, 100% { transform: translateY(-180px); opacity: .4; } 50% { transform: translateY(0); opacity: 1; } }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @media (min-width: 461px) { .scan-app { border-inline: 1px solid oklch(1 0 0 / 0.10); box-shadow: 0 28px 70px -40px #000; } }
-    </style>
-    <link rel="stylesheet" href="../css/student-responsive.css">
+    <link rel="stylesheet" href="../css/site.css">
+    <link rel="stylesheet" href="../css/student.css">
     <link rel="stylesheet" href="../css/auth.css">
     <script src="../js/auth.js" defer></script>
     <script src="../js/auth-ui.js" defer></script>
 </head>
+<!-- สแกนแผลด้วย AI (design handoff 2026-09-17 · Student App › AI scan)
+     ซ้าย: คำแนะนำ + ปุ่มถ่ายรูป · ขวา: กรอบสแกนที่กล้องจริงเต็มกรอบ
+     สคริปต์ควบคุมกล้อง/อัปโหลด/วิเคราะห์เป็นชุดเดิม — id ทุกตัวชื่อเดิม เปลี่ยนแต่โครงและหน้าตา -->
 <body data-auth-required="school" class="scan-body">
-    <div class="scan-app">
-        <section id="input-section">
-            <header class="scan-header">
-                <button class="icon-button" type="button" onclick="goBack()" aria-label="กลับหน้าแรก"><span class="material-symbols-rounded">arrow_back</span></button>
-                <div class="scan-header-title">สแกนแผลด้วย AI</div>
-                <button class="icon-button" type="button" onclick="showToast('แฟลชขึ้นอยู่กับการรองรับของกล้องในอุปกรณ์', 'info')" aria-label="แฟลช"><span class="material-symbols-rounded">flash_on</span></button>
-            </header>
+    <div class="site site-student">
+        <div class="site-bg-grid" aria-hidden="true"></div>
+        <div class="site-aura site-aura-top" aria-hidden="true"></div>
 
-            <main class="scan-main">
-                <div class="source-container">
-                    <div class="scanning-overlay" id="scanning-overlay" role="status" aria-live="polite">
-                        <div class="scan-loader" aria-hidden="true"></div>
-                        <div class="status-log" id="status-log">ระบบกำลังเริ่มสแกนบาดแผล...</div>
+        <header class="site-header">
+            <div class="site-header-inner">
+                <a class="site-brand" href="/student/" aria-label="กลับหน้าหลักนักเรียน">
+                    <img src="../images/logo_first_aid.webp" width="36" height="36" alt="">
+                    <span class="site-brand-copy">
+                        <span class="site-brand-name">SMART FIRST AID BOX</span>
+                        <span class="site-brand-sub">ฝั่งนักเรียน · โรงเรียนเทศบาล 6</span>
+                    </span>
+                </a>
+                <nav class="site-nav site-tabs" aria-label="เมนูนักเรียน">
+                    <a class="site-tab" aria-current="page" href="/student/wound-scan">สแกนแผล AI</a>
+                    <a class="site-tab" href="/student/wound-select">เลือกอาการ</a>
+                    <a class="site-tab" href="/student/history">ประวัติของฉัน</a>
+                    <a class="site-tab" href="/student/about">เกี่ยวกับ</a>
+                    <span data-auth-slot></span>
+                </nav>
+            </div>
+        </header>
+
+        <main class="site-main">
+            <section id="input-section" class="split animate-rise" aria-label="สแกนแผล">
+                <div class="scan-copy">
+                    <span class="pill">STEP 01 · AI SCAN</span>
+                    <h1 class="page-title">สแกนแผลด้วย AI</h1>
+                    <p class="page-lead">วางแผลให้อยู่กลางกรอบ ให้แสงสว่างพอ แล้วกดถ่าย ระบบจะวิเคราะห์ประเภทแผลและพาไปคู่มือที่ตรงกับอาการ</p>
+                    <ul class="tip-list">
+                        <li><span class="material-symbols-rounded" aria-hidden="true">wb_sunny</span>ถ่ายในที่สว่าง ไม่ย้อนแสง</li>
+                        <li><span class="material-symbols-rounded" aria-hidden="true">center_focus_strong</span>ให้แผลอยู่กลางกรอบ ห่าง 15–20 ซม.</li>
+                        <li><span class="material-symbols-rounded" aria-hidden="true">info</span>ผลวิเคราะห์เป็นคำแนะนำเบื้องต้น ไม่ทดแทนครูพยาบาล</li>
+                    </ul>
+                    <div class="scan-actions">
+                        <button class="btn btn-primary btn-lg" type="button" onclick="capturePhoto()"><span class="material-symbols-rounded" aria-hidden="true">photo_camera</span>ถ่ายรูปแผล</button>
+                        <div class="scan-secondary">
+                            <button class="icon-button" type="button" onclick="switchTab('upload')" aria-label="เลือกรูปจากคลัง" title="เลือกรูปจากคลัง"><span class="material-symbols-rounded">photo_library</span></button>
+                            <button class="icon-button" type="button" onclick="startCamera()" aria-label="สลับหรือเปิดกล้องใหม่" title="เปิดกล้องใหม่"><span class="material-symbols-rounded">cameraswitch</span></button>
+                        </div>
                     </div>
+                    <a class="scan-ghost-link" href="/student/wound-select"><span class="material-symbols-rounded" aria-hidden="true">help</span>ไม่แน่ใจว่าเป็นแผลแบบไหน? เลือกอาการเอง</a>
+                </div>
+
+                <div class="scan-stage source-container">
+                    <div class="panel-grid" aria-hidden="true"></div>
 
                     <button id="tab-camera" type="button" onclick="switchTab('camera')" hidden>กล้อง</button>
                     <button id="tab-upload" type="button" onclick="switchTab('upload')" hidden>อัปโหลด</button>
 
                     <div id="camera-view" class="active">
-                        <div class="camera-stage">
-                            <video id="video-feed" class="video-feed" autoplay playsinline muted></video>
-                            <div class="camera-shade"></div>
-                            <div class="scan-prompt"><span class="material-symbols-rounded" aria-hidden="true">center_focus_strong</span>วางแผลให้อยู่ในกรอบ</div>
-                            <div class="scan-frame" aria-hidden="true"></div>
-                            <div class="camera-tip"><span class="material-symbols-rounded" aria-hidden="true">lightbulb</span>ถ่ายในที่แสงสว่างพอ ห่างประมาณ 20 ซม. ไม่ต้องซูม</div>
+                        <video id="video-feed" class="video-feed" autoplay playsinline muted></video>
+                        <div class="scan-sweep" aria-hidden="true"></div>
+                        <div class="scan-frame" aria-hidden="true">
+                            <span class="corner corner-tl"></span>
+                            <span class="corner corner-tr"></span>
+                            <span class="corner corner-bl"></span>
+                            <span class="corner corner-br"></span>
                         </div>
-                        <div class="scan-controls">
-                            <button class="scan-control" type="button" onclick="switchTab('upload')" aria-label="เลือกรูปจากคลัง"><span class="material-symbols-rounded">photo_library</span></button>
-                            <button class="capture-button" type="button" onclick="capturePhoto()" aria-label="ถ่ายภาพ"><span class="material-symbols-rounded">photo_camera</span></button>
-                            <button class="scan-control" type="button" onclick="startCamera()" aria-label="สลับหรือเปิดกล้องใหม่"><span class="material-symbols-rounded">cameraswitch</span></button>
+                        <div class="scan-status" role="status">
+                            <span class="scan-status-eyebrow">READY</span>
+                            <span class="scan-status-title">พร้อมสแกน</span>
+                            <span class="scan-status-desc">วางแผลกลางกรอบแล้วกดถ่ายรูป</span>
+                            <span class="scan-status-track" aria-hidden="true"><span class="scan-status-fill"></span></span>
                         </div>
                     </div>
 
                     <div id="upload-view">
-                        <div class="upload-panel">
-                            <div class="upload-zone" id="upload-zone" tabindex="0" role="button" onclick="triggerFileInput()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();triggerFileInput();}">
-                                <span class="upload-icon" aria-hidden="true"><span class="material-symbols-rounded">add_photo_alternate</span></span>
-                                <strong>เลือกภาพแผลจากเครื่อง</strong>
-                                <span class="upload-text">รองรับ JPG และ PNG หรือวางไฟล์ภาพลงในพื้นที่นี้</span>
-                                <input type="file" id="file-input" accept="image/*" hidden onchange="handleFileSelect(event)">
-                            </div>
-                            <button class="btn btn-outline scan-manual-link" type="button" onclick="switchTab('camera')"><span class="material-symbols-rounded">photo_camera</span>กลับไปใช้กล้อง</button>
+                        <div class="upload-zone" id="upload-zone" tabindex="0" role="button" onclick="triggerFileInput()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();triggerFileInput();}">
+                            <span class="upload-icon" aria-hidden="true"><span class="material-symbols-rounded">add_photo_alternate</span></span>
+                            <strong>เลือกภาพแผลจากเครื่อง</strong>
+                            <span class="upload-text">รองรับ JPG และ PNG หรือวางไฟล์ภาพลงในพื้นที่นี้</span>
+                            <input type="file" id="file-input" accept="image/*" hidden onchange="handleFileSelect(event)">
+                            <button class="btn btn-outline" type="button" onclick="event.stopPropagation(); switchTab('camera')"><span class="material-symbols-rounded" aria-hidden="true">photo_camera</span>กลับไปใช้กล้อง</button>
                         </div>
                     </div>
 
@@ -123,63 +97,68 @@
                         <img id="preview-image" class="preview-img" src="" alt="ภาพแผลที่เลือก">
                         <div class="preview-actions">
                             <button class="btn btn-outline" type="button" onclick="resetCapture()">ถ่ายใหม่</button>
-                            <button class="btn btn-primary" type="button" onclick="analyzeWound()"><span class="material-symbols-rounded">auto_awesome</span>วิเคราะห์ภาพ</button>
+                            <button class="btn btn-primary" type="button" onclick="analyzeWound()"><span class="material-symbols-rounded" aria-hidden="true">auto_awesome</span>วิเคราะห์ภาพ</button>
                         </div>
                     </div>
+
+                    <div class="scanning-overlay" id="scanning-overlay" role="status" aria-live="polite">
+                        <div class="scan-loader" aria-hidden="true"></div>
+                        <div class="status-log" id="status-log">ระบบกำลังเริ่มสแกนบาดแผล...</div>
+                    </div>
                 </div>
+            </section>
 
-                <aside class="scan-desktop-panel" aria-label="คำแนะนำก่อนสแกนแผล">
-                    <div class="eyebrow">AI WOUND SCANNER</div>
-                    <h2>จัดภาพให้ชัด<br>ก่อนเริ่มวิเคราะห์</h2>
-                    <p>ภาพที่คมชัดและมีแสงสม่ำเสมอช่วยให้ระบบแยกประเภทบาดแผลได้แม่นขึ้น</p>
-                    <ol class="scan-checklist">
-                        <li><span>01</span><strong>ห่างจากแผลประมาณ 20 ซม.</strong></li>
-                        <li><span>02</span><strong>วางแผลไว้กลางกรอบสีเขียว</strong></li>
-                        <li><span>03</span><strong>อย่าซูมและหลีกเลี่ยงเงามืด</strong></li>
-                    </ol>
-                    <div class="scan-privacy"><span class="material-symbols-rounded" aria-hidden="true">health_and_safety</span><span>ผลวิเคราะห์เป็นคำแนะนำเบื้องต้น หากเลือดไหลไม่หยุดหรือมีอาการรุนแรงให้เรียกครูพยาบาลทันที</span></div>
-                    <button class="btn btn-outline scan-manual-link" type="button" onclick="location.href='/student/wound-select'"><span class="material-symbols-rounded">list_alt</span>เลือกประเภทแผลด้วยตนเอง</button>
-                </aside>
+            <section class="result-container" id="result-section" aria-label="ผลวิเคราะห์">
+                <div class="split">
+                    <div class="result-media">
+                        <img id="res-image" src="../images/wound_cut_abrasion.webp" alt="ภาพแผลที่ AI วิเคราะห์">
+                        <button class="icon-button result-back" type="button" onclick="backToInput()" aria-label="กลับไปสแกนใหม่"><span class="material-symbols-rounded">arrow_back</span></button>
+                        <div class="result-done"><span class="material-symbols-rounded" aria-hidden="true">auto_awesome</span>วิเคราะห์เสร็จแล้ว</div>
+                    </div>
 
-                <button class="btn btn-outline scan-manual-link scan-manual-mobile" type="button" onclick="location.href='/student/wound-select'"><span class="material-symbols-rounded">list_alt</span>เลือกประเภทแผลด้วยตนเอง</button>
-            </main>
-        </section>
+                    <div class="result-content">
+                        <span class="eyebrow">AI ANALYSIS</span>
+                        <div class="result-chips">
+                            <span class="badge" id="res-severity">Minor</span>
+                            <span class="badge badge-warm">ความมั่นใจ <span id="res-confidence-label">0%</span></span>
+                        </div>
+                        <h1 class="result-title" id="res-name-th">วิเคราะห์เสร็จสิ้น</h1>
+                        <div class="result-en" id="res-name-en">ANALYSIS COMPLETE</div>
+                        <p class="result-desc" id="res-desc">คำอธิบายผลลัพธ์จาก AI...</p>
 
-        <section class="result-container" id="result-section">
-            <div class="result-media">
-                <img id="res-image" src="../images/wound_cut_abrasion.webp" alt="ภาพแผลที่ AI วิเคราะห์">
-                <button class="icon-button result-back" type="button" onclick="backToInput()" aria-label="กลับไปสแกนใหม่"><span class="material-symbols-rounded">arrow_back</span></button>
-                <div class="result-done"><span class="material-symbols-rounded" style="font-size:16px;">auto_awesome</span>วิเคราะห์เสร็จแล้ว</div>
+                        <div class="notice notice-info"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span><span>เวชภัณฑ์ที่ต้องใช้อยู่ใน <strong>ช่องเก็บที่ <span id="res-drawer">1</span></strong> — ระบบจะปลดล็อกให้เมื่อเริ่มทำแผล</span></div>
+                        <div class="notice notice-warning"><span class="material-symbols-rounded" aria-hidden="true">warning</span><span>ผลวิเคราะห์เป็นเพียงคำแนะนำเบื้องต้น ไม่ทดแทนการดูแลจากครูพยาบาล</span></div>
+                        <div class="reasoning-card" id="reasoning-container"><span class="material-symbols-rounded" aria-hidden="true">psychology</span><span id="res-reasoning"></span></div>
+
+                        <div class="result-actions">
+                            <!-- จำนวนขั้นตอนเติมตอนรู้ผลแล้วใน displayResult() — ตัวเลขตายตัวตรงนี้เคยเขียนว่า 5
+                                 ซึ่งไม่ตรงกับแผลไหนเลยที่ AI คืนได้ (มีดบาด/ถลอก = 4, แมลงกัดต่อย = 6) -->
+                            <button class="btn btn-primary btn-lg" id="btn-confirm-wound" type="button"><span class="material-symbols-rounded">arrow_forward</span><span>เริ่มทำแผล</span></button>
+                            <button class="btn btn-outline btn-lg" type="button" onclick="location.href='/student/wound-select'"><span>ไม่ใช่แผลนี้ — เลือกเอง</span></button>
+                        </div>
+                        <div id="res-icon" hidden></div>
+                        <div id="res-confidence-bar" hidden></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <div class="site-footer-inner">
+                <span class="site-footer-note">พัฒนาโดย CRMS6 Team · โรงเรียนเทศบาล 6 นครเชียงราย</span>
+                <button class="sos-button" id="scan-sos-button" type="button" onclick="triggerScanSos()">
+                    <span class="material-symbols-rounded" aria-hidden="true">emergency</span>
+                    <span>เรียกครูพยาบาลด่วน</span>
+                </button>
             </div>
-
-            <div class="result-content">
-                <div class="result-chips">
-                    <span class="result-chip" id="res-severity">Minor</span>
-                    <span class="result-chip confidence">ความมั่นใจ <span id="res-confidence-label">0%</span></span>
-                </div>
-                <h1 class="result-title" id="res-name-th">วิเคราะห์เสร็จสิ้น</h1>
-                <div class="result-en" id="res-name-en">ANALYSIS COMPLETE</div>
-                <p class="result-desc" id="res-desc">คำอธิบายผลลัพธ์จาก AI...</p>
-
-                <div class="result-info"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span><span>เวชภัณฑ์ที่ต้องใช้อยู่ใน <strong>ช่องเก็บที่ <span id="res-drawer">1</span></strong> — ระบบจะปลดล็อกให้เมื่อเริ่มทำแผล</span></div>
-                <div class="result-warning"><span class="material-symbols-rounded" aria-hidden="true">warning</span><span>ผลวิเคราะห์เป็นเพียงคำแนะนำเบื้องต้น ไม่ทดแทนการดูแลจากครูพยาบาล</span></div>
-                <div class="reasoning-card" id="reasoning-container"><span class="material-symbols-rounded" aria-hidden="true">psychology</span><span id="res-reasoning"></span></div>
-
-                <div class="result-actions">
-                    <!-- จำนวนขั้นตอนเติมตอนรู้ผลแล้วใน displayResult() — ตัวเลขตายตัวตรงนี้เคยเขียนว่า 5
-                         ซึ่งไม่ตรงกับแผลไหนเลยที่ AI คืนได้ (มีดบาด/ถลอก = 4, แมลงกัดต่อย = 6) -->
-                    <button class="btn btn-primary" id="btn-confirm-wound" type="button"><span class="material-symbols-rounded">arrow_forward</span><span>เริ่มทำแผล</span></button>
-                    <button class="btn btn-outline" type="button" onclick="location.href='/student/wound-select'"><span>ไม่ใช่แผลนี้ — เลือกเอง</span></button>
-                </div>
-                <div id="res-icon" hidden></div>
-                <div id="res-confidence-bar" hidden></div>
-            </div>
-        </section>
+        </footer>
     </div>
 
     <script src="../js/wound-data.js"></script>
     <script src="../js/storage.js"></script>
     <script src="../js/notification.js"></script>
+    <script src="../js/mqtt-bridge.js"></script>
+    <script src="../js/api-bridge.js"></script>
     <script src="../js/ai-wound-analyzer.js"></script>
     <script>
         let currentTab = 'camera';
@@ -323,7 +302,7 @@
         function showPreview() {
             document.getElementById('camera-view').classList.remove('active');
             document.getElementById('upload-view').classList.remove('active');
-            document.getElementById('preview-container').style.display = 'flex';
+            document.getElementById('preview-container').style.display = 'block';
             compressImage(selectedBase64, compressed => {
                 selectedBase64 = compressed;
                 document.getElementById('preview-image').src = selectedBase64;
@@ -416,13 +395,24 @@
 
         function backToInput() {
             document.getElementById('result-section').classList.remove('is-visible');
-            document.getElementById('input-section').style.display = 'block';
+            document.getElementById('input-section').style.display = '';
             resetCapture();
         }
 
-        function goBack() {
-            stopCamera();
-            location.href = '/student/';
+        async function triggerScanSos() {
+            if (!confirm('ต้องการส่งสัญญาณเรียกครูพยาบาลด่วนใช่หรือไม่?')) return;
+            const button = document.getElementById('scan-sos-button');
+            button.disabled = true;
+            try {
+                const student = StorageService.getCurrentStudent();
+                const studentName = student ? `${student.name} (${student.class})` : 'นักเรียนทั่วไป';
+                await NotificationService.sendSos(NotificationService.buildSosFlexMessage(studentName));
+            } catch (error) {
+                console.error('[Scanner] SOS failed:', error);
+                showToast('ส่ง SOS ไม่สำเร็จ กรุณาเรียกครูใกล้ที่สุด', 'danger');
+            } finally {
+                button.disabled = false;
+            }
         }
     </script>
 </body>

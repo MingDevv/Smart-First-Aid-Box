@@ -1,7 +1,7 @@
 (() => {
     document.addEventListener('DOMContentLoaded', () => {
         const rows = document.getElementById('history-rows'), empty = document.getElementById('empty-state'), table = document.getElementById('table-container');
-        const more = document.createElement('button'); more.type = 'button'; more.textContent = 'โหลดประวัติเพิ่ม'; table.after(more);
+        const more = document.createElement('button'); more.type = 'button'; more.className = 'btn btn-outline'; more.textContent = 'โหลดประวัติเพิ่ม'; table.after(more);
         let revision = 0, cursor = null, count = 0, busy = false;
         function clear() { rows.replaceChildren(); table.style.display = 'none'; more.hidden = true; empty.style.display = 'block'; count = 0; cursor = null; for (const id of ['history-total','history-ai-total','history-latest']) document.getElementById(id).textContent = '—'; }
         async function load(append = false) {

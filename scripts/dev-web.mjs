@@ -39,7 +39,7 @@ export async function createWebServer() {
             }
             const file = await realpath(join(root, route));
             if (!file.startsWith(root)) { res.writeHead(404).end(); return; }
-            const types = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.woff2':'font/woff2', '.webp':'image/webp', '.png':'image/png' };
+            const types = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.woff2':'font/woff2', '.webp':'image/webp', '.png':'image/png', '.svg':'image/svg+xml' };
             const data = await readFile(file);
             res.setHeader('Content-Type', types[extname(file)] || 'application/octet-stream');
             res.end(data);

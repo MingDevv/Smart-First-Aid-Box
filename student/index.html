@@ -3,90 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#078683">
+    <meta name="theme-color" content="#ffffff">
     <title>บริการปฐมพยาบาล — Smart First Aid Box</title>
     <link rel="stylesheet" href="../css/global.css">
-    <link rel="stylesheet" href="../css/home.css">
-    <link rel="stylesheet" href="../css/student-responsive.css">
+    <link rel="stylesheet" href="../css/site.css">
+    <link rel="stylesheet" href="../css/student.css">
     <link rel="stylesheet" href="../css/auth.css">
     <script src="../js/auth.js" defer></script>
     <script src="../js/auth-ui.js" defer></script>
 </head>
+<!-- หน้าหลักฝั่งนักเรียน (หลังล็อกอิน) — เมนูเข้าทุกบริการ ใช้โครง site.css + การ์ดเมนูจาก student.css
+     บัตร QR ไม่ใช่เรื่องของเว็บ เพราะเว็บบังคับล็อกอิน @tesaban6.ac.th อยู่แล้ว
+     ตัวตนจากอีเมลที่ยืนยันแล้วแข็งแรงกว่าบัตรที่ถ่ายรูปไปใช้แทนกันได้ บัตรจึงเหลือหน้าที่เดียวคือสแกนที่ตู้ -->
 <body data-auth-required="school" class="home-body">
-    <main class="home-app animate-fade-in">
-        <section class="home-hero">
-            <div class="home-brand-row">
-                <a class="home-brand" href="/" aria-label="กลับหน้าแรก">
-                    <img class="home-logo" src="../images/logo_first_aid.webp" width="72" height="72" alt="ตรา Smart First Aid Box">
-                    <span class="home-brand-name">SMART FIRST AID BOX</span>
+    <div class="site site-student">
+        <div class="site-bg-grid" aria-hidden="true"></div>
+        <div class="site-aura site-aura-top" aria-hidden="true"></div>
+
+        <header class="site-header">
+            <div class="site-header-inner">
+                <a class="site-brand" href="/" aria-label="กลับหน้าแรก">
+                    <img src="../images/logo_first_aid.webp" width="36" height="36" alt="">
+                    <span class="site-brand-copy">
+                        <span class="site-brand-name">SMART FIRST AID BOX</span>
+                        <span class="site-brand-sub">ฝั่งนักเรียน · โรงเรียนเทศบาล 6</span>
+                    </span>
                 </a>
-                <span class="home-status">
-                    <span id="student-status-label">พร้อมใช้</span>
-                </span>
+                <nav class="site-nav site-tabs" aria-label="เมนูนักเรียน">
+                    <a class="site-tab" href="/student/wound-scan">สแกนแผล AI</a>
+                    <a class="site-tab" href="/student/wound-select">เลือกอาการ</a>
+                    <a class="site-tab" href="/student/history">ประวัติของฉัน</a>
+                    <a class="site-tab" href="/student/about">เกี่ยวกับ</a>
+                    <span data-auth-slot></span>
+                </nav>
+            </div>
+        </header>
+
+        <main class="site-main animate-rise">
+            <div class="page-head">
+                <div class="page-head-copy">
+                    <span class="eyebrow">STUDENT CARE</span>
+                    <h1 class="page-title">เลือกวิธีดูแลแผล</h1>
+                    <p class="page-lead">ใช้บัญชีโรงเรียนเพื่อดูคู่มือ ดูประวัติของตนเอง และเรียกครูพยาบาล การรับเวชภัณฑ์ให้ใช้บริการที่ตู้</p>
+                </div>
+                <span class="pill"><span class="pill-dot" aria-hidden="true"></span>SYSTEM ONLINE · <span id="student-status-label">พร้อมใช้</span></span>
             </div>
 
-            <h1 class="home-title">ดูแลตัวเอง<br>ด้วยคู่มือปฐมพยาบาล</h1>
-            <p class="home-description">ดูคู่มือและส่งคำขอ SOS ถึงครู การรับเวชภัณฑ์ให้ใช้บริการที่ตู้</p>
-            <!-- ภาพเดียว: มาสคอต + สโลแกน ไม่ได้ตัดแยก
-                 พื้นโปร่ง จึงไม่มีกรอบและไม่มีเงาทับ ปล่อยให้ลอยบนพื้นเขียวตรงๆ
-                 ไฟล์สร้างด้วย scripts/build-hero-mascot.mjs — อย่าลากภาพมาทับด้วยมือ
-                 เหตุผลของทุกค่าอยู่ในคอมเมนต์หัวสคริปต์นั้น -->
-            <figure class="home-hero-mascot">
-                <img src="../images/hero_mascot_tagline.webp" width="1640" height="910"
-                     alt="ตู้ปฐมพยาบาลอัจฉริยะ ห่วงใยใกล้ตัว สแกนชัวร์ ดูแลไว" decoding="async">
-            </figure>
-        </section>
+            <section class="home-actions" aria-label="เลือกบริการ">
+                <a class="home-action primary-action" href="/student/wound-scan">
+                    <img class="home-action-icon" src="/images/menu-icons/wound-scan.svg" alt="" aria-hidden="true" width="52" height="52">
+                    <span class="home-action-copy">
+                        <span class="home-action-title">สแกนแผลด้วย AI</span>
+                        <span class="home-action-desc">ถ่ายรูปแผล ระบบบอกวิธีทำแผลให้</span>
+                    </span>
+                    <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
+                </a>
 
-        <section class="home-content" aria-label="เลือกบริการ">
-            <div class="home-content-heading">
-                <div class="eyebrow">STUDENT CARE</div>
-                <h2>เลือกวิธีดูแลแผล</h2>
-                <p>ใช้บัญชีโรงเรียนเพื่อเรียกครูพยาบาลและดูข้อมูลของตนเอง</p>
+                <a class="home-action" href="/student/wound-select">
+                    <img class="home-action-icon" src="/images/menu-icons/wound-select.svg" alt="" aria-hidden="true" width="52" height="52">
+                    <span class="home-action-copy">
+                        <span class="home-action-title">เลือกประเภทแผลเอง</span>
+                        <span class="home-action-desc">แผลมีดบาด/ถลอก · แมลงกัดต่อย</span>
+                    </span>
+                    <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
+                </a>
+
+                <a class="home-action" href="/student/history">
+                    <img class="home-action-icon" src="/images/menu-icons/history.svg" alt="" aria-hidden="true" width="52" height="52">
+                    <span class="home-action-copy">
+                        <span class="home-action-title">ประวัติของฉัน</span>
+                        <span class="home-action-desc">รายการใช้ตู้ยาที่บันทึกไว้</span>
+                    </span>
+                    <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
+                </a>
+
+                <a class="home-action" href="/student/about">
+                    <img class="home-action-icon" src="/images/menu-icons/about.svg" alt="" aria-hidden="true" width="52" height="52">
+                    <span class="home-action-copy">
+                        <span class="home-action-title">เกี่ยวกับโครงงาน</span>
+                        <span class="home-action-desc">ตู้ทำงานอย่างไร · ทีมผู้พัฒนา</span>
+                    </span>
+                    <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
+                </a>
+
+                <!-- ⚠️ นี่คือการซ่อน ไม่ใช่การกัน — ด่านจริงคือ data-auth-required="staff" ที่ body
+                     ของทุกหน้าใน /dashboard/ และการตรวจ role ฝั่งเซิร์ฟเวอร์ใน api/ -->
+                <a class="home-action" data-staff-only href="/dashboard/">
+                    <img class="home-action-icon" src="/images/menu-icons/teacher-dashboard.svg" alt="" aria-hidden="true" width="52" height="52">
+                    <span class="home-action-copy">
+                        <span class="home-action-title">ครูพยาบาล</span>
+                        <span class="home-action-desc">คลังยา · ประวัติ · แจ้งเตือน</span>
+                    </span>
+                    <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
+                </a>
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <div class="site-footer-inner">
+                <span class="site-footer-note">พัฒนาโดย CRMS6 Team · โรงเรียนเทศบาล 6 นครเชียงราย</span>
+                <button class="sos-button" id="sos-btn" type="button" onclick="triggerSOS()">
+                    <span class="material-symbols-rounded" aria-hidden="true">emergency</span>
+                    <span id="sos-label">เรียกครูพยาบาลด่วน</span>
+                </button>
             </div>
-            <!-- บัตร QR ไม่ใช่เรื่องของเว็บตั้งแต่แรก เพราะเว็บบังคับล็อกอิน @tesaban6.ac.th อยู่แล้ว
-                 ตัวตนจากอีเมลที่ยืนยันแล้วแข็งแรงกว่าบัตรที่ถ่ายรูปไปใช้แทนกันได้
-                 บัตรจึงเหลือหน้าที่เดียวคือสแกนที่ตู้ ซึ่งเป็นที่เดียวที่ไม่มีคีย์บอร์ดให้ล็อกอิน -->
-            <a class="home-action primary-action" href="/student/wound-scan">
-                <img class="home-action-icon" src="/images/menu-icons/wound-scan.svg" alt="" aria-hidden="true" width="48" height="48">
-                <span class="home-action-copy">
-                    <span class="home-action-title">สแกนแผลด้วย AI</span>
-                    <span class="home-action-desc">ถ่ายรูปแผล ระบบบอกวิธีทำแผลให้</span>
-                </span>
-                <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
-            </a>
-
-            <a class="home-action" href="/student/wound-select">
-                <img class="home-action-icon" src="/images/menu-icons/wound-select.svg" alt="" aria-hidden="true" width="48" height="48">
-                <span class="home-action-copy">
-                    <span class="home-action-title">เลือกประเภทแผลเอง</span>
-                    <span class="home-action-desc">แผลมีดบาด/ถลอก · แมลงกัดต่อย</span>
-                </span>
-                <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
-            </a>
-
-            <a class="home-action" data-staff-only href="/dashboard/">
-                <img class="home-action-icon" src="/images/menu-icons/teacher-dashboard.svg" alt="" aria-hidden="true" width="48" height="48">
-                <span class="home-action-copy">
-                    <span class="home-action-title">ครูพยาบาล</span>
-                    <span class="home-action-desc">คลังยา · ประวัติ · แจ้งเตือน</span>
-                </span>
-                <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
-            </a>
-
-            <div class="home-meta-links">
-                <a class="home-meta-link" href="/student/history"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติของฉัน</a>
-                <a class="home-meta-link" href="/student/about"><span class="material-symbols-rounded" aria-hidden="true">info</span>เกี่ยวกับโครงงาน</a>
-            </div>
-        </section>
-
-        <div class="sos-dock">
-            <button class="sos-button" id="sos-btn" type="button" onclick="triggerSOS()">
-                <span class="material-symbols-rounded" aria-hidden="true">emergency</span>
-                <span id="sos-label">เรียกครูพยาบาลด่วน</span>
-            </button>
-            <div class="sos-school">โรงเรียนเทศบาล 6 นครเชียงราย</div>
-        </div>
-    </main>
+        </footer>
+    </div>
 
     <script src="../js/storage.js"></script>
     <script src="../js/notification.js"></script>

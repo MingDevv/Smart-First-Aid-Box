@@ -3,90 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#078683">
+    <meta name="theme-color" content="#ffffff">
     <title>Smart First Aid Box — โรงเรียนเทศบาล 6 นครเชียงราย</title>
     <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="css/site.css">
     <link rel="stylesheet" href="css/home.css">
-    <link rel="stylesheet" href="css/student-responsive.css">
     <link rel="stylesheet" href="css/auth.css">
     <script src="js/auth.js" defer></script>
     <script src="js/auth-ui.js" defer></script>
 </head>
-<!-- หน้าแรกสาธารณะ ใช้โครงและองค์ประกอบชุดเดียวกับ /student ทุกอย่าง
-     ต่างกันสองข้อ ซึ่งเป็นเรื่องของสิทธิ์ ไม่ใช่เรื่องหน้าตา:
-       · ไม่มี data-auth-required ที่ body — หน้านี้ต้องเปิดดูได้โดยไม่ต้องล็อกอิน
-       · เมนูที่ต้องใช้บัญชีโรงเรียนติด data-requires-auth ให้เด้งหน้าล็อกอินตอนกด
-         แทนที่จะซ่อนทิ้ง เพราะคนที่ยังไม่ล็อกอินต้องเห็นว่ามีอะไรให้ใช้บ้าง -->
+<!-- หน้าแรกสาธารณะ (design handoff 2026-09-17 · Home B Tech AI)
+     · ไม่มี data-auth-required ที่ body — หน้านี้ต้องเปิดดูได้โดยไม่ต้องล็อกอิน
+     · ปุ่มที่ต้องใช้บัญชีโรงเรียนติด data-requires-auth ให้เด้งกล่องล็อกอินตอนกด แทนที่จะซ่อน
+       เพราะคนที่ยังไม่ล็อกอินต้องเห็นว่ามีอะไรให้ใช้บ้าง
+     · ชิปบัญชี (js/auth-ui.js) ถูกวางในช่อง data-auth-slot ของส่วนหัว = เม็ดยา "เข้าสู่ระบบ" ของดีไซน์
+     · การ์ด "แผลถลอก · 92%" เป็นภาพประกอบนิ่ง ไม่ใช่ค่าจริง -->
 <body class="home-body">
-    <main class="home-app animate-fade-in">
-        <section class="home-hero">
-            <div class="home-brand-row">
-                <div class="home-brand">
-                    <img class="home-logo" src="images/logo_first_aid.webp" width="72" height="72" alt="ตรา Smart First Aid Box">
-                    <span class="home-brand-name">SMART FIRST AID BOX</span>
+    <div class="site">
+        <div class="site-bg-grid" aria-hidden="true"></div>
+        <div class="site-bg-dots" aria-hidden="true"></div>
+        <div class="site-aura site-aura-top" aria-hidden="true"></div>
+        <div class="site-aura site-aura-bottom" aria-hidden="true"></div>
+
+        <header class="site-header">
+            <div class="site-header-inner">
+                <a class="site-brand" href="/" aria-label="Smart First Aid Box หน้าแรก">
+                    <img src="images/logo_first_aid.webp" width="36" height="36" alt="">
+                    <span class="site-brand-copy">
+                        <span class="site-brand-name">SMART FIRST AID BOX</span>
+                        <span class="site-brand-sub">โรงเรียนเทศบาล 6 นครเชียงราย</span>
+                    </span>
+                </a>
+                <nav class="site-nav" aria-label="เมนูหลัก">
+                    <a href="/student/wound-scan" data-requires-auth="เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน จึงจะสแกนแผลได้">สแกนแผล</a>
+                    <a href="/student/wound-select" data-requires-auth="เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน จึงจะเปิดคู่มือทำแผลได้">คู่มือทำแผล</a>
+                    <!-- ⚠️ นี่คือการซ่อน ไม่ใช่การกัน — ด่านจริงคือ data-auth-required="staff" ที่ body
+                         ของทุกหน้าใน /dashboard/ และการตรวจ role ฝั่งเซิร์ฟเวอร์ใน api/ -->
+                    <a data-staff-only href="/dashboard/">ครูพยาบาล</a>
+                    <span data-auth-slot></span>
+                </nav>
+            </div>
+        </header>
+
+        <main class="site-main hero">
+            <div class="hero-copy">
+                <span class="pill"><span class="pill-dot" aria-hidden="true"></span>SYSTEM ONLINE · ตู้พร้อมใช้งาน</span>
+                <h1 class="hero-title">สแกนแผล<br><span>ด้วยเทคโนโลยี AI</span></h1>
+                <p class="hero-lead">ถ่ายรูปแผล ระบบวิเคราะห์และแนะนำวิธีทำแผลทีละขั้น<br>จากนั้นตู้จะปลดล็อกเวชภัณฑ์ที่ต้องใช้ให้อัตโนมัติ</p>
+                <div class="hero-actions">
+                    <a class="btn btn-primary btn-lg hero-cta primary-action" href="/student/wound-scan" data-requires-auth="เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน จึงจะสแกนแผลได้">
+                        <span class="cta-shimmer" aria-hidden="true"></span>
+                        <span class="material-symbols-rounded" aria-hidden="true">center_focus_weak</span>
+                        <span>สแกนแผลด้วย AI</span>
+                    </a>
+                    <a class="btn btn-outline btn-lg" href="/student/wound-select" data-requires-auth="เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน จึงจะเลือกประเภทแผลได้">เลือกประเภทแผลเอง</a>
                 </div>
-                <span class="home-status">พร้อมใช้</span>
+                <div class="feature-chips">
+                    <div class="feature-chip"><span class="material-symbols-rounded" aria-hidden="true">bolt</span>ผลใน 10 วินาที</div>
+                    <div class="feature-chip"><span class="material-symbols-rounded" aria-hidden="true">lock</span>ปลดล็อกอัตโนมัติ</div>
+                    <div class="feature-chip"><span class="material-symbols-rounded" aria-hidden="true">notifications_active</span>แจ้งครูทันที</div>
+                </div>
             </div>
 
-            <h1 class="home-title">ดูแลตัวเอง<br>ด้วยคู่มือปฐมพยาบาล</h1>
-            <p class="home-description">ดูคู่มือและส่งคำขอ SOS ถึงครู การรับเวชภัณฑ์ให้ใช้บริการที่ตู้</p>
-            <figure class="home-hero-mascot">
-                <img src="images/hero_mascot_tagline.webp" width="1640" height="910"
-                     alt="ตู้ปฐมพยาบาลอัจฉริยะ ห่วงใยใกล้ตัว สแกนชัวร์ ดูแลไว" decoding="async">
-            </figure>
-        </section>
-
-        <section class="home-content" aria-label="เลือกบริการ">
-            <div class="home-content-heading">
-                <div class="eyebrow">CHOOSE YOUR CARE PATH</div>
-                <h2>เริ่มดูแลแผลเบื้องต้น</h2>
-                <p>เลือกวิธีที่สะดวก ระบบจะพาไปทีละขั้นอย่างชัดเจน</p>
+            <div class="hero-panel">
+                <div class="panel-grid" aria-hidden="true"></div>
+                <div class="scan-sweep" aria-hidden="true"></div>
+                <span class="corner corner-tl" aria-hidden="true"></span>
+                <span class="corner corner-tr" aria-hidden="true"></span>
+                <span class="corner corner-bl" aria-hidden="true"></span>
+                <span class="corner corner-br" aria-hidden="true"></span>
+                <img class="mascot" src="images/mascot.webp" width="420" height="425" alt="มาสคอตตู้ปฐมพยาบาลอัจฉริยะ" decoding="async">
+                <div class="ai-card" aria-hidden="true">
+                    <span class="ai-card-eyebrow">AI ANALYSIS</span>
+                    <span class="ai-card-verdict">แผลถลอก · 92%</span>
+                    <span class="ai-card-track"><span class="ai-card-fill"></span></span>
+                    <span class="ai-card-ticker">แนะนำ: ล้างแผล → เบตาดีน</span>
+                </div>
             </div>
+        </main>
 
-            <a class="home-action primary-action" href="/student/wound-scan" data-requires-auth>
-                <img class="home-action-icon" src="/images/menu-icons/wound-scan.svg" alt="" aria-hidden="true" width="48" height="48">
-                <span class="home-action-copy">
-                    <span class="home-action-title">สแกนแผลด้วย AI</span>
-                    <span class="home-action-desc">ถ่ายรูปแผล ระบบบอกวิธีทำแผลให้</span>
-                </span>
-                <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
-            </a>
-
-            <a class="home-action" href="/student/wound-select" data-requires-auth>
-                <img class="home-action-icon" src="/images/menu-icons/wound-select.svg" alt="" aria-hidden="true" width="48" height="48">
-                <span class="home-action-copy">
-                    <span class="home-action-title">เลือกประเภทแผลเอง</span>
-                    <span class="home-action-desc">แผลมีดบาด/ถลอก · แมลงกัดต่อย</span>
-                </span>
-                <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
-            </a>
-
-            <!-- เดิมไม่ติด data-staff-only เพราะกลัวว่าครูพยาบาลจะไม่มีทางเข้าถ้าซ่อนก่อนล็อกอิน
-                 เหตุผลนั้นตกไปแล้ว: ชิปล็อกอินเป็น position:fixed มุมขวาบนของทุกหน้า (js/auth-ui.js)
-                 ครูจึงล็อกอินจากหน้านี้ได้โดยไม่ต้องเห็นเมนูก่อน แล้วเมนูจะโผล่มาเอง
-                 ⚠️ นี่คือการซ่อน ไม่ใช่การกัน — ด่านจริงคือ data-auth-required="staff" ที่ body
-                 ของทุกหน้าใน /dashboard/ และการตรวจ role ฝั่งเซิร์ฟเวอร์ใน api/ -->
-            <a class="home-action" data-staff-only href="/dashboard/">
-                <img class="home-action-icon" src="/images/menu-icons/teacher-dashboard.svg" alt="" aria-hidden="true" width="48" height="48">
-                <span class="home-action-copy">
-                    <span class="home-action-title">ครูพยาบาล</span>
-                    <span class="home-action-desc">คลังยา · ประวัติ · แจ้งเตือน</span>
-                </span>
-                <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
-            </a>
-
-            <!-- ประวัติการใช้งาน/เกี่ยวกับโครงงาน ถอดออกจากหน้าแรก 2026-09-17 (Bank)
-                 ทั้งสองหน้ายังอยู่และยังเข้าได้จาก /student ซึ่งเป็นหน้าของนักเรียนที่ล็อกอินแล้ว -->
+        <section class="logo-cloud" aria-label="ผู้สนับสนุนและเครือข่ายความร่วมมือ">
+            <div class="logo-cloud-card">
+                <div class="logo-fade">
+                    <div class="logo-track">
+                        <div class="logo-group">
+                            <img class="logo-tira" src="images/partners/tira.webp" alt="TIRA สมาคมการสร้างนวัตกรรมและหุ่นยนต์">
+                            <img class="logo-depa" src="images/partners/depa.webp" alt="depa">
+                            <img class="logo-kmitl" src="images/partners/sci-kmitl.webp" alt="School of Science KMITL">
+                            <img class="logo-acebott" src="images/partners/acebott.webp" alt="ACEBOTT">
+                            <img class="logo-imagineering" src="images/partners/imagineering.webp" alt="imagineering">
+                            <img class="logo-floaino" src="images/partners/floaino.webp" alt="Floaino">
+                        </div>
+                        <div class="logo-group" aria-hidden="true">
+                            <img class="logo-tira" src="images/partners/tira.webp" alt="">
+                            <img class="logo-depa" src="images/partners/depa.webp" alt="">
+                            <img class="logo-kmitl" src="images/partners/sci-kmitl.webp" alt="">
+                            <img class="logo-acebott" src="images/partners/acebott.webp" alt="">
+                            <img class="logo-imagineering" src="images/partners/imagineering.webp" alt="">
+                            <img class="logo-floaino" src="images/partners/floaino.webp" alt="">
+                        </div>
+                    </div>
+                </div>
+            </div>
         </section>
 
-        <div class="sos-dock">
-            <button class="sos-button" id="home-sos-button" type="button" onclick="triggerHomeSos()">
-                <span class="material-symbols-rounded" aria-hidden="true">emergency</span>
-                <span>เรียกครูพยาบาลด่วน</span>
-            </button>
-            <a class="sos-school" href="/student/about">โรงเรียนเทศบาล 6 นครเชียงราย</a>
-        </div>
-    </main>
+        <footer class="site-footer">
+            <div class="site-footer-inner">
+                <span class="site-footer-note">พัฒนาโดย CRMS6 Team</span>
+                <button class="sos-button" id="home-sos-button" type="button" onclick="triggerHomeSos()">
+                    <span class="material-symbols-rounded" aria-hidden="true">emergency</span>
+                    <span>เรียกครูพยาบาลด่วน</span>
+                </button>
+            </div>
+        </footer>
+    </div>
 
     <script src="js/storage.js"></script>
     <script src="js/notification.js"></script>

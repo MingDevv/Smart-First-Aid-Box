@@ -1,33 +1,131 @@
-<!doctype html>
-<html lang="th"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ทะเบียนนักเรียน | SFAB</title>
-<link rel="stylesheet" href="../css/global.css"><link rel="stylesheet" href="../css/dashboard.css"><link rel="stylesheet" href="../css/students.css"><link rel="stylesheet" href="../css/auth.css">
-<script src="../js/auth.js" defer></script><script src="../js/auth-ui.js" defer></script><script src="../js/qr-sdk.js" defer></script><script src="../js/students.js" defer></script></head>
-<body data-auth-required="staff" class="dashboard-body"><div class="dashboard-shell">            <aside class="dashboard-sidebar">
-                <a class="sidebar-brand" href="../">
-                    <img class="sidebar-logo" src="../images/logo_first_aid.webp" width="72" height="72" alt="Smart First Aid Box">
-                    <span><strong>First Aid Box</strong><span style="font-family:var(--font-sarabun); letter-spacing:0; font-size:10px;">หลังบ้านครู</span></span>
-                </a>
-                <nav class="sidebar-nav" aria-label="เมนูแดชบอร์ด">
-                    <a class="sidebar-link" href="/dashboard"><span class="material-symbols-rounded" aria-hidden="true">dashboard</span>ภาพรวม</a>
-                    <a class="sidebar-link" href="/dashboard/medicine-management"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>คลังยา</a>
-                    <a class="sidebar-link" href="/dashboard/statistics"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติการใช้งาน</a>
-                    <a class="sidebar-link active" aria-current="page" href="/dashboard/students"><span class="material-symbols-rounded" aria-hidden="true">badge</span>ทะเบียนนักเรียน</a>
-                    <a class="sidebar-link" href="/dashboard/roles" data-admin-only><span class="material-symbols-rounded" aria-hidden="true">manage_accounts</span>สิทธิ์เข้าหลังบ้าน</a>
-                </nav>
-            </aside>
-<main class="dashboard-main roster-shell">
-<header class="dashboard-topbar"><div class="dashboard-greeting"><h1>ทะเบียนนักเรียน</h1><p>ข้อมูลนักเรียน ประวัติการแพ้ และบัตร QR สำหรับใช้งานตู้</p></div></header>
-<p id="roster-status" role="status" aria-live="polite">กำลังตรวจสอบบัญชี</p>
-<section class="roster-panel"><div class="roster-toolbar"><h2>รายชื่อนักเรียน</h2><button id="reload" type="button">โหลดใหม่</button><button id="export" type="button">ส่งออก CSV (มีข้อมูลการแพ้)</button></div><label>ค้นหาเลขประจำตัว ชื่อ ชั้น หรือห้อง<input id="search" type="search" autocomplete="off"></label><div class="table-scroll"><table><thead><tr><th>เลขประจำตัว</th><th>ชื่อ–นามสกุล</th><th>ชั้น / ห้อง</th><th>จัดการ</th></tr></thead><tbody id="roster-rows"></tbody></table></div></section>
-<section class="roster-panel"><h2 id="editor-title">เพิ่มหรือแก้ไขนักเรียน</h2><p>ใช้เลขประจำตัวเดิมเพื่อแก้ไขข้อมูล ชื่อและนามสกุลแยกช่องกัน ช่องการแพ้ที่ว่างหมายถึงยังไม่มีข้อมูล</p><form id="student-form" class="roster-form">
-<label>เลขประจำตัวนักเรียน<input name="studentId" required maxlength="32" pattern="[A-Za-z0-9_-]{1,32}"></label>
-<label>ชื่อ<input name="givenName" required maxlength="160"></label><label>นามสกุล<input name="surname" required maxlength="160"></label>
-<label>ชั้น (เช่น ม.3)<input name="classLevel" required maxlength="160"></label><label>ห้อง<input name="room" required maxlength="160"></label>
-<label>อีเมลโรงเรียน (ถ้ามี)<input name="schoolEmail" type="email" maxlength="160" placeholder="student@tesaban6.ac.th"></label>
-<label>ประวัติการแพ้ยา<textarea name="drugAllergies" maxlength="2000"></textarea></label><label>ประวัติการแพ้อาหาร<textarea name="foodAllergies" maxlength="2000"></textarea></label>
-<div><button type="submit">ตรวจสอบก่อนบันทึก</button> <button id="new-student" type="button">ล้างแบบฟอร์ม</button></div></form></section>
-<section class="roster-panel"><h2>นำเข้า CSV</h2><p>UTF-8 ไม่เกิน 1 MiB และ 200 คนต่อไฟล์ ทะเบียนรองรับ 500 คน เลขประจำตัวต้องไม่ซ้ำ ตรวจสอบผลก่อนยืนยันทุกครั้ง</p><button id="template" type="button">ดาวน์โหลดตัวอย่าง 3 คน (ข้อมูลสมมติ)</button><label>เลือกไฟล์ CSV<input id="csv-file" type="file" accept=".csv,text/csv"></label><button id="preview-csv" type="button">ตรวจสอบไฟล์</button></section>
-<section id="import-preview" class="roster-panel" hidden><h2>ตรวจสอบก่อนบันทึก</h2><p id="preview-summary"></p><div id="preview-rows" class="table-scroll"></div><button id="confirm-import" type="button">ยืนยันบันทึกข้อมูลตามรายการนี้</button><button id="cancel-import" type="button">ยกเลิก</button></section>
-<section id="student-history" class="roster-panel" hidden><h2 id="history-title"></h2><div id="history-records"></div><button id="history-more" type="button" hidden>โหลดประวัติเพิ่ม</button></section>
-<dialog id="card-dialog"><section id="print-card"><p>บัตรใช้งานตู้ปฐมพยาบาล</p><h2 id="card-name"></h2><p id="card-class"></p><canvas id="card-qr" aria-label="QR สำหรับสแกนที่ตู้เท่านั้น"></canvas><p>ใช้สแกนที่ตู้เท่านั้น · ไม่ใช้เข้าสู่ระบบบนมือถือ</p></section><p>บัตรที่พิมพ์ใช้ได้หลังตู้ซิงก์รายชื่อแล้ว หากบัตรหาย ให้ออกบัตรใหม่ บัตรเดิมจะหยุดใช้ได้เมื่อตู้ซิงก์ครั้งถัดไป</p><button id="print" type="button">พิมพ์บัตร</button><button id="replace-card" type="button">ออกบัตรใหม่แทนบัตรที่หาย</button><button id="close-card" type="button">ปิด</button></dialog>
-</main></div></body></html>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#ffffff">
+    <title>ทะเบียนนักเรียน — Smart First Aid Box</title>
+    <link rel="stylesheet" href="../css/global.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="../css/auth.css">
+    <script src="../js/auth.js" defer></script>
+    <script src="../js/auth-ui.js" defer></script>
+    <script src="../js/qr-sdk.js" defer></script>
+    <script src="../js/students.js" defer></script>
+</head>
+<!-- หลังบ้านครู › ทะเบียนนักเรียน (design handoff 2026-09-17 · Teacher Dashboard › roster)
+     ทุก id เป็นของ js/students.js — ปุ่มในตารางและตารางตรวจสอบ CSV ถูกสร้างจากสคริปต์เป็นแท็กเปล่า
+     จึงมี .roster-panel button / .roster-panel table ใน css/dashboard.css รับหน้าตาให้ -->
+<body data-auth-required="staff" class="dashboard-body">
+    <div class="dashboard-shell">
+        <aside class="dashboard-sidebar">
+            <a class="sidebar-brand" href="/">
+                <img class="sidebar-logo" src="../images/logo_first_aid.webp" width="38" height="38" alt="">
+                <span><strong>First Aid Box</strong><span class="sidebar-brand-sub">หลังบ้านครู</span></span>
+            </a>
+            <nav class="sidebar-nav" aria-label="เมนูแดชบอร์ด">
+                <a class="sidebar-link" href="/dashboard"><span class="material-symbols-rounded" aria-hidden="true">dashboard</span>ภาพรวม</a>
+                <a class="sidebar-link" href="/dashboard/medicine-management"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>คลังยา</a>
+                <a class="sidebar-link" href="/dashboard/statistics"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติการใช้งาน</a>
+                <a class="sidebar-link active" aria-current="page" href="/dashboard/students"><span class="material-symbols-rounded" aria-hidden="true">badge</span>ทะเบียนนักเรียน</a>
+                <a class="sidebar-link" href="/dashboard/roles" data-admin-only><span class="material-symbols-rounded" aria-hidden="true">manage_accounts</span>สิทธิ์เข้าหลังบ้าน</a>
+            </nav>
+            <div class="sidebar-status">
+                <div class="sidebar-status-title"><span class="sidebar-status-dot" aria-hidden="true"></span>ทะเบียนนักเรียน</div>
+                <div class="sidebar-status-meta">บัตร QR ใช้สแกนที่ตู้เท่านั้น</div>
+            </div>
+            <div class="sidebar-account" data-auth-slot></div>
+        </aside>
+
+        <main class="dashboard-main roster-shell animate-fade-in">
+            <header class="dashboard-topbar">
+                <div class="dashboard-greeting">
+                    <span class="eyebrow">STUDENT ROSTER</span>
+                    <h1>ทะเบียนนักเรียน</h1>
+                    <p>ข้อมูลนักเรียน ประวัติการแพ้ และบัตร QR สำหรับใช้งานตู้</p>
+                </div>
+                <div class="dashboard-actions">
+                    <button id="reload" class="dashboard-action" type="button"><span class="material-symbols-rounded" aria-hidden="true">refresh</span>โหลดใหม่</button>
+                    <button id="export" class="dashboard-action" type="button"><span class="material-symbols-rounded" aria-hidden="true">download</span>ส่งออก CSV (มีข้อมูลการแพ้)</button>
+                </div>
+            </header>
+
+            <p id="roster-status" class="roster-status" role="status" aria-live="polite">กำลังตรวจสอบบัญชี</p>
+
+            <section class="db-card roster-panel">
+                <div class="db-card-header"><h2>รายชื่อนักเรียน</h2></div>
+                <label class="roster-field">ค้นหาเลขประจำตัว ชื่อ ชั้น หรือห้อง<input id="search" type="search" autocomplete="off"></label>
+                <div class="table-scroll table-wrapper">
+                    <table class="db-table roster-table">
+                        <thead><tr><th scope="col">เลขประจำตัว</th><th scope="col">ชื่อ–นามสกุล</th><th scope="col">ชั้น / ห้อง</th><th scope="col">จัดการ</th></tr></thead>
+                        <tbody id="roster-rows"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="db-card roster-panel">
+                <div class="db-card-header"><h2 id="editor-title">เพิ่มหรือแก้ไขนักเรียน</h2></div>
+                <p>ใช้เลขประจำตัวเดิมเพื่อแก้ไขข้อมูล ชื่อและนามสกุลแยกช่องกัน ช่องการแพ้ที่ว่างหมายถึงยังไม่มีข้อมูล</p>
+                <form id="student-form" class="roster-form">
+                    <label class="roster-field">เลขประจำตัวนักเรียน<input name="studentId" required maxlength="32" pattern="[A-Za-z0-9_-]{1,32}"></label>
+                    <label class="roster-field">ชื่อ<input name="givenName" required maxlength="160"></label>
+                    <label class="roster-field">นามสกุล<input name="surname" required maxlength="160"></label>
+                    <label class="roster-field">ชั้น (เช่น ม.3)<input name="classLevel" required maxlength="160"></label>
+                    <label class="roster-field">ห้อง<input name="room" required maxlength="160"></label>
+                    <label class="roster-field">อีเมลโรงเรียน (ถ้ามี)<input name="schoolEmail" type="email" maxlength="160" placeholder="student@tesaban6.ac.th"></label>
+                    <label class="roster-field">ประวัติการแพ้ยา<textarea name="drugAllergies" maxlength="2000"></textarea></label>
+                    <label class="roster-field">ประวัติการแพ้อาหาร<textarea name="foodAllergies" maxlength="2000"></textarea></label>
+                    <div class="db-card-actions roster-form-actions">
+                        <button class="dashboard-action primary" type="submit"><span class="material-symbols-rounded" aria-hidden="true">fact_check</span>ตรวจสอบก่อนบันทึก</button>
+                        <button id="new-student" class="dashboard-action" type="button">ล้างแบบฟอร์ม</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="db-card roster-panel">
+                <div class="db-card-header"><h2>นำเข้า CSV</h2></div>
+                <p>UTF-8 ไม่เกิน 1 MiB และ 200 คนต่อไฟล์ ทะเบียนรองรับ 500 คน เลขประจำตัวต้องไม่ซ้ำ ตรวจสอบผลก่อนยืนยันทุกครั้ง</p>
+                <label class="roster-field">เลือกไฟล์ CSV<input id="csv-file" type="file" accept=".csv,text/csv"></label>
+                <div class="db-card-actions">
+                    <button id="preview-csv" class="dashboard-action primary" type="button"><span class="material-symbols-rounded" aria-hidden="true">upload_file</span>ตรวจสอบไฟล์</button>
+                    <button id="template" class="dashboard-action" type="button"><span class="material-symbols-rounded" aria-hidden="true">download</span>ดาวน์โหลดตัวอย่าง 3 คน (ข้อมูลสมมติ)</button>
+                </div>
+            </section>
+
+            <section id="import-preview" class="db-card roster-panel" hidden>
+                <div class="db-card-header"><h2>ตรวจสอบก่อนบันทึก</h2></div>
+                <p id="preview-summary"></p>
+                <div id="preview-rows" class="table-scroll table-wrapper"></div>
+                <div class="db-card-actions">
+                    <button id="confirm-import" class="dashboard-action primary" type="button">ยืนยันบันทึกข้อมูลตามรายการนี้</button>
+                    <button id="cancel-import" class="dashboard-action" type="button">ยกเลิก</button>
+                </div>
+            </section>
+
+            <section id="student-history" class="db-card roster-panel" hidden>
+                <div class="db-card-header"><h2 id="history-title"></h2></div>
+                <div id="history-records" class="roster-history"></div>
+                <button id="history-more" class="dashboard-action" type="button" hidden>โหลดประวัติเพิ่ม</button>
+            </section>
+
+            <dialog id="card-dialog" class="roster-dialog">
+                <section id="print-card">
+                    <p>บัตรใช้งานตู้ปฐมพยาบาล</p>
+                    <h2 id="card-name"></h2>
+                    <p id="card-class"></p>
+                    <canvas id="card-qr" aria-label="QR สำหรับสแกนที่ตู้เท่านั้น"></canvas>
+                    <p>ใช้สแกนที่ตู้เท่านั้น · ไม่ใช้เข้าสู่ระบบบนมือถือ</p>
+                </section>
+                <p>บัตรที่พิมพ์ใช้ได้หลังตู้ซิงก์รายชื่อแล้ว หากบัตรหาย ให้ออกบัตรใหม่ บัตรเดิมจะหยุดใช้ได้เมื่อตู้ซิงก์ครั้งถัดไป</p>
+                <div class="db-card-actions">
+                    <button id="print" class="dashboard-action primary" type="button"><span class="material-symbols-rounded" aria-hidden="true">print</span>พิมพ์บัตร</button>
+                    <button id="replace-card" class="dashboard-action" type="button">ออกบัตรใหม่แทนบัตรที่หาย</button>
+                    <button id="close-card" class="dashboard-action" type="button">ปิด</button>
+                </div>
+            </dialog>
+
+            <p class="dashboard-footnote">พัฒนาโดย CRMS6 Team · โรงเรียนเทศบาล 6 นครเชียงราย</p>
+        </main>
+    </div>
+</body>
+</html>

@@ -3,50 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#078683">
-    <title>ประวัติการใช้งาน - Smart First Aid Box</title>
-<link rel="stylesheet" href="../css/global.css">
+    <meta name="theme-color" content="#ffffff">
+    <title>ประวัติการใช้งาน — Smart First Aid Box</title>
+    <link rel="stylesheet" href="../css/global.css">
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="../css/auth.css">
     <script src="../js/auth.js" defer></script>
     <script src="../js/auth-ui.js" defer></script>
-    <link rel="stylesheet" href="../css/dashboard-data.css">
     <script src="../js/dashboard-data.js" defer></script>
 </head>
+<!-- หลังบ้านครู › ประวัติการใช้งาน (design handoff 2026-09-17 · Teacher Dashboard › usage log)
+     ตัวเลือก เบิกเวชภัณฑ์ / เรียกครูฉุกเฉิน ยังเป็น <select id="history-kind"> เพราะ js/dashboard-data.js ฟัง change ของมัน -->
 <body data-auth-required="staff" class="dashboard-body">
     <div class="dashboard-shell">
         <aside class="dashboard-sidebar">
-            <a class="sidebar-brand" href="../">
-                <img class="sidebar-logo" src="../images/logo_first_aid.webp" width="72" height="72" alt="Smart First Aid Box">
-                <span><strong>First Aid Box</strong><span style="font-family:var(--font-sarabun); letter-spacing:0; font-size:10px;">หลังบ้านครู</span></span>
+            <a class="sidebar-brand" href="/">
+                <img class="sidebar-logo" src="../images/logo_first_aid.webp" width="38" height="38" alt="">
+                <span><strong>First Aid Box</strong><span class="sidebar-brand-sub">หลังบ้านครู</span></span>
             </a>
             <nav class="sidebar-nav" aria-label="เมนูแดชบอร์ด">
-                    <a class="sidebar-link" href="/dashboard"><span class="material-symbols-rounded" aria-hidden="true">dashboard</span>ภาพรวม</a>
-                    <a class="sidebar-link" href="/dashboard/medicine-management"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>คลังยา</a>
-                    <a class="sidebar-link active" aria-current="page" id="statistics-nav-link" href="/dashboard/statistics"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติการใช้งาน</a>
-                    <a class="sidebar-link" href="/dashboard/students"><span class="material-symbols-rounded" aria-hidden="true">badge</span>ทะเบียนนักเรียน</a>
-                    <a class="sidebar-link" href="/dashboard/roles" data-admin-only><span class="material-symbols-rounded" aria-hidden="true">manage_accounts</span>สิทธิ์เข้าหลังบ้าน</a>
-                </nav>
+                <a class="sidebar-link" href="/dashboard"><span class="material-symbols-rounded" aria-hidden="true">dashboard</span>ภาพรวม</a>
+                <a class="sidebar-link" href="/dashboard/medicine-management"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>คลังยา</a>
+                <a class="sidebar-link active" aria-current="page" id="statistics-nav-link" href="/dashboard/statistics"><span class="material-symbols-rounded" aria-hidden="true">history</span>ประวัติการใช้งาน</a>
+                <a class="sidebar-link" href="/dashboard/students"><span class="material-symbols-rounded" aria-hidden="true">badge</span>ทะเบียนนักเรียน</a>
+                <a class="sidebar-link" href="/dashboard/roles" data-admin-only><span class="material-symbols-rounded" aria-hidden="true">manage_accounts</span>สิทธิ์เข้าหลังบ้าน</a>
+            </nav>
             <div class="sidebar-status">
-                <div class="sidebar-status-title"><span class="sidebar-status-dot"></span>รายงานการใช้งาน</div>
+                <div class="sidebar-status-title"><span class="sidebar-status-dot" aria-hidden="true"></span>รายงานการใช้งาน</div>
                 <div class="sidebar-status-meta">อิงจากประวัติที่บันทึกไว้</div>
             </div>
+            <div class="sidebar-account" data-auth-slot></div>
         </aside>
 
         <main class="dashboard-main animate-fade-in">
-            <header class="dashboard-topbar"><div class="dashboard-greeting"><h1>ประวัติการใช้งาน</h1><p>ดูการเบิกเวชภัณฑ์ การเรียกครู และสรุปจากรายการที่แสดง</p></div><!-- ออกจากระบบอยู่ในเมนูของชิปบัญชีมุมขวาบน (ลบปุ่มซ้ำ 2026-09-14) --></header>
-            <section class="db-card sync-panel" aria-label="ข้อมูลการใช้งานตู้">
+            <header class="dashboard-topbar">
+                <div class="dashboard-greeting">
+                    <span class="eyebrow">USAGE LOG</span>
+                    <h1>ประวัติการใช้งาน</h1>
+                    <p>ดูการเบิกเวชภัณฑ์ การเรียกครู และสรุปจากรายการที่แสดง</p>
+                </div>
+                <!-- ออกจากระบบอยู่ในเมนูของชิปบัญชีในแถบข้าง (ลบปุ่มซ้ำ 2026-09-14) -->
+            </header>
+
+            <section class="db-card" aria-label="ข้อมูลการใช้งานตู้">
                 <p id="data-status" role="status" aria-live="polite">กำลังโหลดข้อมูลการใช้งาน…</p>
-                <button id="data-refresh" class="dashboard-action" type="button">อัปเดตข้อมูล</button>
+                <div class="db-card-actions">
+                    <label for="history-kind" class="history-kind-label">ประเภทการใช้งาน</label>
+                    <select id="history-kind"><option value="dispense">เบิกเวชภัณฑ์</option><option value="sos">เรียกครูฉุกเฉิน</option></select>
+                    <button id="data-refresh" class="dashboard-action" type="button"><span class="material-symbols-rounded" aria-hidden="true">refresh</span>อัปเดตข้อมูล</button>
+                </div>
             </section>
-            <section class="db-card sync-panel" id="history">
-                <h2>สรุปการใช้งาน</h2><p id="stats-summary" role="status"></p>
-                <h2>รายการย้อนหลัง</h2>
-                <label for="history-kind">เลือกประเภทการใช้งาน</label>
-                <select id="history-kind"><option value="dispense">เบิกเวชภัณฑ์</option><option value="sos">เรียกครูฉุกเฉิน</option></select>
+
+            <section class="db-card" id="history">
+                <div class="db-card-header"><h2>สรุปการใช้งาน</h2></div>
+                <p id="stats-summary" role="status"></p>
+                <div class="db-card-header"><h2>รายการย้อนหลัง</h2></div>
                 <div class="table-wrapper" id="history-table"></div>
                 <button type="button" class="dashboard-action" id="history-more" hidden>ดูรายการก่อนหน้า</button>
             </section>
+
+            <p class="dashboard-footnote">พัฒนาโดย CRMS6 Team · โรงเรียนเทศบาล 6 นครเชียงราย</p>
         </main>
     </div>
 </body>

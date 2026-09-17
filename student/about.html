@@ -3,59 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#d9f6e9">
+    <meta name="theme-color" content="#ffffff">
     <title>เกี่ยวกับโครงงาน — Smart First Aid Box</title>
     <link rel="stylesheet" href="../css/global.css">
-    <style>
-        body { display: flex; justify-content: center; }
-        .about-app { display: flex; width: min(100%, 460px); min-height: 100vh; min-height: 100dvh; flex-direction: column; overflow: hidden; background: var(--bg-main); }
-        .about-header { display: flex; flex-direction: column; gap: 8px; padding: 18px 20px 16px; background: var(--primary-light); }
-        .about-back { display: grid; width: 42px; height: 42px; place-items: center; border: 0; border-radius: 13px; background: #fff; color: oklch(0.40 0.05 190); cursor: pointer; }
-        .about-header h1 { color: oklch(0.34 0.07 190); font-size: 25px; }
-        .about-header p { color: oklch(0.44 0.04 190); font-size: 13px; line-height: 1.5; }
-        .about-content { display: flex; flex: 1; flex-direction: column; gap: 12px; padding: 16px 20px; }
-        .about-photo-wrap { overflow: hidden; border: 1px solid var(--border-color); border-radius: 20px; }
-        .about-photo { display: block; width: 100%; height: 188px; object-fit: cover; }
-        .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .about-card { min-height: 104px; padding: 13px; border: 1px solid var(--border-color); border-radius: 18px; background: #fff; }
-        .about-label { color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; }
-        .about-card h2 { margin-top: 3px; font-size: 16px; }
-        .about-card p { margin-top: 2px; color: var(--text-muted); font-size: 11px; }
-        .competition-card { display: flex; align-items: center; gap: 11px; padding: 12px 14px; border: 1px solid oklch(0.88 0.04 250); border-radius: 18px; background: oklch(0.95 0.02 250); color: oklch(0.42 0.05 255); font-size: 12px; line-height: 1.45; }
-        .competition-card .material-symbols-rounded { color: oklch(0.48 0.09 255); }
-        .about-footer { padding: 2px 20px 20px; color: var(--text-muted); font-size: 10px; line-height: 1.55; text-align: center; }
-        @media (min-width: 461px) { .about-app { border-inline: 1px solid var(--border-color); box-shadow: 0 26px 70px -42px oklch(0.30 0.03 200 / .65); } }
-    </style>
-    <link rel="stylesheet" href="../css/student-responsive.css">
+    <link rel="stylesheet" href="../css/site.css">
+    <link rel="stylesheet" href="../css/student.css">
     <link rel="stylesheet" href="../css/auth.css">
     <script src="../js/auth.js" defer></script>
     <script src="../js/auth-ui.js" defer></script>
 </head>
+<!-- เกี่ยวกับโครงงาน (design handoff 2026-09-17 · Student App › about)
+     ⚠️ ข้อความฮาร์ดแวร์เขียนตามของจริงในเรพ ไม่ใช่ตามต้นแบบ: ตู้ใช้ micro:bit ต่อสาย USB กับ Raspberry Pi
+     (edge/microbit-serial.mjs) ซึ่งเป็นตัวต่อ MQTT ขึ้นคลาวด์ — ESP32 ถูกถอดออกแล้ว ต้นแบบยังเขียน "ESP32" ค้างอยู่ -->
 <body class="about-body">
-    <main class="about-app animate-fade-in">
-        <header class="about-header">
-            <button class="about-back" type="button" onclick="location.href='/student/'" aria-label="กลับหน้าแรก"><span class="material-symbols-rounded">arrow_back</span></button>
-            <h1>เกี่ยวกับโครงงาน</h1>
-            <p>กล่องปฐมพยาบาลอัจฉริยะ ที่ให้นักเรียนดูแลแผลเบื้องต้นได้เอง และให้ครูพยาบาลรู้ทุกการใช้งาน</p>
-            <div class="about-flow">
-                <div class="about-flow-step"><span class="material-symbols-rounded" aria-hidden="true">photo_camera</span><span><strong>01 · วิเคราะห์</strong><br>AI ช่วยแยกประเภทบาดแผล</span></div>
-                <div class="about-flow-step"><span class="material-symbols-rounded" aria-hidden="true">lock_open</span><span><strong>02 · จ่ายเวชภัณฑ์</strong><br>ESP32 ปลดล็อกช่องที่เหมาะสม</span></div>
-                <div class="about-flow-step"><span class="material-symbols-rounded" aria-hidden="true">monitoring</span><span><strong>03 · ดูแลต่อเนื่อง</strong><br>ครูพยาบาลติดตามจากแดชบอร์ด</span></div>
+    <div class="site site-student">
+        <div class="site-bg-grid" aria-hidden="true"></div>
+        <div class="site-aura site-aura-top" aria-hidden="true"></div>
+
+        <header class="site-header">
+            <div class="site-header-inner">
+                <a class="site-brand" href="/student/" aria-label="กลับหน้าหลักนักเรียน">
+                    <img src="../images/logo_first_aid.webp" width="36" height="36" alt="">
+                    <span class="site-brand-copy">
+                        <span class="site-brand-name">SMART FIRST AID BOX</span>
+                        <span class="site-brand-sub">ฝั่งนักเรียน · โรงเรียนเทศบาล 6</span>
+                    </span>
+                </a>
+                <nav class="site-nav site-tabs" aria-label="เมนูนักเรียน">
+                    <a class="site-tab" href="/student/wound-scan">สแกนแผล AI</a>
+                    <a class="site-tab" href="/student/wound-select">เลือกอาการ</a>
+                    <a class="site-tab" href="/student/history">ประวัติของฉัน</a>
+                    <a class="site-tab" aria-current="page" href="/student/about">เกี่ยวกับ</a>
+                    <span data-auth-slot></span>
+                </nav>
             </div>
         </header>
 
-        <section class="about-content">
-            <div class="about-photo-wrap"><img class="about-photo" src="../images/smart_box_full.webp" width="900" height="900" alt="กล่องปฐมพยาบาลอัจฉริยะ"></div>
-            <div class="about-grid">
-                <article class="about-card"><div class="about-label">CONTROLLER</div><h2>micro:bit v2</h2><p>ตรวจจับ · แจ้งเตือน</p></article>
-                <article class="about-card"><div class="about-label">NETWORK</div><h2>ESP32 · MQTT</h2><p>ส่งข้อมูลขึ้นคลาวด์</p></article>
-                <article class="about-card"><div class="about-label">AI</div><h2>วิเคราะห์แผล</h2><p>ผ่าน Serverless API</p></article>
-                <article class="about-card"><div class="about-label">TEAM</div><h2>CRMS6</h2><p>ทีมผู้พัฒนา</p></article>
+        <main class="site-main animate-rise">
+            <section class="about-intro">
+                <div class="about-copy">
+                    <span class="eyebrow">ABOUT THE PROJECT</span>
+                    <h1 class="page-title">เกี่ยวกับโครงงาน</h1>
+                    <p class="page-lead">กล่องปฐมพยาบาลอัจฉริยะ ที่ให้นักเรียนดูแลแผลเบื้องต้นได้เอง และให้ครูพยาบาลรู้ทุกการใช้งาน</p>
+                    <div class="about-flow">
+                        <div class="about-flow-step"><span class="icon-tile"><span class="material-symbols-rounded" aria-hidden="true">photo_camera</span></span><span><strong>01 · วิเคราะห์</strong><span>AI ช่วยแยกประเภทบาดแผล</span></span></div>
+                        <div class="about-flow-step"><span class="icon-tile"><span class="material-symbols-rounded" aria-hidden="true">lock_open</span></span><span><strong>02 · จ่ายเวชภัณฑ์</strong><span>micro:bit สั่งมอเตอร์เปิดช่องที่เหมาะสม</span></span></div>
+                        <div class="about-flow-step"><span class="icon-tile"><span class="material-symbols-rounded" aria-hidden="true">monitoring</span></span><span><strong>03 · ดูแลต่อเนื่อง</strong><span>ครูพยาบาลติดตามจากแดชบอร์ด</span></span></div>
+                    </div>
+                </div>
+                <div class="about-photo-wrap">
+                    <img class="about-photo" src="../images/smart_box_full.webp" width="900" height="900" alt="กล่องปฐมพยาบาลอัจฉริยะ" decoding="async">
+                </div>
+            </section>
+
+            <section class="about-grid" aria-label="เทคโนโลยีที่ใช้">
+                <article class="about-card"><span class="about-label">CONTROLLER</span><h2>micro:bit</h2><p>ควบคุมมอเตอร์ · ออดเรียกครู</p></article>
+                <article class="about-card"><span class="about-label">EDGE</span><h2>Raspberry Pi · MQTT</h2><p>เชื่อมตู้กับคลาวด์</p></article>
+                <article class="about-card"><span class="about-label">AI</span><h2>วิเคราะห์แผล</h2><p>ผ่าน Serverless API</p></article>
+                <article class="about-card"><span class="about-label">TEAM</span><h2>CRMS6</h2><p>ทีมผู้พัฒนา</p></article>
+            </section>
+
+            <div class="notice notice-info"><span class="material-symbols-rounded" aria-hidden="true">workspace_premium</span><span>โครงการแข่งขัน micro:bit Thailand Challenge 2026 · แจ้งเตือนครูผ่าน LINE Messaging API</span></div>
+        </main>
+
+        <footer class="site-footer">
+            <div class="site-footer-inner">
+                <span class="site-footer-note">พัฒนาโดย CRMS6 Team · โรงเรียนเทศบาล 6 นครเชียงราย</span>
+                <button class="sos-button" id="about-sos-button" type="button" onclick="triggerAboutSos()">
+                    <span class="material-symbols-rounded" aria-hidden="true">emergency</span>
+                    <span>เรียกครูพยาบาลด่วน</span>
+                </button>
             </div>
-            <div class="competition-card"><span class="material-symbols-rounded" aria-hidden="true">workspace_premium</span><span>โครงการแข่งขัน micro:bit Thailand Challenge 2026</span></div>
-            <p style="font-size:10px; color:var(--text-muted); text-align:center;">แจ้งเตือนครูผ่าน LINE Messaging API</p>
-        </section>
-        <footer class="about-footer">© 2026 ทีมผู้พัฒนา CRMS6<br>โรงเรียนเทศบาล 6 นครเชียงราย</footer>
-    </main>
+        </footer>
+    </div>
+
+    <script src="../js/storage.js"></script>
+    <script src="../js/notification.js"></script>
+    <script src="../js/mqtt-bridge.js"></script>
+    <script src="../js/api-bridge.js"></script>
+    <script>
+        async function triggerAboutSos() {
+            if (!confirm('ต้องการส่งสัญญาณเรียกครูพยาบาลด่วนใช่หรือไม่?')) return;
+            const button = document.getElementById('about-sos-button');
+            button.disabled = true;
+            try {
+                const student = StorageService.getCurrentStudent();
+                const studentName = student ? `${student.name} (${student.class})` : 'นักเรียนทั่วไป';
+                await NotificationService.sendSos(NotificationService.buildSosFlexMessage(studentName));
+            } catch (error) {
+                console.error('[About] SOS failed:', error);
+                NotificationService.showToast('ส่ง SOS ไม่สำเร็จ กรุณาเรียกครูใกล้ที่สุด', 'danger');
+            } finally {
+                button.disabled = false;
+            }
+        }
+    </script>
 </body>
 </html>

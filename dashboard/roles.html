@@ -3,45 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#078683">
+    <meta name="theme-color" content="#ffffff">
     <title>สิทธิ์เข้าหลังบ้าน — Smart First Aid Box</title>
     <link rel="stylesheet" href="../css/global.css">
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="../css/auth.css">
     <script src="../js/auth.js" defer></script>
     <script src="../js/auth-ui.js" defer></script>
-    <style>
-        .roles-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
-        .roles-field { display: flex; flex: 1 1 260px; flex-direction: column; gap: 6px; }
-        .roles-field label { font-size: 13px; font-weight: 600; color: var(--text-main); }
-        .roles-field input, .roles-field select {
-            min-height: 46px; padding: 10px 12px; border: 1px solid var(--border-color);
-            border-radius: var(--radius-sm, 12px); background: #fff; color: var(--text-main); font: inherit;
-        }
-        .roles-help { margin: 10px 0 0; color: var(--text-muted); font-size: 13px; line-height: 1.6; }
-        .roles-status { margin: 14px 0 0; padding: 11px 13px; border-radius: var(--radius-sm, 12px);
-            font-size: 14px; line-height: 1.55; }
-        .roles-status:empty { display: none; }
-        .roles-status[data-tone='ok'] { background: var(--success-light); color: var(--success-hover); }
-        .roles-status[data-tone='bad'] { background: var(--danger-light); color: var(--danger-hover); }
-        .roles-table { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 14px; }
-        .roles-table th, .roles-table td { padding: 11px 10px; border-bottom: 1px solid var(--border-color); text-align: left; }
-        .roles-table th { color: var(--text-muted); font-size: 12px; font-weight: 600; }
-        .roles-table td.roles-email { word-break: break-all; }
-        .roles-empty { padding: 22px 10px; color: var(--text-muted); text-align: center; }
-        .roles-revoke { min-height: 40px; padding: 8px 14px; border: 1px solid var(--border-color);
-            border-radius: var(--radius-sm, 12px); background: #fff; color: var(--danger); font: inherit;
-            font-weight: 600; cursor: pointer; }
-        .roles-revoke:disabled { opacity: 0.5; cursor: not-allowed; }
-    </style>
 </head>
+<!-- หลังบ้านครู › สิทธิ์เข้าหลังบ้าน (design handoff 2026-09-17 · Teacher Dashboard › roles)
+     ต้นแบบวางเป็นการ์ดต่อคน หน้าจริงเป็นตาราง เพราะรายการมาจาก /api/roles และครูต้องกด "ถอดสิทธิ์" เป็นแถว -->
 <body data-auth-required="staff" class="dashboard-body">
     <div id="dashboard-content">
         <div class="dashboard-shell">
             <aside class="dashboard-sidebar">
-                <a class="sidebar-brand" href="../">
-                    <img class="sidebar-logo" src="../images/logo_first_aid.webp" width="72" height="72" alt="Smart First Aid Box">
-                    <span><strong>First Aid Box</strong><span style="font-family:var(--font-sarabun); letter-spacing:0; font-size:10px;">หลังบ้านครู</span></span>
+                <a class="sidebar-brand" href="/">
+                    <img class="sidebar-logo" src="../images/logo_first_aid.webp" width="38" height="38" alt="">
+                    <span><strong>First Aid Box</strong><span class="sidebar-brand-sub">หลังบ้านครู</span></span>
                 </a>
                 <nav class="sidebar-nav" aria-label="เมนูแดชบอร์ด">
                     <a class="sidebar-link" href="/dashboard"><span class="material-symbols-rounded" aria-hidden="true">dashboard</span>ภาพรวม</a>
@@ -50,37 +28,43 @@
                     <a class="sidebar-link" href="/dashboard/students"><span class="material-symbols-rounded" aria-hidden="true">badge</span>ทะเบียนนักเรียน</a>
                     <a class="sidebar-link active" aria-current="page" href="/dashboard/roles" data-admin-only><span class="material-symbols-rounded" aria-hidden="true">manage_accounts</span>สิทธิ์เข้าหลังบ้าน</a>
                 </nav>
+                <div class="sidebar-status">
+                    <div class="sidebar-status-title"><span class="sidebar-status-dot" aria-hidden="true"></span>สิทธิ์เข้าหลังบ้าน</div>
+                    <div class="sidebar-status-meta">แก้ได้เฉพาะผู้ดูแลระบบ</div>
+                </div>
+                <div class="sidebar-account" data-auth-slot></div>
             </aside>
 
             <main class="dashboard-main animate-fade-in">
                 <header class="dashboard-topbar">
                     <div class="dashboard-greeting">
+                        <span class="eyebrow">ACCESS CONTROL</span>
                         <h1>สิทธิ์เข้าหลังบ้าน</h1>
-                        <p>ให้และถอดสิทธิ์เข้าหลังบ้าน เฉพาะผู้ดูแลระบบเท่านั้นที่แก้ได้</p>
+                        <p>กำหนดว่าใครเห็นข้อมูลและสั่งงานตู้ได้ · เฉพาะผู้ดูแลระบบเท่านั้นที่แก้ได้</p>
                     </div>
                 </header>
 
                 <!-- คนที่ไม่ใช่ admin เห็นหน้านี้ได้ (เมนูอยู่ในโซนครู) แต่แก้ไม่ได้ — บอกให้ชัดแทนที่จะให้กดแล้วเด้ง 403 -->
-                <section class="db-card" id="roles-denied" hidden style="margin-bottom:20px; padding:18px;">
-                    <p style="margin:0;">หน้านี้แก้ได้เฉพาะผู้ดูแลระบบ กรุณาติดต่อผู้ดูแลระบบเพื่อขอสิทธิ์</p>
+                <section class="db-card" id="roles-denied" hidden>
+                    <p>หน้านี้แก้ได้เฉพาะผู้ดูแลระบบ กรุณาติดต่อผู้ดูแลระบบเพื่อขอสิทธิ์</p>
                 </section>
 
-                <section class="db-card" id="roles-editor" hidden style="margin-bottom:20px; padding:18px;">
-                    <h2 style="margin:0 0 14px; font-size:17px;">ให้สิทธิ์</h2>
+                <section class="db-card" id="roles-editor" hidden>
+                    <div class="db-card-header"><h2>ให้สิทธิ์</h2></div>
                     <form class="roles-form" id="roles-form">
                         <div class="roles-field">
                             <label for="roles-email">อีเมลโรงเรียน</label>
                             <input id="roles-email" name="email" type="email" inputmode="email"
                                    autocomplete="off" placeholder="teacher@tesaban6.ac.th" required>
                         </div>
-                        <div class="roles-field" style="flex:0 1 200px;">
+                        <div class="roles-field roles-field-narrow">
                             <label for="roles-role">บทบาท</label>
                             <select id="roles-role" name="role">
                                 <option value="teacher">ครู</option>
                                 <option value="admin">ผู้ดูแลระบบ</option>
                             </select>
                         </div>
-                        <button class="dashboard-action primary" id="roles-submit" type="submit" style="min-height:46px;">
+                        <button class="dashboard-action primary" id="roles-submit" type="submit">
                             <span class="material-symbols-rounded" aria-hidden="true">person_add</span>บันทึกสิทธิ์
                         </button>
                     </form>
@@ -91,11 +75,13 @@
                     <p class="roles-status" id="roles-status" role="status" aria-live="polite"></p>
                 </section>
 
-                <section class="db-card" style="padding:18px;">
-                    <h2 style="margin:0 0 4px; font-size:17px;">คนที่มีสิทธิ์ตอนนี้</h2>
-                    <p class="roles-help" style="margin:0 0 10px;">คนที่ไม่อยู่ในรายการนี้คือนักเรียนทั่วไป เข้าหลังบ้านไม่ได้</p>
-                    <div id="roles-list" aria-live="polite"><p class="roles-empty">กำลังโหลด</p></div>
+                <section class="db-card">
+                    <div class="db-card-header"><h2>คนที่มีสิทธิ์ตอนนี้</h2></div>
+                    <p class="roles-help">คนที่ไม่อยู่ในรายการนี้คือนักเรียนทั่วไป เข้าหลังบ้านไม่ได้</p>
+                    <div id="roles-list" class="table-wrapper" aria-live="polite"><p class="roles-empty">กำลังโหลด</p></div>
                 </section>
+
+                <p class="dashboard-footnote">พัฒนาโดย CRMS6 Team · โรงเรียนเทศบาล 6 นครเชียงราย</p>
             </main>
         </div>
     </div>
@@ -142,11 +128,11 @@
                     return;
                 }
                 const isAdmin = AuthService.state.role === 'admin';
-                box.innerHTML = '<table class="roles-table"><thead><tr><th>อีเมล</th><th>บทบาท</th>'
-                    + '<th>ให้สิทธิ์โดย</th><th></th></tr></thead><tbody>'
+                box.innerHTML = '<table class="db-table roles-table"><thead><tr><th scope="col">อีเมล</th><th scope="col">บทบาท</th>'
+                    + '<th scope="col">ให้สิทธิ์โดย</th><th scope="col"></th></tr></thead><tbody>'
                     + staff.map(person => `<tr>
                         <td class="roles-email">${escapeHtml(person.email || person.uid)}</td>
-                        <td>${escapeHtml(ROLE_TH[person.role] || person.role)}</td>
+                        <td><span class="badge${person.role === 'admin' ? ' badge-admin' : ''}">${escapeHtml(ROLE_TH[person.role] || person.role)}</span></td>
                         <td>${escapeHtml(person.grantedBy || '—')}</td>
                         <td>${isAdmin ? `<button class="roles-revoke" type="button"
                             data-revoke="${escapeHtml(person.email)}">ถอดสิทธิ์</button>` : ''}</td>
