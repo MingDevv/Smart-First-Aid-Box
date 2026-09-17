@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#f7fcf9">
-    <title>เลือกประเภทบาดแผล — Smart First Aid Box</title>
+    <title>เลือกอาการ — Smart First Aid Box</title>
     <link rel="stylesheet" href="../css/global.css">
     <style>
         body { display: flex; justify-content: center; }
@@ -48,11 +48,11 @@
         <header class="picker-header">
             <div class="picker-title-row">
                 <button class="picker-back" type="button" onclick="location.href='/student/'" aria-label="กลับหน้าแรก"><span class="material-symbols-rounded">arrow_back</span></button>
-                <h1>เลือกประเภทแผล</h1>
+                <h1>เลือกอาการ</h1>
             </div>
             <p>แตะการ์ดเพื่อดูขั้นตอนและเวชภัณฑ์ที่ต้องใช้</p>
             <div class="picker-flow">
-                <div class="picker-flow-item"><span class="picker-flow-number">01</span><span>เลือกประเภทแผลที่ตรงกับอาการ</span></div>
+                <div class="picker-flow-item"><span class="picker-flow-number">01</span><span>เลือกอาการที่ตรงกับตัวเอง</span></div>
                 <div class="picker-flow-item"><span class="picker-flow-number">02</span><span>ตรวจรายการเวชภัณฑ์และข้อควรระวัง</span></div>
                 <div class="picker-flow-item"><span class="picker-flow-number">03</span><span>ยืนยันก่อนปลดล็อกช่องเก็บยา</span></div>
             </div>
@@ -82,7 +82,7 @@
             const list = document.getElementById('wound-list');
             const wounds = Object.values(WOUND_DATA).filter(wound => wound.id !== 'unknown');
             if (wounds.length === 0) {
-                list.innerHTML = '<div class="empty-state">ยังไม่มีประเภทบาดแผลในระบบ</div>';
+                list.innerHTML = '<div class="empty-state">ยังไม่มีอาการในระบบ</div>';
                 return;
             }
             list.innerHTML = wounds.map((wound, index) => {
@@ -115,7 +115,8 @@
         }
 
         function handleLockedWound(name) {
-            NotificationService.showToast(`ประเภทแผล "${name}" อยู่ในระหว่างพัฒนาระบบจ่ายยาอัตโนมัติ (เร็วๆ นี้) หากมีอาการกรุณาติดต่อครูพยาบาล`, 'warning');
+            // "ประเภทแผล" ใช้กับ ปวดหัว/จาม/ท้องเสีย ไม่ได้ ⇒ ใช้คำกลางที่ครอบได้ทั้งแผลและอาการ
+            NotificationService.showToast(`"${name}" ยังไม่เปิดให้ตู้จ่ายยา (เร็วๆ นี้) ถ้ามีอาการให้ติดต่อครูพยาบาล`, 'warning');
         }
 
         async function triggerSelectSos() {
