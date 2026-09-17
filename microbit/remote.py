@@ -81,15 +81,20 @@ def send_sos():
     for _ in range(BURST):
         radio.send(SOS_PREFIX + str(seq))
         sleep(BURST_GAP_MS)
+    print('sent', seq)
     deadline = running_time() + ACK_WAIT_MS
     while running_time() < deadline:
         if handle(radio.receive()):
+            print('ack')
             beep(1800, 90)      # ตู้ได้ยินแล้ว
             sleep(80)
             beep(1800, 90)
             return
         sleep(20)
-    beep(300, 700)              # ส่งแล้วแต่ไม่มีใครตอบ = ไกลเกินไป หรือตู้ไม่ทำงาน
+    print('no-ack')
+    for _ in range(3):          # สามครั้งรัวต่ำ = แยกจากเสียงสำเร็จด้วยจังหวะ ไม่ใช่ความสูง
+        beep(400, 220)
+        sleep(120)
 
 
 display.off()                   # คืน P3 จากจอมาให้ออด — ต้องมาก่อนแตะ pin3
@@ -100,6 +105,7 @@ print('SFAB remote ready')
 while True:
     follow_cabinet()
     if button_a.was_pressed() and running_time() - last_sent >= COOLDOWN_MS:
+        print('press')
         beep(1400, 120)         # ยืนยันว่าปุ่มทำงานและกำลังส่ง — ดังก่อนรู้ผลเสมอ
         send_sos()
     sleep(20)

@@ -280,14 +280,15 @@ class RemoteTests(unittest.TestCase):
 
     # เสียงตอบกลับคือเครื่องมือวัดระยะในมือ Bank ⇒ สองกรณีต้องแยกออกจากกันชัดเจน
     def test_remote_reports_whether_the_cabinet_answered(self):
-        for inbox, tail in ((['SFAB1:OK'], 'ตู้ได้ยิน'), ([], 'ไม่มีใครตอบ')):
+        for inbox, want, tail in ((['SFAB1:OK'], 2, 'ตู้ได้ยิน = สองครั้ง'),
+                                  ([], 3, 'ไม่มีใครตอบ = สามครั้งรัว')):
             ns, events = load_remote(radio_inbox=inbox)
             now = [1000]
             ns['running_time'] = lambda: now[0]
             ns['sleep'] = lambda ms: now.__setitem__(0, now[0] + ms)
             ns['send_sos']()
             beeps = [e for e in events if isinstance(e, str) and e == 'sound-on']
-            self.assertEqual(len(beeps), 2 if inbox else 1, tail)
+            self.assertEqual(len(beeps), want, tail)
 
     def test_remote_gives_up_waiting_instead_of_hanging_forever(self):
         ns, events = load_remote()
