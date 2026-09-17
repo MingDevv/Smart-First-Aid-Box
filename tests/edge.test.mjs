@@ -398,7 +398,7 @@ test('local server serves all kiosk routes, suppresses MQTT, and protects source
         assert.ok(html.includes('window.SFAB_RUNTIME = { transport: "pi-local" }'), route);
         assert.ok(!html.includes('npm/mqtt@'), route);
     }
-    for (const path of ['/.env', '/edge/server.mjs', '/api/command.js', '/firmware/esp32_smart_box.ino',
+    for (const path of ['/.env', '/edge/server.mjs', '/api/command.js',
         '/package.json', '/js/../.git/config', '/js/%2e%2e%2f.env']) {
         assert.equal((await fetch(origin + path)).status, 404, path);
     }

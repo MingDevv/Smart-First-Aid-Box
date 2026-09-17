@@ -6,8 +6,6 @@ const root = new URL('../', import.meta.url);
 const apiBridgeSource = await readFile(new URL('js/api-bridge.js', root), 'utf8');
 const storageSource = await readFile(new URL('js/storage.js', root), 'utf8');
 const mqttBridgeSource = await readFile(new URL('js/mqtt-bridge.js', root), 'utf8');
-const firmwareSource = await readFile(new URL('firmware/esp32_smart_box/esp32_smart_box.ino', root), 'utf8');
-const commandHistorySource = await readFile(new URL('firmware/esp32_smart_box/command_history.h', root), 'utf8');
 const commandApiSource = await readFile(new URL('api/command.js', root), 'utf8');
 
 
@@ -59,26 +57,8 @@ for(const mode of ['real','demo','unset','invalid']) {
         assert.equal(b.calls(),0);
     }
 }
-// These are static firmware invariants only; the Arduino sketch is not compiled by this test.
-assert.match(commandHistorySource, /COMMAND_HISTORY_SIZE = 8/);
-assert.match(commandHistorySource, /offset < COMMAND_HISTORY_SIZE/);
-assert.match(commandHistorySource, /record->expired = true/);
-assert.match(firmwareSource, /COMMAND_ACK_TIMEOUT_MS = SFAB_COMMAND_ACK_TIMEOUT_MS/);
-assert.match(firmwareSource, /enqueueEvent\("ack_timeout"/);
-assert.match(firmwareSource, /POST_SUBSCRIBE_GUARD_MS = 500/);
-assert.match(firmwareSource, /if \(!doc\["ts"\]\.is<uint64_t>\(\)\)/);
-assert.match(firmwareSource, /if \(cmdMs > nowMs\)/);
-assert.match(firmwareSource, /if \(WiFi\.status\(\) != WL_CONNECTED\) return;/);
-assert.match(firmwareSource, /mqtt\.setSocketTimeout\(2\)/);
-assert.match(firmwareSource, /Serial2\.setTimeout\(100\)/);
-assert.match(firmwareSource, /configTime\(7 \* 3600, 0, "pool\.ntp\.org", "time\.google\.com"\)/);
-
-const callbackBody = firmwareSource.slice(
-    firmwareSource.indexOf('void onMqttMessage'),
-    firmwareSource.indexOf('// PubSubClient::connect')
-);
-assert.doesNotMatch(callbackBody, /publishEvent\s*\(/);
-assert.match(callbackBody, /enqueueEvent\s*\(/);
+// ESP32 ถูกถอดออกจากตู้แล้ว เส้นจริงคือ Pi ต่อ USB เข้า micro:bit
+// ข้อตกลงเรื่อง ACK และ command history ย้ายไปอยู่ที่ tests/microbit-serial.test.mjs แทน
 assert.match(commandApiSource, /if \(activeClientState === state\) activeClientState = null/);
 assert.match(commandApiSource, /reconnectPeriod: 0/);
 assert.match(commandApiSource, /MQTT_CONNECT_TIMEOUT_MS = 4500/);
@@ -86,4 +66,4 @@ assert.match(commandApiSource, /MQTT_CONNECT_TIMEOUT_MS = 4500/);
 assert.match(commandApiSource, /'ack_timeout'/);
 
 
-console.log('local authority and firmware invariants passed');
+console.log('local authority passed');

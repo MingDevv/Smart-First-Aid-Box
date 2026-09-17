@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "npm run test:ui && node tests/local.test.mjs && node --test tests/kiosk-session.test.mjs && node tests/firmware-command-history.test.mjs && node --test tests/runtime-cjs-deps.test.mjs tests/cloud-bridge.test.mjs tests/guide-command.test.mjs tests/sos.test.mjs tests/command-retry.test.mjs && npm run test:edge && npm run test:auth",
+    "test": "npm run test:ui && node tests/local.test.mjs && node --test tests/kiosk-session.test.mjs && node --test tests/runtime-cjs-deps.test.mjs tests/cloud-bridge.test.mjs tests/guide-command.test.mjs tests/sos.test.mjs tests/command-retry.test.mjs && npm run test:edge && npm run test:auth",
     "start:edge": "node edge/server.mjs",
     "test:edge": "node --test tests/students.test.mjs tests/cabinet-sync.test.mjs tests/face-round.test.mjs tests/insect-triage.test.mjs tests/edge.test.mjs tests/microbit-serial.test.mjs tests/mqtt-cloud.test.mjs && python3 tests/microbit_protocol_test.py",
     "test:ui": "node tests/ui-smoke.test.mjs && node --test tests/dashboard-data.test.mjs",
