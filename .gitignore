@@ -1,19 +1,20 @@
 node_modules/
-.env
 .vercel/
 .DS_Store
-.env.*
-!.env.example
+*-debug.log
 *.sqlite*
-firmware/**/device_config.h
 
+# ความลับ ห้ามขึ้น git
+.env
 .env.*
 !.env.example
 !.env.emulator.example
-js/firebase-sdk.js
-*-debug.log
-.firebase/
-.firebaserc
 
+# ไฟล์ที่ npm run build สร้างจาก web/
+js/firebase-sdk.js
 js/qr-sdk.js
 js/face-check.js
+
+# Firebase
+.firebase/
+.firebaserc
