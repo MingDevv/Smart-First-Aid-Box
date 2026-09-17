@@ -45,10 +45,8 @@ back to cloud MQTT or simulated success after a real command fails.
    `/kiosk` is the cabinet's own single-page app (`kiosk/index.html`), built for the
    800x480 touchscreen: no links leaving the page, no file input, no CDN script or
    stylesheet, and fonts served from `fonts/`, so it starts with the internet unplugged.
-   The older `/student/kiosk` page remains in the repo and is still served; it is simply
-   no longer what the cabinet opens. A ready-made Chromium command line for this,
-   including the camera permission and the reason the browser sandbox stays on, is in
-   [deploy/pi/chromium-kiosk-flags.conf](../deploy/pi/chromium-kiosk-flags.conf).
+   หน้า `/student/kiosk` ตัวเก่ายังอยู่ในเรพและยังเสิร์ฟอยู่ แต่ไม่ใช่หน้าที่ตู้เปิดแล้ว
+   คำสั่งเปิด Chromium ของจริงอยู่ใน `deploy/pi/user-units/sfab-kiosk-start.sh`
 
 8. **Pick an operating mode before the cabinet can actuate anything.** The mode is
    tri-state — Demo, Real, or **unset** — and a freshly imaged Pi is unset. While it is

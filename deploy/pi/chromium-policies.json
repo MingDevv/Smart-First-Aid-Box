@@ -1,73 +1,48 @@
 {
-  "URLBlocklist": ["*"],
-  "URLAllowlist": [
-    "http://localhost:8787/kiosk",
-    "http://127.0.0.1:8787/kiosk",
-
-    "http://localhost:8787/css/kiosk.css",
-    "http://127.0.0.1:8787/css/kiosk.css",
-    "http://localhost:8787/js/",
-    "http://127.0.0.1:8787/js/",
-    "http://localhost:8787/fonts/",
-    "http://127.0.0.1:8787/fonts/",
-    "http://localhost:8787/images/",
-    "http://127.0.0.1:8787/images/",
-
-    "http://localhost:8787/api/local/status",
-    "http://127.0.0.1:8787/api/local/status",
-    "http://localhost:8787/api/command",
-    "http://127.0.0.1:8787/api/command",
-    "http://localhost:8787/api/analyze",
-    "http://127.0.0.1:8787/api/analyze",
-    "http://localhost:8787/api/notify",
-    "http://127.0.0.1:8787/api/notify"
+  "_comment": "Smart First Aid Box cabinet lockdown. ติดตั้ง 2026-09-11 หลังพบว่า --kiosk อย่างเดียวไม่กัน Ctrl+N",
+  "URLBlocklist": [
+    "*",
+    "chrome://*",
+    "chrome-untrusted://*",
+    "devtools://*",
+    "file://*",
+    "view-source:*",
+    "about:*",
+    "javascript:*",
+    "data:*"
   ],
-
+  "URLAllowlist": [
+    "http://localhost:8787"
+  ],
+  "NewTabPageLocation": "http://localhost:8787/kiosk",
   "RestoreOnStartup": 4,
-  "RestoreOnStartupURLs": ["http://localhost:8787/kiosk"],
-
+  "RestoreOnStartupURLs": [
+    "http://localhost:8787/kiosk"
+  ],
+  "HomepageLocation": "http://localhost:8787/kiosk",
+  "IncognitoModeAvailability": 1,
   "DeveloperToolsAvailability": 2,
-
   "PrintingEnabled": false,
   "DownloadRestrictions": 3,
-  "PromptForDownloadLocation": false,
-
-  "IncognitoModeAvailability": 1,
   "BrowserSignin": 0,
   "SyncDisabled": true,
   "PasswordManagerEnabled": false,
-  "PasswordLeakDetectionEnabled": false,
-  "AutofillAddressEnabled": false,
-  "AutofillCreditCardEnabled": false,
-
-  "VideoCaptureAllowed": true,
-  "VideoCaptureAllowedUrls": [
-    "http://localhost:8787",
-    "http://127.0.0.1:8787"
-  ],
-  "AudioCaptureAllowed": false,
-
-  "DefaultGeolocationSetting": 2,
-  "DefaultNotificationsSetting": 2,
-  "DefaultPopupsSetting": 2,
-  "DefaultFileSystemReadGuardSetting": 2,
-  "DefaultFileSystemWriteGuardSetting": 2,
-  "DefaultSerialGuardSetting": 2,
-  "DefaultWebUsbGuardSetting": 2,
-  "DefaultWebBluetoothGuardSetting": 2,
-
-  "ExtensionInstallBlocklist": ["*"],
-
+  "TranslateEnabled": false,
+  "DefaultSearchProviderEnabled": false,
   "BookmarkBarEnabled": false,
   "EditBookmarksEnabled": false,
   "ShowHomeButton": false,
-  "TranslateEnabled": false,
-  "SpellcheckEnabled": false,
-  "SearchSuggestEnabled": false,
-  "DefaultSearchProviderEnabled": false,
-  "BackgroundModeEnabled": false,
-  "PromotionalTabsEnabled": false,
-  "DefaultBrowserSettingEnabled": false,
-  "MetricsReportingEnabled": false,
-  "SafeBrowsingEnabled": false
+  "AutofillAddressEnabled": false,
+  "AutofillCreditCardEnabled": false,
+  "DefaultPopupsSetting": 2,
+  "DefaultNotificationsSetting": 2,
+  "DefaultGeolocationSetting": 2,
+  "DefaultFileSystemReadGuardSetting": 2,
+  "DefaultFileSystemWriteGuardSetting": 2,
+  "AllowFileSelectionDialogs": false,
+  "VideoCaptureAllowedUrls": [
+    "http://localhost:8787"
+  ],
+  "AudioCaptureAllowed": false,
+  "PromptForDownloadLocation": false
 }
