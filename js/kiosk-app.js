@@ -887,28 +887,12 @@
         dispenseTicker = null;
     }
 
-    // เซนเซอร์วัดระยะที่ถาดบอกได้สามอย่าง และต้องพูดต่างกันทั้งสามอย่าง
-    // 'unknown' ห้ามพูดว่าไม่มีของ เพราะสายหลุดกับช่องหมดหน้าตาเหมือนกันจากฝั่งจอ
-    const COLLECT_NOTICE = Object.freeze({
-        confirmed: ['success', 'เซนเซอร์เห็นของตกลงถาดแล้ว หยิบได้เลย'],
-        not_found: ['danger', 'ตู้หมุนแล้วแต่เซนเซอร์ไม่เห็นของตกลงมา ช่องอาจหมด ให้กดเรียกครู อย่ากดสั่งซ้ำ'],
-        unknown: ['info', 'ตู้ตอบรับคำสั่งแล้ว ถ้าของยังไม่ออกมา ให้กดเรียกครู อย่ากดสั่งซ้ำ']
-    });
-
     function goCollect(result) {
         const wound = currentWound();
-        const demo = result && result.mode === 'simulation';
-        // DONE พิสูจน์แค่ว่ามอเตอร์หมุนจบ · dropCheck คือสิ่งที่เซนเซอร์เห็นจริงที่ถาด
-        const drop = demo ? 'unknown' : (result?.ack?.dropCheck ?? 'unknown');
-        el('collect-title').textContent = demo
+        // ACK ไม่ใช่หลักฐานว่าลิ้นชักเปิดหรือของออกมา ยังไม่มีเซนเซอร์ที่บอกได้
+        el('collect-title').textContent = result && result.mode === 'simulation'
             ? `โหมดสาธิต: สมมติว่าสั่งเปิดช่องที่ ${wound.drawer}`
-            : drop === 'confirmed'
-                ? `ของตกลงถาดแล้ว จากช่องที่ ${wound.drawer}`
-                : `ตู้รับคำสั่งเปิดช่องที่ ${wound.drawer} แล้ว`;
-        const [tone, message] = COLLECT_NOTICE[drop] || COLLECT_NOTICE.unknown;
-        setNotice(el('collect-notice'), el('collect-notice-text'), tone, message);
-        // ปุ่มเรียกครูเปิดค้างไว้เสมอ ห้ามซ่อนตามผลเซนเซอร์ — SOS ไม่ถูกเกตด้วยอะไรทั้งนั้น
-        el('sos-button').hidden = false;
+            : `ตู้รับคำสั่งเปิดช่องที่ ${wound.drawer} แล้ว`;
         renderSupplies(el('collect-supplies'), wound);
         showView('collect');
     }

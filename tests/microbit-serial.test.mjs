@@ -32,8 +32,7 @@ test('open sends OPEN<d>:<id>:<epoch>, stays pending, then DONE<d>:<id> becomes 
     board('READY:7\n');
     const opened = await serial.request('/open?drawer=2&id=c-serial-test-0001');
     assert.equal(opened.status, 202);
-    // BASE ต้องมาก่อน OPEN เสมอ บอร์ดจะได้วัดถาดว่างก่อนที่ของรอบนี้จะตกลงมา
-    assert.deepEqual(sent, ['BASE:c-serial-test-0001', 'OPEN2:c-serial-test-0001:7']);
+    assert.deepEqual(sent, ['OPEN2:c-serial-test-0001:7']);
     assert.equal(serial.status().data.ready, false, 'consumed: no second open until the board proves a new epoch');
     assert.equal((await serial.request('/command-status?id=c-serial-test-0001')).status, 202);
     board('DONE1:c-serial-test-0001\n');   // wrong drawer: must not complete
@@ -41,65 +40,7 @@ test('open sends OPEN<d>:<id>:<epoch>, stays pending, then DONE<d>:<id> becomes 
     board('DONE2:c-serial-test-0001\n');
     const done = await serial.request('/command-status?id=c-serial-test-0001');
     assert.equal(done.status, 200);
-    // ไม่มีเฟรม DROP/BASE กลับมาเลย ⇒ ต้องเป็น unknown ห้ามเดาว่าไม่มีของ
-    assert.deepEqual(done.data, { success: true, protocol: 2, event: 'drawer_opened', id: 'c-serial-test-0001', drawer: 2,
-        dropCheck: 'unknown', dropNearMm: null, dropEmptyMm: null });
-});
-
-// --- หลักฐานจากเซนเซอร์วัดระยะ (2026-09-17) ---
-
-// ยิงคำสั่งเปิดหนึ่งใบ แล้วป้อนสิ่งที่บอร์ดจะตอบกลับตามลำดับจริง
-async function dispenseWith(frames) {
-    const { serial, board } = fake();
-    board('READY:7\n');
-    await serial.request('/open?drawer=1&id=c-drop-case-0001');
-    for (const frame of frames) board(frame.replace('<id>', 'c-drop-case-0001') + '\n');
-    board('DONE1:c-drop-case-0001\n');
-    return (await serial.request('/command-status?id=c-drop-case-0001')).data;
-}
-
-test('a blocked beam seen more than once is proof the item fell', async () => {
-    const data = await dispenseWith(['BASE:<id>:250', 'DROP:<id>:120:3']);
-    assert.equal(data.dropCheck, 'confirmed');
-    assert.equal(data.dropNearMm, 120);
-    assert.equal(data.dropEmptyMm, 250);
-});
-
-test('one lone reading is not proof — ringing echo looks exactly like that', async () => {
-    const data = await dispenseWith(['BASE:<id>:250', 'DROP:<id>:120:1']);
-    assert.equal(data.dropCheck, 'not_found');
-});
-
-test('a beam that stayed clear the whole time means no item fell', async () => {
-    const data = await dispenseWith(['BASE:<id>:250', 'DROP:<id>:250:0']);
-    assert.equal(data.dropCheck, 'not_found');
-});
-
-// ข้อสำคัญที่สุดของชุดนี้ · สายหลุดต้องไม่กลายเป็นคำกล่าวหาว่าตู้ไม่จ่ายของ
-test('a sensor that never answers is unknown, never not_found', async () => {
-    // สายหลุดตั้งแต่ต้น ไม่เห็นแม้แต่ผนังฝั่งตรงข้าม
-    const dead = await dispenseWith(['BASE:<id>:9999', 'DROP:<id>:9999:0']);
-    assert.equal(dead.dropCheck, 'unknown');
-    // วัดถาดว่างได้ แล้วเงียบไปตอนกำลังจ่าย — เคสนี้หน้าตาเหมือน "ไม่มีของ" เป๊ะ
-    // ถ้าไม่แยก สายที่หลุดกลางทางจะกลายเป็นข้อกล่าวหาว่าตู้ไม่จ่ายของ
-    const wentSilent = await dispenseWith(['BASE:<id>:250', 'DROP:<id>:9999:0']);
-    assert.equal(wentSilent.dropCheck, 'unknown');
-    const noBaseline = await dispenseWith(['DROP:<id>:120:5']);
-    assert.equal(noBaseline.dropCheck, 'unknown', 'ไม่มีค่าถาดว่างให้เทียบ = ยังไม่รู้');
-    const noFrames = await dispenseWith([]);
-    assert.equal(noFrames.dropCheck, 'unknown', 'เฟิร์มแวร์รุ่นก่อนมีเซนเซอร์ก็ต้องเดินต่อได้');
-});
-
-test('sensor frames for an id the board never got must not crash or leak into another command', async () => {
-    const { serial, board } = fake();
-    board('READY:7\n');
-    board('DROP:c-never-sent-001:120:9\n');
-    board('BASE:c-never-sent-001:250\n');
-    await serial.request('/open?drawer=1&id=c-real-command-01');
-    board('DONE1:c-real-command-01\n');
-    const data = (await serial.request('/command-status?id=c-real-command-01')).data;
-    assert.equal(data.dropCheck, 'unknown');
-    assert.equal(data.dropNearMm, null);
+    assert.deepEqual(done.data, { success: true, protocol: 2, event: 'drawer_opened', id: 'c-serial-test-0001', drawer: 2 });
 });
 
 test('the latch waits for a NEW epoch after a dispense, and reports awaiting_new_ready_epoch until it comes', async () => {
@@ -188,7 +129,7 @@ test('LocalController over serial: mode gate, journal, hold and confirmed ack al
     // ตอบกลับทีหลังแบบที่บอร์ดจริงทำ คือหลังคำสั่งออกไปแล้ว
     const task = controller.command({ action: 'open', drawer: 1, id: 'c-ctrl-serial-0001' });
     await new Promise(r => setTimeout(r, 5));
-    assert.deepEqual(sent, ['BASE:c-ctrl-serial-0001', 'OPEN1:c-ctrl-serial-0001:1']);
+    assert.deepEqual(sent, ['OPEN1:c-ctrl-serial-0001:1']);
     board('DONE1:c-ctrl-serial-0001\n');
     const result = await task;
     assert.equal(result.status, 200);
@@ -197,12 +138,12 @@ test('LocalController over serial: mode gate, journal, hold and confirmed ack al
     // id เดิมอีกครั้ง สมุดคำสั่งตอบให้เอง ไม่ส่งคำสั่งซ้ำ
     const replay = await controller.command({ action: 'open', drawer: 1, id: 'c-ctrl-serial-0001' });
     assert.equal(replay.status, 200);
-    assert.deepEqual(sent, ['BASE:c-ctrl-serial-0001', 'OPEN1:c-ctrl-serial-0001:1'], 'ไม่มีเฟรมใหม่ออกไปเลย');
+    assert.equal(sent.length, 1);
     // id ใหม่แต่บอร์ดยังไม่ยืนยันว่าพร้อมรอบใหม่ ต้องปฏิเสธก่อนส่งอะไรออกไป
     board('READY:1\n');
     const early = await controller.command({ action: 'open', drawer: 2, id: 'c-ctrl-serial-0002' });
     assert.equal(early.status, 503);
-    assert.deepEqual(sent, ['BASE:c-ctrl-serial-0001', 'OPEN1:c-ctrl-serial-0001:1'], 'ไม่มีเฟรมใหม่ออกไปเลย');
+    assert.equal(sent.length, 1);
     assert.equal(controller.history()[0].state, 'rejected');
 });
 

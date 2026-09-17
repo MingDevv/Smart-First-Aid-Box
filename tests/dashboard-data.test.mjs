@@ -50,8 +50,6 @@ test('teacher history explains every outcome and missing stock without exposing 
     const text=p.elements['history-table'].text;
     for(const word of ['ตู้ตอบรับแล้ว','ยังไม่ทราบผล','ตู้ไม่รับคำสั่ง','ผู้ดูแลตรวจสอบและปิดรายการแล้ว','บัตรนักเรียนเลขที่ DEMO001','เวลาตู้ยังไม่ได้ตรวจสอบ','ครูควรตรวจ LINE']) assert.ok(text.includes(word),word);
     assert.ok(!text.includes('opaque-account-uid'));
-    // แถวเก่าที่ยังไม่มีเซนเซอร์ต้องอ่านว่า "ไม่ได้ตรวจ" ไม่ใช่ปล่อยว่างให้ครูเดาเอง
-    assert.ok(text.includes('ไม่ได้ตรวจของตก'), 'dropCheck ที่หายไปต้องมีคำอธิบาย');
     assert.equal(p.elements['stat-low-stock'].textContent,'—');
     assert.match(p.elements['inventory-preview'].text,/ยังไม่มีจำนวนเวชภัณฑ์/);
     assert.match(p.elements['recent-timeline'].text,/ยังไม่ได้ยืนยันว่านักเรียนรับของแล้ว/);
