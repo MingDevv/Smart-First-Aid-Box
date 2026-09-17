@@ -20,11 +20,12 @@ class Pin:
         self.events.append(('pin', self.name, value))
 
 
-def load(*, busy=False, epoch=7):
+def load(*, busy=False, epoch=7, radio_inbox=None):
     tree = ast.parse(SOURCE.read_text())
     functions = ast.Module(body=[n for n in tree.body if isinstance(n, ast.FunctionDef)], type_ignores=[])
     events = []
     chunks = []
+    inbox = list(radio_inbox or [])
     pins = {n: Pin(n, events) for n in ('p0', 'p1', 'p2', 'p8', 'p12', 'p13', 'p14', 'p15')}
     ns = dict(
         uart=SimpleNamespace(write=lambda s: events.append(s.strip()) if isinstance(s, str) else events.append(s),
@@ -32,10 +33,14 @@ def load(*, busy=False, epoch=7):
         music=SimpleNamespace(pitch=lambda *a, **k: events.append('sound-on'),
                               stop=lambda *a, **k: events.append('sound-off')),
         display=SimpleNamespace(show=lambda _: None),
-        Image=SimpleNamespace(ARROW_S=1, ARROW_N=2, YES=3),
+        Image=SimpleNamespace(ARROW_S=1, ARROW_N=2, YES=3, SKULL=4),
+        radio=SimpleNamespace(receive=lambda: inbox.pop(0) if inbox else None,
+                              send=lambda m: events.append('radio:' + m)),
         running_time=lambda: 1000,
         sleep=lambda _: None,
         pin16=Pin('p16', events),
+        RADIO_GROUP=91, RADIO_PREFIX='SFAB1:SOS:', last_sos_seq='',
+        SOS_ACK='SFAB1:OK', BUZZ_ON='SFAB1:B1', BUZZ_OFF='SFAB1:B0', BEACON_MS=400, last_beacon=0,
         DISPENSE_STEPS=200, STEP_MS=5, HEARTBEAT_MS=500, BUZZ_MAX_MS=5000, buzz_until=0,
         ID_CHARS='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-',
         MOTORS={1: [pins['p12'], pins['p14'], pins['p13'], pins['p15']],
@@ -61,8 +66,8 @@ class ProtocolTests(unittest.TestCase):
         for state in ('1', '0'):
             ns, events, _ = load()
             ns['handle_serial_frame']('BUZZ' + state + ':c-sound-test-01')
-            self.assertEqual(events, ['sound-on' if state == '1' else 'sound-off',
-                                      'BUZZ_DONE' + state + ':c-sound-test-01'])
+            self.assertEqual(events[0], 'sound-on' if state == '1' else 'sound-off')
+            self.assertEqual(events[-1], 'BUZZ_DONE' + state + ':c-sound-test-01')
         source = SOURCE.read_text()
         self.assertIn('pin=pin16', source, 'music defaults to P0, which is now a motor coil')
 
@@ -77,11 +82,14 @@ class ProtocolTests(unittest.TestCase):
 
         now[0] = 1000 + ns['BUZZ_MAX_MS'] - 1
         ns['service_buzzer']()
-        self.assertEqual(events[-1], 'BUZZ_DONE1:c-sos-window-1', 'ยังไม่ครบเวลา ห้ามดับก่อน')
+        self.assertNotIn('sound-off', events, 'ยังไม่ครบเวลา ห้ามดับก่อน')
+        self.assertEqual(events[-1], 'radio:SFAB1:B1', 'ยังร้องอยู่ต้องบอกรีโมตให้ร้องตาม')
 
         now[0] = 1000 + ns['BUZZ_MAX_MS']
         ns['service_buzzer']()
-        self.assertEqual(events[-1], 'sound-off')
+        self.assertIn('sound-off', events)
+        # รีโมตต้องดับพร้อมกัน ⇒ ยิงคำสั่งปิดซ้ำเผื่อแพ็กเก็ตหาย
+        self.assertEqual(events[-3:], ['radio:SFAB1:B0'] * 3)
 
         # ดับแล้วต้องไม่ดับซ้ำทุกรอบของลูป ไม่งั้นมันจะยิง music.stop() 100 ครั้งต่อวินาที
         ns['service_buzzer']()
@@ -125,6 +133,30 @@ class ProtocolTests(unittest.TestCase):
             active_pins = [e[1] for e in events if isinstance(e, tuple) and e[0] == 'pin' and e[2] == 1]
             self.assertEqual(active_pins, cycle * 50, '200 steps in the requested reverse phase order')
             self.assertEqual(events[-4:], [('pin', p.name, 0) for p in ns['MOTORS'][drawer]])
+
+    # ปุ่ม SOS ไร้สาย: ออดต้องดังที่บอร์ดเองก่อน แล้วค่อยบอก Pi ให้ยิง LINE
+    def test_radio_sos_sounds_the_buzzer_and_reports_once_per_press(self):
+        press = ['SFAB1:SOS:7'] * 5          # ปุ่มยิงซ้ำ 5 ครั้งกันแพ็กเก็ตหาย
+        ns, events, _ = load(radio_inbox=press)
+        for _ in press:
+            ns['check_radio']()
+        self.assertEqual(len(events), 3, 'การกดหนึ่งครั้ง = ตอบรับครั้งเดียว ออดครั้งเดียว รายงานครั้งเดียว')
+        self.assertEqual(events[:2], ['radio:SFAB1:OK', 'sound-on'], 'ต้องตอบรีโมตก่อนเริ่มออด')
+        self.assertTrue(events[2].startswith('REMOTE_SOS:rsos-7-'))
+        self.assertEqual(ns['buzz_until'], 1000 + 5000, 'ออดต้องมีเวลาดับของตัวเอง')
+
+    def test_radio_ignores_other_teams_and_a_new_press_sounds_again(self):
+        ns, events, _ = load(radio_inbox=['HELLO', 'SFAB1:PING:1', 'SFAB1:SOS:8'])
+        for _ in range(3):
+            ns['check_radio']()
+        self.assertEqual(len(events), 3, 'เฉพาะ frame ที่ขึ้นต้นด้วย RADIO_PREFIX เท่านั้นที่สั่งออดได้')
+        self.assertTrue(events[2].startswith('REMOTE_SOS:rsos-8-'))
+
+    def test_radio_sos_id_passes_the_pi_side_id_rule(self):
+        ns, events, _ = load(radio_inbox=['SFAB1:SOS:1'])
+        ns['check_radio']()
+        sent_id = events[2].split(':', 1)[1]
+        self.assertTrue(ns['valid_id'](sent_id), 'Pi ทิ้ง frame ที่ id ไม่ผ่าน 8-64 ตัวอักษรเงียบๆ')
 
     def test_refusal_preserves_exact_id(self):
         ns, events, _ = load(busy=True)
@@ -181,3 +213,88 @@ class ProtocolTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+REMOTE = Path(__file__).resolve().parents[1] / 'microbit/remote.py'
+
+
+def load_remote(*, radio_inbox=None):
+    tree = ast.parse(REMOTE.read_text())
+    functions = ast.Module(body=[n for n in tree.body if isinstance(n, ast.FunctionDef)], type_ignores=[])
+    events = []
+    inbox = list(radio_inbox or [])
+    ns = dict(
+        music=SimpleNamespace(pitch=lambda *a, **k: events.append('sound-on'),
+                              stop=lambda *a, **k: events.append('sound-off')),
+        radio=SimpleNamespace(receive=lambda: inbox.pop(0) if inbox else None,
+                              send=lambda m: events.append('radio:' + m)),
+        display=SimpleNamespace(off=lambda: None, on=lambda: None),
+        pin3=Pin('p3', events),
+        running_time=lambda: 1000,
+        sleep=lambda _: None,
+        SOS_PREFIX='SFAB1:SOS:', SOS_ACK='SFAB1:OK', BUZZ_ON='SFAB1:B1', BUZZ_OFF='SFAB1:B0',
+        ACK_WAIT_MS=1200, print=lambda *a: None,
+        BURST=5, BURST_GAP_MS=60, HOLD_MS=1500, COOLDOWN_MS=10000,
+        seq=0, last_sent=-10000, buzzing=False, last_beacon=0,
+    )
+    exec(compile(functions, str(REMOTE), 'exec'), ns)
+    return ns, events
+
+
+class RemoteTests(unittest.TestCase):
+    # ทั้งสองสคริปต์ต้องคาไม่เกินเพดานของ V1 ไม่งั้น uflash ปฏิเสธตอน build (เจอจริง 2026-09-17)
+    def test_both_scripts_fit_the_v1_script_limit(self):
+        for path in (SOURCE, REMOTE):
+            size = len(path.read_bytes())
+            self.assertLess(size, 8188, '%s = %d bytes; คอมเมนต์ไทยกิน 3 ไบต์/ตัว' % (path.name, size))
+
+    def test_remote_follows_the_cabinet_on_and_off(self):
+        ns, events = load_remote(radio_inbox=['SFAB1:B1', 'SFAB1:B1', 'SFAB1:B0'])
+        for _ in range(3):
+            ns['follow_cabinet']()
+        self.assertEqual([e for e in events if isinstance(e, str) and e.startswith('sound')], ['sound-on', 'sound-off'],
+                         'beacon ซ้ำต้องไม่เริ่มเสียงใหม่ทุกครั้ง')
+
+    # ถ้าแพ็กเก็ตปิดหาย หรือตู้ดับ หรือเดินออกนอกระยะ รีโมตต้องเงียบเอง ห้ามค้างร้อง
+    def test_remote_goes_quiet_when_the_beacon_stops(self):
+        ns, events = load_remote(radio_inbox=['SFAB1:B1'])
+        now = [1000]
+        ns['running_time'] = lambda: now[0]
+        ns['follow_cabinet']()
+        self.assertEqual(events[-1], 'sound-on')
+        now[0] = 1000 + ns['HOLD_MS']
+        ns['follow_cabinet']()
+        self.assertNotIn('sound-off', events, 'ยังไม่เกิน HOLD_MS ห้ามดับ')
+        now[0] = 1000 + ns['HOLD_MS'] + 1
+        ns['follow_cabinet']()
+        self.assertEqual(events[-2], 'sound-off')
+
+    def test_remote_press_sends_a_burst_the_cabinet_can_dedupe(self):
+        ns, events = load_remote()
+        now = [1000]
+        ns['running_time'] = lambda: now[0]
+        ns['sleep'] = lambda ms: now.__setitem__(0, now[0] + ms)
+        ns['send_sos']()
+        sent = [e for e in events if isinstance(e, str) and e.startswith('radio:')]
+        self.assertEqual(sent, ['radio:SFAB1:SOS:1'] * 5, 'ยิงซ้ำ 5 ครั้ง seq เดียวกัน')
+
+    # เสียงตอบกลับคือเครื่องมือวัดระยะในมือ Bank ⇒ สองกรณีต้องแยกออกจากกันชัดเจน
+    def test_remote_reports_whether_the_cabinet_answered(self):
+        for inbox, want, tail in ((['SFAB1:OK'], 2, 'ตู้ได้ยิน = สองครั้ง'),
+                                  ([], 3, 'ไม่มีใครตอบ = สามครั้งรัว')):
+            ns, events = load_remote(radio_inbox=inbox)
+            now = [1000]
+            ns['running_time'] = lambda: now[0]
+            ns['sleep'] = lambda ms: now.__setitem__(0, now[0] + ms)
+            ns['send_sos']()
+            beeps = [e for e in events if isinstance(e, str) and e == 'sound-on']
+            self.assertEqual(len(beeps), want, tail)
+
+    def test_remote_gives_up_waiting_instead_of_hanging_forever(self):
+        ns, events = load_remote()
+        now = [1000]
+        ns['running_time'] = lambda: now[0]
+        ns['sleep'] = lambda ms: now.__setitem__(0, now[0] + ms)
+        ns['send_sos']()
+        elapsed = now[0] - 1000
+        self.assertLess(elapsed, ns['ACK_WAIT_MS'] + 2000, 'ต้องไม่ค้างรอ ACK ตลอดกาล')

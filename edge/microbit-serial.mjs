@@ -51,6 +51,8 @@ export class MicrobitSerial {
         this.overflow = false;
         this.handle = null;
         this.reader = null;
+        // ตั้งจากภายนอกหลัง controller เกิดแล้ว (outbox อยู่บน controller ซึ่งสร้างทีหลัง serial)
+        this.onRemoteSos = null;
     }
 
     async open() {
@@ -101,6 +103,15 @@ export class MicrobitSerial {
         const head = frame.slice(0, sep);
         const id = frame.slice(sep + 1);
         if (!ID.test(id)) return;
+        // ปุ่ม SOS ไร้สาย — บอร์ดเป็นฝ่ายเริ่มเอง ไม่มีคำสั่งค้างใน this.commands ให้จับคู่
+        // ⇒ ต้องดักก่อนการหาคำสั่งข้างล่าง ไม่งั้นโดนทิ้งเงียบเหมือน frame ที่ไม่รู้จัก
+        if (head === 'REMOTE_SOS') {
+            if (this.remoteSosSeen === id) return;   // กันซ้ำเผื่อบอร์ดยิงมาเกินหนึ่งครั้ง
+            this.remoteSosSeen = id;
+            try { this.onRemoteSos?.(id); }
+            catch (error) { console.error('[serial] remote SOS handler failed:', error.message); }
+            return;
+        }
         const command = this.commands.get(id);
         if (!command || command.completed || command.rejected) return;
         if (head === 'REJECT') {

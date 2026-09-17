@@ -241,6 +241,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     if (serial) await serial.open();
     const controller = new LocalController({
         esp32Url: process.env.SFAB_ESP32_URL || '', serial, database, mode: deviceMode, cabinetId: process.env.SFAB_CABINET_ID || 'box1' });
+    // ปุ่ม SOS ไร้สายลงสมุดเดียวกับ SOS ที่กดจากจอตู้ ⇒ ได้ retry ตอนเน็ตหลุดฟรี
+    // ไม่มี symptom เพราะปุ่มที่สนามไม่มีให้เลือกอาการ
+    if (serial) serial.onRemoteSos = () => controller.outbox.queueSos();
     // ลำดับนี้บังคับ: คิวรูป → ตัวส่ง → เซิร์ฟเวอร์ · เซิร์ฟเวอร์ต้องถือ `sync` ไว้เพื่อปลุกให้
     // ส่งรูปทันทีที่เด็กถ่ายเสร็จ ไม่ใช่รอรอบถัดไปอีก 60 วินาที · ทั้งสองตัวใช้ db ก้อนเดียวกับ
     // สมุดคำสั่ง จะได้ไม่มีไฟล์ที่สองให้ลืมสำรองหรือลืมลบ
