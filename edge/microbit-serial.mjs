@@ -1,21 +1,17 @@
 import { spawn } from 'node:child_process';
 import { open } from 'node:fs/promises';
 
-// The Pi's replacement for the ESP32 bridge: the same frames over USB CDC, exposed to
-// LocalController through the same four "requests" the ESP32 answered over HTTP
-// (/status, /open, /buzzer, /command-status), so controller.mjs keeps its journal, hold
-// and ACK logic untouched. Port of firmware/esp32_smart_box/readiness_latch.h +
-// command_history.h; the frame grammar is the one microbit/main.py speaks.
+// ตัวแทนของสะพาน ESP32 เดิม คำสั่งชุดเดิมแต่ส่งผ่านสาย USB แทน
+// เปิดให้ controller.mjs เรียกใช้ด้วยหน้าตาเดิมทุกอย่าง ตรรกะสมุดคำสั่งกับ ACK จึงไม่ต้องแก้
+// รูปแบบคำสั่งคือชุดเดียวกับที่ microbit/main.py พูด
 //
-// No native module: a CDC-ACM tty is a file once `stty` has put it in raw 115200 mode.
-// Measured on the cabinet 2026-09-12: the board heartbeats READY:<epoch> every 500 ms
-// unsolicited, so "connected" is simply "heard from it in the last 1500 ms".
+// ไม่ต้องใช้ไลบรารีพิเศษ พอ stty ตั้งพอร์ตเป็น raw 115200 แล้ว มันก็เป็นไฟล์ธรรมดา
+// บอร์ดส่ง READY มาเองทุกครึ่งวินาที คำว่า "ต่ออยู่" จึงแปลว่า "ได้ยินเสียงมันใน 1.5 วิที่ผ่านมา"
 
 const ID = /^[a-zA-Z0-9_-]{8,64}$/;
 const CONNECTED_WINDOW_MS = 1500;
 
-// Same rules as ReadinessLatch in the ESP32 firmware, same names, so the behaviour that
-// edge.test.mjs already pins (busy, stale epoch, awaiting_new_ready_epoch) carries over.
+// ตัวคุมว่าตู้พร้อมรับคำสั่งถัดไปหรือยัง ใช้ชื่อเดิมกับของเก่า เทสที่เขียนไว้แล้วจึงใช้ต่อได้
 export class ReadinessLatch {
     constructor() {
         this.seen = false; this.available = false; this.consumed = false;
@@ -28,7 +24,7 @@ export class ReadinessLatch {
     canOpen(now) { return this.connected(now) && this.available && !this.waitingForEpoch(); }
     needsResync() { return this.available && this.waitingForEpoch(); }
     consume(id) { this.consumed = true; this.consumedEpoch = this.epoch; this.available = false; this.commandId = id; }
-    // Only proof that THIS frame was refused can release the latch. A timer never can.
+    // ปลดล็อกได้ด้วยหลักฐานว่าคำสั่งใบนี้ถูกปฏิเสธเท่านั้น ตัวจับเวลาปลดให้ไม่ได้
     reject(id) {
         if (!this.consumed || this.commandId !== id) return false;
         this.consumed = false; this.available = false; this.commandId = '';
@@ -73,7 +69,7 @@ export class MicrobitSerial {
         this.handle = null;
     }
 
-    // Tests drive this directly with fake bytes; the reader stream calls it for real ones.
+    // เทสป้อนไบต์ปลอมเข้าตรงนี้ ส่วนของจริงมาจากสายอ่านพอร์ต
     feed(chunk) {
         for (const byte of chunk) {
             if (byte === 13) continue;
@@ -158,7 +154,7 @@ export class MicrobitSerial {
         return { status: 202, data: { success: false, id, pending: true } };
     }
 
-    // Same shape LocalController.request() got back from fetch(): { status, data }.
+    // คืนค่าหน้าตาเดียวกับที่ LocalController เคยได้จาก fetch คือ { status, data }
     async request(path) {
         const url = new URL(path, 'http://serial');
         const id = url.searchParams.get('id') ?? '';
@@ -171,7 +167,7 @@ export class MicrobitSerial {
                 const drawer = Number(url.searchParams.get('drawer'));
                 if (![1, 2].includes(drawer) || !ID.test(id)) return { status: 400, data: { success: false, actuated: false, id } };
                 if (this.commands.has(id)) return this.commandStatus(id);
-                // Never a frame the board would refuse anyway: unsent is a definite, retry-safe outcome.
+                // ไม่ส่งคำสั่งที่ยังไงบอร์ดก็ปฏิเสธ การไม่ส่งเป็นผลที่ชัดเจนและลองใหม่ได้ปลอดภัย
                 if (!this.latch.canOpen(this.now())) return { status: 409, data: { success: false, actuated: false, id } };
                 const command = { action: 'open', drawer, sentAt: this.now(), completed: false, rejected: false };
                 this.commands.set(id, command);
@@ -185,7 +181,7 @@ export class MicrobitSerial {
                 if (this.commands.has(id)) return this.commandStatus(id);
                 const command = { action: 'buzzer', state, sentAt: this.now(), completed: false, rejected: false };
                 this.commands.set(id, command);
-                // Asking for help never touches the readiness latch (ESP32 did the same).
+                // การเรียกครูไม่ยุ่งกับสถานะพร้อมจ่ายยา คนละเรื่องกัน
                 await this.write(`BUZZ${state === 'on' ? 1 : 0}:${id}`);
                 return { status: 202, data: { success: false, id, pending: true } };
             }

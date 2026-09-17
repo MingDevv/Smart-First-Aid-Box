@@ -175,7 +175,7 @@ assert.match(
     /ApiBridge\.getHardwareStatus\(\)/,
     'Kiosk status badge must come from the hardware connection state'
 );
-// SOS real/simulated delivery semantics are executed in sos.test.mjs.
+// เรื่องการส่ง SOS จริงกับโหมดสาธิต อยู่ใน sos.test.mjs
 assert.doesNotMatch(
     kioskHtml,
     /background:\s*#0F172A/i,
@@ -311,19 +311,18 @@ assert.match(
     'Project explanation must name the notification service currently used by the app'
 );
 
-// ─── Cabinet page (/kiosk) — structural guards only ────────────────────────────
-// The kiosk page documents its own prohibitions inside HTML comments (`<input type="file">`,
-// `<script src="https://...">`, `css/global.css`). Every negative guard below therefore runs
-// against markup with comments stripped: otherwise the comment that says "never do this" would
-// turn the gate red by itself, and the gate would be measuring prose instead of markup.
+// ─── หน้าจอตู้ ตรวจเฉพาะโครงสร้าง ────────────────────────────
+// หน้าจอตู้เขียนข้อห้ามของตัวเองไว้ในคอมเมนต์ HTML ด้วย
+// ข้อตรวจข้างล่างจึงต้องตัดคอมเมนต์ออกก่อน ไม่งั้นคอมเมนต์ที่เขียนว่า "ห้ามทำแบบนี้"
+// จะทำให้เทสตกเอง กลายเป็นวัดข้อความแทนที่จะวัดโค้ด
 const kioskPageHtml = await readFile(path.join(rootDir, 'kiosk', 'index.html'), 'utf8');
 const kioskCssSource = await readFile(path.join(rootDir, 'css', 'kiosk.css'), 'utf8');
 const kioskAppSource = await readFile(path.join(rootDir, 'js', 'kiosk-app.js'), 'utf8');
 const kioskSessionSource = await readFile(path.join(rootDir, 'js', 'kiosk-session.js'), 'utf8');
 const kioskMarkup = kioskPageHtml.replace(/<!--[\s\S]*?-->/g, '');
 const kioskCssRules = kioskCssSource.replace(/\/\*[\s\S]*?\*\//g, '');
-// Only whole-line `//` comments are dropped: a string literal is never a whole line, so this
-// cannot eat real code, and Thai prose comments cannot trip the identifier guards below.
+// ตัดเฉพาะบรรทัดที่เป็นคอมเมนต์ทั้งบรรทัด ข้อความในเครื่องหมายคำพูดไม่เคยกินทั้งบรรทัด
+// จึงไม่มีทางตัดโค้ดจริงทิ้ง
 const kioskAppCode = kioskAppSource
     .split('\n')
     .filter(line => !line.trim().startsWith('//'))

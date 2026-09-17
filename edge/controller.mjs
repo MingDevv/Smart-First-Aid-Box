@@ -17,10 +17,8 @@ export class LocalController {
     // การตรวจ Host/Origin ไม่ช่วย เพราะคนยิงเป็น client ที่ถูกต้องใน origin เดียวกัน
     constructor({ esp32Url = '', serial = null, database, timeoutMs, pollMs = 200, mode = 'unset', cabinetId = 'box1' }) {
         this.mode = mode === 'real' || mode === 'demo' ? mode : 'unset';
-        // 2026-09-12: the cabinet's ESP32 is gone; the Pi talks to the micro:bit over USB
-        // through edge/microbit-serial.mjs, which answers the very same four requests.
-        // Precedence: serial wins, so an old SFAB_ESP32_URL left in a unit cannot re-route
-        // commands to a box that no longer exists.
+        // ตู้ไม่มี ESP32 แล้ว Pi คุยกับ micro:bit ผ่านสาย USB
+        // ถ้ามีทั้งสองทาง ให้สายชนะ ค่า SFAB_ESP32_URL เก่าที่ค้างอยู่จะได้ไม่ส่งคำสั่งไปหากล่องที่ไม่มีแล้ว
         if (serial) {
             this.serial = serial;
             this.origin = 'serial:' + serial.device;
@@ -44,11 +42,11 @@ export class LocalController {
             this.db.exec('ALTER TABLE commands ADD COLUMN student_identity TEXT');
         }
         this.outbox = new CabinetOutbox(this.db, cabinetId);
-        // A process may die after sending /open. Never replay a persisted pending command.
+        // โปรแกรมอาจตายหลังส่งคำสั่งเปิดไปแล้ว ห้ามส่งคำสั่งที่ค้างอยู่ซ้ำเด็ดขาด
         this.db.exec("UPDATE commands SET state = 'uncertain' WHERE state = 'pending'");
         this.db.exec('BEGIN IMMEDIATE');
         try {
-            // Migrate physical history, never replay its old LINE notifications.
+            // ย้ายประวัติการจ่ายยามาได้ แต่ห้ามส่ง LINE เก่าซ้ำ
             const historical = !this.db.prepare("SELECT 1 FROM sync_state WHERE id = 'journal_migrated'").get();
             for (const row of this.db.prepare(`SELECT commands.* FROM commands LEFT JOIN outbox ON commands.id = outbox.id
                 WHERE commands.state != 'pending' AND outbox.id IS NULL`).all()) {
@@ -68,9 +66,8 @@ export class LocalController {
     }
 
     async status() {
-        // Reported on every status read, including the unconfigured and unreachable branches:
-        // a cabinet that has gone offline while a command was in flight is exactly the case
-        // where the caller must not be told it is free to send another one.
+        // รายงานทุกครั้งที่อ่านสถานะ รวมถึงตอนตู้ยังไม่ได้ตั้งค่าหรือติดต่อไม่ได้
+        // ตู้ที่หลุดไปตอนมีคำสั่งค้างอยู่ คือกรณีที่ห้ามบอกคนเรียกว่าส่งใบใหม่ได้
         const unresolved = this.unresolved();
         const deviceMode = this.mode;
         if (!this.origin) return { connected: false, ready: false, mode: 'pi-local', configured: false, unresolved, deviceMode };
@@ -79,7 +76,7 @@ export class LocalController {
             const validBudget = Number.isInteger(data.ackTimeoutMs) && data.ackTimeoutMs >= 3000 && data.ackTimeoutMs <= 120000;
             const connected = status === 200 && data.protocol === 2 && data.microbit === 'connected' && validBudget;
             return { connected, ready: connected && data.ready === true, mode: 'pi-local', configured: true,
-                // The raw firmware budget, republished verbatim on the broker by edge/mqtt-cloud.mjs.
+                // เวลารอคำตอบของบอร์ด ส่งต่อขึ้น broker ตามค่าเดิมไม่แปลง
                 ackTimeoutMs: validBudget ? data.ackTimeoutMs : null,
                 commandTimeoutMs: validBudget ? data.ackTimeoutMs + 3000 : null,
                 reason: data.reason === 'awaiting_new_ready_epoch' ? data.reason : '', unresolved, deviceMode };
@@ -93,13 +90,12 @@ export class LocalController {
             ORDER BY rowid DESC LIMIT 100`).all();
     }
 
-    // The hold that outlives a student session, a page reload and a process restart.
-    // A command that was sent but never confirmed is a physical operation nobody has
-    // reconciled: the drawer may already be open, the stepper may be mid-travel. Issuing a
-    // fresh command with a new ID is not a replay — the journal cannot catch it — so the
-    // block has to come from here, from durable state, not from UI memory.
-    // Cleared only by an operator through edge/resolve.mjs over SSH. Deliberately not
-    // reachable over HTTP: the only HTTP client is the touchscreen the students use.
+    // การล็อกที่อยู่ข้ามรอบการใช้งาน ข้ามการรีเฟรชหน้า และข้ามการรีสตาร์ตโปรแกรม
+    // คำสั่งที่ส่งไปแล้วแต่ไม่ได้คำยืนยัน แปลว่ามีของจริงขยับไปแล้วแต่ไม่มีใครไปดู
+    // ลิ้นชักอาจเปิดค้าง มอเตอร์อาจหมุนค้างกลางทาง
+    // ถ้าคนกดใหม่ มันจะได้ id ใหม่ซึ่งตัวกันคำสั่งซ้ำจับไม่ได้ การบล็อกจึงต้องมาจากตรงนี้
+    // เคลียร์ได้ทางเดียวคือครูเข้า SSH ไปรันสคริปต์ ตั้งใจไม่เปิดทาง HTTP
+    // เพราะคนที่เข้าถึง HTTP ได้คือจอที่เด็กใช้อยู่
     unresolved() {
         return this.db.prepare(`SELECT id, drawer, created_at FROM commands
             WHERE state = 'uncertain' ORDER BY rowid DESC LIMIT 1`).get() ?? null;
@@ -134,7 +130,7 @@ export class LocalController {
             if (previous.drawer !== channel) return this.failure(409, command.id, 'command ID ถูกใช้กับช่องยาอื่นแล้ว');
             if (this.active.has(command.id)) return this.active.get(command.id);
             if (previous.response) return JSON.parse(previous.response);
-            // uncertain:true lets a transport tell "look at the cabinet" apart from "refused".
+            // uncertain:true ใช้แยก "ไปดูที่ตู้" ออกจาก "ถูกปฏิเสธ" ซึ่งคนละความหมายกัน
             const uncertain = this.failure(409, command.id, 'ผลคำสั่งเดิมยังไม่แน่นอน กรุณาตรวจตู้ก่อน ห้ามสั่งซ้ำ');
             uncertain.body.uncertain = true;
             return uncertain;
@@ -144,9 +140,9 @@ export class LocalController {
         }
         if (!this.origin) return this.failure(503, command.id, 'ยังไม่ได้ตั้งค่าการเชื่อมต่อ micro:bit บน Pi');
         if (command.action === 'open' && this.activeOpens.size) return this.failure(409, command.id, 'ตู้กำลังทำงาน กรุณารอ');
-        // Enforced here, not only in the UI: a reload, a new student or a second browser tab
-        // all produce a fresh command ID, which the per-ID replay guard above cannot catch.
-        // The buzzer is left alone — calling for help must never be blocked by a stuck drawer.
+        // ต้องบังคับตรงนี้ ไม่ใช่แค่ที่หน้าจอ เพราะรีเฟรชหน้า เปลี่ยนคนใช้ หรือเปิดแท็บใหม่
+        // ล้วนได้ id ใหม่ซึ่งตัวกันคำสั่งซ้ำจับไม่ได้
+        // ยกเว้นออด การเรียกครูต้องไม่ถูกบล็อกเพราะลิ้นชักค้าง
         if (command.action === 'open') {
             const held = this.unresolved();
             if (held) {
@@ -189,7 +185,7 @@ export class LocalController {
                         : 'ตู้ยังไม่พร้อม ตรวจการเชื่อมต่อหรือทำขั้นตอนหน้าตู้ให้จบก่อน'), 'rejected');
             }
             const deadline = Date.now() + (this.timeoutMs ?? hardware.commandTimeoutMs);
-            // Persisted above BEFORE this side effect. Never retry /open on a network error.
+            // บันทึกลงสมุดก่อนสั่งของจริงเสมอ และห้ามสั่งเปิดซ้ำเมื่อเน็ตมีปัญหา
             sent = true;
             let reply;
             try {
@@ -216,7 +212,7 @@ export class LocalController {
                 } catch { reply = null; }
             }
         } catch {
-            // Includes a journal write failure: never turn a side effect into simulated success.
+            // รวมถึงตอนเขียนสมุดไม่สำเร็จด้วย ห้ามแปลงของที่เกิดขึ้นจริงให้กลายเป็นความสำเร็จปลอม
         }
         return this.finish(command, this.failure(504, command.id,
             'ยังยืนยันผลการจ่ายไม่ได้ กรุณาตรวจตู้ก่อน ห้ามสั่งซ้ำ'), sent ? 'uncertain' : 'rejected');

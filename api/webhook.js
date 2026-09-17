@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 
-// API/WEBHOOK.JS — Vercel Serverless Function to receive LINE Webhooks & log Group IDs
+// รับ webhook จาก LINE ใช้ตอนตั้งค่าเพื่อดูว่า group id ของกลุ่มครูคืออะไร
 export default async function handler(req, res) {
     if (req.method === 'GET') {
         return res.status(200).send('LINE Webhook Listener is active!');
@@ -10,7 +10,7 @@ export default async function handler(req, res) {
         return res.status(405).json({ success: false, error: 'Method Not Allowed' });
     }
 
-    // SEC-07: Verify LINE Webhook Signature if LINE_CHANNEL_SECRET is configured
+    // ถ้าตั้ง LINE_CHANNEL_SECRET ไว้ ให้ตรวจลายเซ็นก่อนเชื่อว่ามาจาก LINE จริง
     const channelSecret = process.env.LINE_CHANNEL_SECRET;
     const signature = req.headers['x-line-signature'];
 
@@ -52,7 +52,7 @@ export default async function handler(req, res) {
             }
         }
 
-        // Always respond 200 OK to LINE Webhook verification
+        // ตอบ 200 เสมอ ไม่งั้น LINE จะถือว่าตรวจ webhook ไม่ผ่าน
         return res.status(200).json({ success: true });
     } catch (error) {
         console.error('[LINE Webhook Error]', error);

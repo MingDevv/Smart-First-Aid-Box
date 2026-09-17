@@ -119,7 +119,7 @@ export async function createLocalServer({ controller, root = ROOT, mode = proces
         res.setHeader('X-Content-Type-Options', 'nosniff');
         res.setHeader('X-Frame-Options', 'DENY');
         try {
-            // This service is for Chromium ON the Pi. Keep loopback binding and reject DNS rebinding.
+            // บริการนี้มีไว้ให้เบราว์เซอร์บน Pi เท่านั้น ผูกกับ loopback และกัน DNS rebinding
             const host = req.headers.host || '';
             const allowed = [`127.0.0.1:${server.address().port}`, `localhost:${server.address().port}`];
             if (!allowed.includes(host) || (req.headers.origin && req.headers.origin !== `http://${host}`) ||
@@ -190,7 +190,7 @@ export async function createLocalServer({ controller, root = ROOT, mode = proces
                     return json(res, result.status, result.body);
                 }
                 if (pathname === '/api/analyze') return analyzeViaCloud(req, res);
-                // Local SOS is journaled; external delivery belongs to Vercel.
+                // SOS ที่ตู้แค่ลงสมุด ส่วนการส่งออกข้างนอกเป็นหน้าที่ของ Vercel
                 res.status = code => { res.statusCode = code; return res; };
                 res.json = body => { json(res, res.statusCode, body); return res; };
                 return await createLocalNotify(controller.outbox)(req, res);
@@ -199,9 +199,8 @@ export async function createLocalServer({ controller, root = ROOT, mode = proces
             let route = rewrites.get(pathname) || pathname;
             if (route.endsWith('/')) route += 'index.html';
             if (!extname(route)) route += '.html';
-            // Allow only web assets. Never expose source APIs, firmware, database, dotfiles or config.
-            // `kiosk` is the cabinet's own single-page app; it needs its own directory because it
-            // shares nothing with the phone/teacher pages under student/ and dashboard/.
+            // เสิร์ฟเฉพาะไฟล์หน้าเว็บ ห้ามเปิดซอร์ส ฐานข้อมูล ไฟล์ซ่อน หรือไฟล์ตั้งค่าออกไปเด็ดขาด
+            // kiosk คือแอปของจอตู้เอง แยกโฟลเดอร์เพราะไม่ได้ใช้อะไรร่วมกับหน้ามือถือหรือหน้าครูเลย
             if (!/^\/(?:index\.html|(?:student|dashboard|kiosk)\/[a-z0-9-]+\.html|(?:css|js|images|fonts)\/[a-zA-Z0-9_./-]+)$/.test(route) ||
                 route.split('/').some(part => part.startsWith('.')) || !TYPES[extname(route)]) {
                 return json(res, 404, { error: 'Not found' });
@@ -233,8 +232,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     // โหมดเดียวกันถูกส่งให้ทั้ง controller (เกตการสั่งจริง) และหน้าเว็บ (สิ่งที่จอบอกผู้ใช้)
     // ต้องมาจากแหล่งเดียว ไม่งั้นจอกับพฤติกรรมจริงจะหลอกกันได้
     const deviceMode = normalizeMode(process.env.SFAB_MODE);
-    // SFAB_SERIAL = the micro:bit's CDC device, by-id path preferred (survives re-enumeration).
-    // Opened before listen(): a cabinet whose board is unplugged must fail to start loudly,
+    // SFAB_SERIAL คือพอร์ตของ micro:bit ใช้ path แบบ by-id จะได้ไม่เปลี่ยนตอนเสียบใหม่
+    // เปิดพอร์ตก่อนเปิดเซิร์ฟเวอร์ ตู้ที่ยังไม่ได้เสียบบอร์ดต้องล้มให้ดังๆ
     // not serve a kiosk that reports "ตู้ยังต่อไม่ได้" forever.
     const serialDevice = (process.env.SFAB_SERIAL || '').trim();
     const serial = serialDevice ? new MicrobitSerial({ device: serialDevice }) : null;
@@ -248,36 +247,22 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     // ส่งรูปทันทีที่เด็กถ่ายเสร็จ ไม่ใช่รอรอบถัดไปอีก 60 วินาที · ทั้งสองตัวใช้ db ก้อนเดียวกับ
     // สมุดคำสั่ง จะได้ไม่มีไฟล์ที่สองให้ลืมสำรองหรือลืมลบ
     const photos = new CabinetPhotos(controller.outbox.db);
-    // Optional: with MQTT_URL in the unit's environment the Pi also serves the cloud path
-    // (Vercel → broker → here), taking the seat the ESP32 used to hold. Same controller,
-    // same gates; without MQTT_URL the cabinet is touchscreen-only exactly as before.
+    // ถ้าตั้ง MQTT_URL ไว้ Pi จะรับคำสั่งจากทางคลาวด์ด้วย ใช้ controller ตัวเดิม ด่านเดิม
+    // ถ้าไม่ตั้ง ตู้ก็ทำงานด้วยจอสัมผัสอย่างเดียวเหมือนเดิม
     const sync = startCabinetSync(process.env, controller, photos);
     const server = await createLocalServer({ controller, mode: deviceMode, photos, sync });
     const port = Number(process.env.SFAB_PORT || 8787);
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid SFAB_PORT');
     server.listen(port, '127.0.0.1', () => console.log(`Pi kiosk: http://localhost:${port}/kiosk`));
     const cloud = await startCloudBridge(process.env, controller);
-    // An idle keep-alive socket does NOT hold close() open. Measured on this server, node
-    // v26.8.2: one parked keep-alive connection held open, close() WITHOUT
-    // closeIdleConnections() resolved in 0.2ms. (Control: the same probe against a socket
-    // mid-request did not resolve at all inside 10s, so it can detect a stalled close.)
+    // ตัวที่ทำให้ปิดเซิร์ฟเวอร์ไม่ลงคือคำสั่งที่ยังวิ่งอยู่ ไม่ใช่ socket ที่ว่างอยู่เฉยๆ
+    // คำสั่งเปิดลิ้นชักหนึ่งใบใช้เวลาได้ถึง 123 วิ ถ้า TimeoutStopSec สั้นเกินไปจะโดน SIGKILL
+    // กลางคัน แล้วทิ้งแถวค้างที่บล็อกตู้จนกว่าครูจะมาเคลียร์ด้วย edge/resolve.mjs
     //
-    // What does hold close() open is an IN-FLIGHT request. A POST /api/command may legitimately
-    // run to the firmware ACK budget + 3s, up to 123s (controller.mjs caps ackTimeoutMs at
-    // 120000). Measured with a 3s stubbed command: 2808ms under `Connection: close` — the
-    // remaining command time — and 6811ms over a keep-alive agent, because the socket goes idle
-    // only AFTER the response and then waits out keepAliveTimeout (5s); closeIdleConnections()
-    // fires once, here, so it cannot catch a socket that becomes idle later. TimeoutStopSec on
-    // the unit is sized against that sum; too small a value SIGKILLs mid-command and leaves a
-    // row the next start marks uncertain, which now blocks the cabinet until an operator clears
-    // it (edge/resolve.mjs).
-    //
-    // Keep closeIdleConnections(): harmless (0.0ms) and it drops sockets already idle at stop
-    // time instead of letting each wait out keepAliveTimeout. closeAllConnections() is
-    // deliberately NOT used — it would abort in-flight commands.
+    // เก็บ closeIdleConnections() ไว้ ไม่เสียหายอะไรและช่วยตัด socket ที่ว่างอยู่แล้วทิ้งเลย
+    // ส่วน closeAllConnections() ตั้งใจไม่ใช้ เพราะมันจะตัดคำสั่งที่กำลังวิ่งอยู่ทิ้งไปด้วย
     const stop = () => {
-        // Drain first: a cloud command still running must get its ACK out before the
-        // broker link is closed, or the website reports 504 for a drawer that did open.
+        // รอให้คำสั่งที่ค้างอยู่จบก่อน ไม่งั้นลิ้นชักเปิดจริงแต่เว็บขึ้นว่าไม่สำเร็จ
         server.close(async () => { await controller.drain(); await cloud?.close(); await sync?.close(); await controller.close(); process.exit(0); });
         server.closeIdleConnections();
     };

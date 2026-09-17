@@ -62,7 +62,7 @@ export function createNotifyHandler({ authorizeRequest = authorize, send = persi
             }
             globalWindow.count++;
             delivery = { until: time + DEDUPE_WINDOW_MS, settled: false };
-            // Reserve before LINE starts so concurrent requests share its actual outcome.
+            // จองที่ไว้ก่อนเริ่มส่ง LINE คำขอที่เข้ามาพร้อมกันจะได้ใช้ผลเดียวกัน
             deliveries.set(uid, delivery);
             delivery.result = Promise.resolve().then(() => send(identity?.token ?? null, { dedupeKey: uid }))
                 .then(result => result?.success === true, () => false)

@@ -6,7 +6,7 @@ import { CloudBridge, startCloudBridge } from '../edge/mqtt-cloud.mjs';
 const BASE = 'crms6/firstaidbox/box1';
 const NOW = 1_800_000_000_000;
 
-// A broker-side double: records what the Pi publishes and lets the test inject deliveries.
+// broker ปลอม จดสิ่งที่ Pi ส่งขึ้นมา และให้เทสยัดข้อความลงไปได้
 class FakeClient extends EventEmitter {
     constructor() {
         super();
@@ -18,7 +18,7 @@ class FakeClient extends EventEmitter {
     subscribe(topic, opts, cb) { this.subscriptions.push({ topic, opts }); cb(null, [{ topic, qos: opts.qos }]); }
     publish(topic, payload, opts, cb) { this.published.push({ topic, doc: JSON.parse(payload), opts }); cb?.(); }
     end(force, opts, cb) { this.ended = force ? 'forced' : 'graceful'; this.connected = false; cb?.(); }
-    // The broker delivers a command; retained mirrors what mqtt.js reports on a retained message.
+    // broker ส่งคำสั่งลงมา ธง retained เลียนแบบที่ mqtt.js บอกเวลาเจอข้อความค้าง
     deliver(doc, { retain = false, topic = `${BASE}/cmd` } = {}) {
         this.emit('message', topic, Buffer.from(typeof doc === 'string' ? doc : JSON.stringify(doc)), { retain });
     }

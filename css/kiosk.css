@@ -994,7 +994,7 @@ img {
     }
 }
 
-/* Card identification precedes the unchanged wound views. Keep the help button clear. */
+/* ขั้นตอนสแกนบัตรมาก่อนหน้าเลือกแผล อย่าให้อะไรบังปุ่มขอความช่วยเหลือ */
 #view-welcome, #view-greeting { justify-content: center; padding-bottom: calc(var(--tap) + 12px); }
 #view-welcome .btn, #view-greeting .btn { align-self: flex-start; min-width: 260px; }
 #view-card .camera-frame { flex: 1 1 auto; min-height: 0; max-height: 220px; }

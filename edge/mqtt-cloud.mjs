@@ -1,27 +1,23 @@
-// The Pi takes the ESP32's seat on the broker. Same three topics, same protocol-2 payloads,
-// so api/command.js on Vercel does not change: it publishes <base>/cmd, waits on <base>/evt,
-// and decides "connected" from the retained <base>/status. Everything that arrives here is
-// handed to the very same LocalController the touchscreen uses — mode gate, journal, hold,
-// duplicate replay — so a cloud command can never do more than a local one.
+// Pi มานั่งที่เดิมของ ESP32 บน broker หัวข้อเดิม payload เดิม ฝั่ง Vercel จึงไม่ต้องแก้
+// คำสั่งที่มาทางนี้ส่งต่อให้ LocalController ตัวเดียวกับจอตู้ ผ่านด่านเดียวกันทุกด่าน
+// สั่งจากคลาวด์จึงทำอะไรได้ไม่เกินสั่งจากจอ
 //
-// This module must never sit on the local path's import chain: the `mqtt` package is loaded
-// lazily in startCloudBridge(), so a cabinet without node_modules (or without MQTT_URL) still
-// boots its touchscreen service exactly as before.
+// ห้ามให้ไฟล์นี้อยู่ในสายที่จอตู้ import แพ็กเกจ mqtt โหลดตอนเรียก startCloudBridge เท่านั้น
+// ตู้ที่ไม่มี node_modules หรือไม่ได้ตั้ง MQTT_URL จะได้เปิดจอทำงานได้ตามปกติ
 // นำเข้าได้ปลอดภัยแม้ไฟล์นี้ห้ามอยู่บนสายนำเข้าของเส้นทางในเครื่อง — `cabinet-protocol.js`
 // พึ่งแต่ `node:crypto` และ `edge/student-session.mjs` ซึ่งอยู่บนเส้นทางนั้นก็นำเข้ามันอยู่แล้ว
 import { ACCOUNT_UID } from '../lib/cabinet-protocol.js';
 
 const ID = /^[a-zA-Z0-9_-]{8,64}$/;
-// Same three freshness rules as the ESP32 firmware (MAX_CMD_AGE_MS, future_ts, clock_not_ready):
-// a command that sat in a queue while the network was down must not open the cabinet when the
-// link comes back and nobody is there, and a Pi whose clock has not synced yet must not act on
-// timestamps it cannot judge. The 2 s future tolerance matches the skew Vercel accepts on status.
+// กันคำสั่งเก่า 3 แบบ คำสั่งที่ค้างคิวตอนเน็ตหลุดต้องไม่เปิดตู้ตอนเน็ตกลับมาแล้วไม่มีใครอยู่
+// ถ้านาฬิกา Pi ยังไม่ sync ก็ตัดสินเวลาไม่ได้ ห้ามทำตาม
+// เผื่อเวลาอนาคตไว้ 2 วิ เท่ากับที่ Vercel ยอมให้คลาดเคลื่อน
 const MAX_CMD_AGE_MS = 30000;
 const MAX_FUTURE_MS = 2000;
 const CLOCK_SANE_AFTER_MS = 1_700_000_000_000;
-// Vercel treats a status older than 5 s as offline (STATUS_MAX_AGE_MS); the ESP32 published
-// every second at QoS 0. Keep that cadence: the will and the age check make delivery
-// guarantees unnecessary, and QoS 1 would pile up unacked heartbeats on a half-open link.
+// Vercel ถือว่าสถานะเก่าเกิน 5 วิ คือออฟไลน์ จึงต้องส่งทุกวินาที
+// ใช้ QoS 0 พอ เพราะมี will กับการเช็คอายุคุมอยู่แล้ว ถ้าใช้ QoS 1 ข้อความที่ยังไม่ ack
+// จะกองสะสมตอนสายครึ่งใบ
 const STATUS_INTERVAL_MS = 1000;
 const CLOSE_PUBLISH_MS = 2000;
 const CLOSE_END_MS = 3000;
@@ -39,9 +35,8 @@ export class CloudBridge {
         this.auth = { username: username || undefined, password: password || undefined };
         this.base = baseTopic.trim().replace(/\/+$/, '');
         this.topics = { cmd: `${this.base}/cmd`, evt: `${this.base}/evt`, status: `${this.base}/status` };
-        // Which actions the internet may ask for. api/command.js has no login of its own, so
-        // this is the one place a school can say "the website may ring the buzzer but not open
-        // a drawer" without touching Vercel. Default is parity with the ESP32 era.
+        // คำสั่งที่ยอมให้สั่งจากอินเทอร์เน็ตได้ ตรงนี้คือที่เดียวที่โรงเรียนบอกได้ว่า
+        // "เว็บสั่งออดได้ แต่เปิดลิ้นชักไม่ได้" โดยไม่ต้องไปแก้อะไรบน Vercel
         this.cloudActions = parseActions(cloudActions);
         this.connect = connect;
         this.now = now;
@@ -62,10 +57,10 @@ export class CloudBridge {
             clean: true,
             keepalive: 30,
             connectTimeout: 10000,
-            // Unlike the serverless side, the cabinet must keep trying on its own.
+            // ฝั่งตู้ต้องพยายามต่อเองเรื่อยๆ ต่างจากฝั่ง serverless ที่จบเป็นครั้งๆ
             reconnectPeriod: 5000,
-            // The broker publishes this for us if the Pi drops: retained, so a page that opens
-            // during the outage reads "offline" instead of the last "ready".
+            // ถ้า Pi หลุด broker จะประกาศข้อความนี้ให้เอง และค้างไว้ หน้าเว็บที่เปิดตอนตู้ดับ
+            // จะได้เห็นว่าออฟไลน์ ไม่ใช่เห็นสถานะพร้อมใช้ค้างจากครั้งก่อน
             will: { topic: this.topics.status, payload: JSON.stringify({ protocol: 2, online: false }), qos: 1, retain: true }
         });
         this.client.on('connect', () => {
@@ -90,7 +85,7 @@ export class CloudBridge {
             if (this.wasConnected && !this.closed) this.log.error('[SFAB cloud] broker link lost — reconnecting');
             this.wasConnected = false;
         });
-        // A cabinet on a dead Wi-Fi retries every 5 s for hours: log a message once, not per attempt.
+        // ตู้ที่เน็ตตายจะลองใหม่ทุก 5 วิ เป็นชั่วโมง เขียน log ครั้งเดียวพอ
         this.client.on('error', e => {
             if (e.message === this.lastError) return;
             this.lastError = e.message;
@@ -104,11 +99,9 @@ export class CloudBridge {
         this.timer = null;
     }
 
-    // Mirrors publishOnlineStatus() in the firmware. ackTimeoutMs must be an integer in
-    // 3000..120000 for Vercel to count the cabinet as connected; the controller only knows
-    // it while the micro:bit answers /status, so an unplugged board publishes null = offline.
-    // ready:false + reason tells the website to refuse BEFORE publishing a command the
-    // controller is guaranteed to reject (wrong mode, unresolved hold, opens disabled here).
+    // ackTimeoutMs ต้องเป็นจำนวนเต็ม 3000-120000 Vercel ถึงจะนับว่าตู้ต่ออยู่
+    // ค่านี้รู้ได้เฉพาะตอน micro:bit ตอบ ถ้าถอดบอร์ดออกจะส่ง null ไป = ออฟไลน์
+    // ready:false พร้อมเหตุผล ทำให้เว็บปฏิเสธตั้งแต่ต้น ไม่ต้องส่งคำสั่งที่ยังไงก็ถูกปฏิเสธ
     async statusDocument() {
         const hw = await this.controller.status();
         const connected = hw.connected === true;
@@ -127,9 +120,8 @@ export class CloudBridge {
         };
     }
 
-    // One status publish at a time. A request that arrives mid-flight (a command just
-    // finished while the heartbeat was reading the serial status) is folded into one more
-    // publish afterwards, so readiness changes are never dropped and never queue up.
+    // ส่งสถานะทีละครั้ง ถ้ามีคำขอเข้ามาระหว่างที่กำลังส่งอยู่ ให้รวบไปส่งรอบถัดไปรอบเดียว
+    // สถานะที่เปลี่ยนจะได้ไม่หาย และไม่กองซ้อนกัน
     async publishStatus() {
         if (this.closed || !this.client?.connected) return;
         if (this.statusInFlight) { this.statusDirty = true; return; }
@@ -170,8 +162,8 @@ export class CloudBridge {
         const id = typeof doc?.id === 'string' && ID.test(doc.id) ? doc.id : undefined;
         if (!id) return this.reject(undefined, 'invalid_id');
         if (this.closed) return this.reject(id, 'shutting_down');
-        // mqtt.js tells us exactly which delivery is retained, so no timing guess is needed:
-        // a retained command would otherwise open the drawer on every reconnect.
+        // mqtt.js บอกตรงๆ ว่าข้อความไหนเป็นข้อความค้าง ไม่ต้องเดาจากเวลา
+        // ถ้าปล่อยผ่าน คำสั่งค้างจะเปิดลิ้นชักทุกครั้งที่ตู้ต่อใหม่
         if (packet?.retain) return this.reject(id, 'retained');
         if (doc.protocol !== 2) return this.reject(id, 'unsupported_protocol');
         const command = doc.action === 'open' && [1, 2].includes(doc.drawer) ? { action: 'open', drawer: doc.drawer, id }
@@ -183,10 +175,8 @@ export class CloudBridge {
         const now = this.now();
         if (now < CLOCK_SANE_AFTER_MS) return this.reject(id, 'clock_not_ready');
         if (doc.ts - now > MAX_FUTURE_MS) return this.reject(id, 'future_ts');
-        // Checked before the journal on purpose: a late QoS 1 redelivery of an already-executed
-        // id gets 'stale' here instead of a re-ACK. The firmware ordered these the other way;
-        // the safer failure is to make the website look at the cabinet, not to re-ACK from a
-        // 30-second-old message.
+        // ตรวจก่อนดูสมุดคำสั่งโดยตั้งใจ ข้อความเก่าที่ถูกส่งซ้ำมาจะได้ตอบว่าเก่าเกินไป
+        // แทนที่จะตอบรับซ้ำ ให้เว็บไปดูที่ตู้ ปลอดภัยกว่าตอบรับจากข้อความอายุ 30 วิ
         if (now - doc.ts > MAX_CMD_AGE_MS) return this.reject(id, 'stale');
 
         // ใครเป็นคนสั่งจากเว็บ — Vercel ยืนยันโทเคนบัญชีโรงเรียนมาแล้วก่อน publish
@@ -203,15 +193,15 @@ export class CloudBridge {
         await this.publishStatus();
     }
 
-    // The controller already answers a replayed id with the recorded outcome, so a
-    // redelivered cmd re-ACKs without touching the motor — same contract as the firmware.
+    // controller ตอบคำสั่งซ้ำด้วยผลที่บันทึกไว้อยู่แล้ว ข้อความที่ถูกส่งซ้ำจึงตอบได้
+    // โดยไม่ต้องหมุนมอเตอร์อีกรอบ
     eventFor(command, { status, body }) {
         const where = command.action === 'open' ? { drawer: command.drawer } : { state: command.state };
         if (body?.success === true) {
             return { protocol: 2, event: command.action === 'open' ? 'drawer_opened' : 'buzzer_set', id: command.id, ...where, ts: this.now() };
         }
-        // 504 = sent, never confirmed; body.uncertain = a replay of such a command. Both are
-        // "look at the cabinet", which Vercel renders from ack_timeout, not from "refused".
+        // 504 คือส่งไปแล้วแต่ไม่ได้คำยืนยัน ทั้งสองกรณีแปลว่า "ไปดูที่ตู้"
+        // ไม่ใช่ "ถูกปฏิเสธ" ซึ่งคนละเรื่องกัน
         if (status === 504 || body?.uncertain === true) {
             return { protocol: 2, event: 'ack_timeout', id: command.id, ...where, reason: 'uart_timeout', ts: this.now() };
         }
@@ -220,9 +210,9 @@ export class CloudBridge {
         return { protocol: 2, event: 'cmd_rejected', id: command.id, reason, ts: this.now() };
     }
 
-    // Bounded: a stop during a Wi-Fi outage must not sit until systemd's TimeoutStopSec and
-    // SIGKILL the process before controller.close() runs. The retained will covers the
-    // ungraceful case, so after the deadlines we just force the socket shut.
+    // ต้องมีเพดานเวลา ถ้าสั่งหยุดตอนเน็ตหลุดแล้วค้างรอ systemd จะ SIGKILL ทิ้ง
+    // ก่อนที่ controller.close() จะได้ทำงาน ครบเวลาแล้วปิด socket ทิ้งเลย
+    // กรณีปิดไม่สวยมี will ค้างบน broker รับไว้อยู่แล้ว
     async close() {
         this.closed = true;
         this.stopHeartbeat();
@@ -240,8 +230,8 @@ export class CloudBridge {
     }
 }
 
-// Optional cloud path. Anything wrong here — no URL, a mistyped scheme, a missing `mqtt`
-// package — disables the cloud path and logs why; it never takes the touchscreen down.
+// เส้นคลาวด์เป็นของเสริม ถ้ามีอะไรผิด ไม่มี URL พิมพ์ scheme ผิด หรือไม่มีแพ็กเกจ mqtt
+// ให้ปิดเส้นนี้แล้วเขียน log บอกเหตุผล ห้ามทำให้จอตู้ล่มตามไปด้วย
 export async function startCloudBridge(env, controller, options = {}) {
     const log = options.log ?? console;
     const url = (env.MQTT_URL || '').trim();
@@ -251,7 +241,7 @@ export async function startCloudBridge(env, controller, options = {}) {
     }
     try {
         if (!URL_SCHEME.test(url)) throw new Error('MQTT_URL must start with mqtt://, mqtts://, ws:// or wss://');
-        // mqtt.connect('mqtts://') would happily retry an empty host every 5 s forever.
+        // mqtt.connect('mqtts://') จะลองต่อ host ว่างทุก 5 วิ ไปตลอดกาลโดยไม่บ่น
         if (!new URL(url).hostname) throw new Error('MQTT_URL has no host');
         const connect = options.connect ?? (await import('mqtt')).default.connect;
         return new CloudBridge({

@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { readFile, realpath } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { extname, join, resolve } from 'node:path';
-// The local auth demo never contacts LINE or a cabinet broker.
+// ตัวลองล็อกอินในเครื่อง ไม่ติดต่อ LINE และไม่ติดต่อ broker ของตู้
 for (const key of Object.keys(process.env)) {
     if (/^(LINE_|MQTT_)/.test(key)) delete process.env[key];
 }

@@ -23,7 +23,7 @@ export function createIngestHandler({ services = firebaseServices, env = process
             // ใช้แปลง uid ของบัญชีโรงเรียนเป็นชื่อตอนประกอบการ์ด LINE เท่านั้น
             const { db, auth: adminAuth } = services();
             await db.runTransaction(async tx => {
-                // Read the whole batch before any write. A reused ID cannot change its payload.
+                // อ่านทั้งชุดให้จบก่อนเขียน id ที่ซ้ำกับของเดิม เปลี่ยนเนื้อข้อมูลไม่ได้
                 const refs = events.map(event => db.doc(`${eventCollection(event)}/${eventKey(event)}`));
                 const deliveries = events.map(event => db.doc(`_deliveries/${eventKey(event)}`));
                 const snapshots = refs.length ? await tx.getAll(...refs, ...deliveries) : [];
@@ -46,7 +46,7 @@ export function createIngestHandler({ services = firebaseServices, env = process
                 tx.set(db.doc(`cabinets/${auth.cabinetId}`), { statusMirror: heartbeat,
                     lastSeen: new Date(now()).toISOString() }, { merge: true });
             });
-            // All physical evidence is committed before external delivery begins.
+            // บันทึกหลักฐานให้ครบก่อน แล้วค่อยเริ่มส่งออกข้างนอก
             const deliveryOptions = { env, now, auth: adminAuth, ...(send ? { send } : {}) };
             const [acks] = await Promise.all([
                 Promise.all(events.map(async event => ({ id: event.id, stored: true,

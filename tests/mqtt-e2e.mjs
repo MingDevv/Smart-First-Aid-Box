@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import mqtt from 'mqtt';
 
-// Use an isolated loopback broker by default; never send test commands to the real cabinet topic.
+// ใช้ broker ในเครื่องเท่านั้น ห้ามยิงคำสั่งทดสอบไปที่หัวข้อของตู้จริง
 const brokerUrl = process.env.SFAB_TEST_MQTT_URL || 'mqtt://127.0.0.1:18884';
 const ack = c => ({ protocol: 2, id: c.id, ...(c.action === 'open'
     ? { event: 'drawer_opened', drawer: c.drawer } : { event: 'buzzer_set', state: c.state }) });

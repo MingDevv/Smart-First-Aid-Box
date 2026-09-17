@@ -1,5 +1,5 @@
-// Compatibility surface for guide pages. Shared application data belongs to the server
-// and physical journal; legacy browser records and settings are deliberately ignored.
+// เหลือไว้ให้หน้าคู่มือเรียกใช้ ข้อมูลจริงอยู่ที่เซิร์ฟเวอร์กับสมุดคำสั่งของตู้
+// ของเก่าที่เคยเก็บในเบราว์เซอร์ ตั้งใจไม่ใช้แล้ว
 const StorageService = {
     getCurrentStudent() {
         const user = window.AuthService?.state?.user;

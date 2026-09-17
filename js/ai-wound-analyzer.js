@@ -1,8 +1,8 @@
-// JS/AI-WOUND-ANALYZER.JS — Client-side bridge to serverless Gemini API
+// ฝั่งเบราว์เซอร์ ส่งรูปแผลไปให้เซิร์ฟเวอร์วิเคราะห์
 const AiWoundAnalyzer = {
-    // Perform AI analysis on a base64 encoded image of a wound via serverless backend API ONLY
+    // วิเคราะห์รูปแผลผ่าน API ของเราเท่านั้น
     async analyzeWound(base64DataWithPrefix) {
-        // All Gemini calls MUST go through backend serverless API route to protect API key
+        // ห้ามเรียก Gemini ตรงจากเบราว์เซอร์ ไม่งั้นคีย์หลุด
         try {
             const serverlessResponse = await fetch('/api/analyze', {
                 method: 'POST',
@@ -10,7 +10,7 @@ const AiWoundAnalyzer = {
                 body: JSON.stringify({ image: base64DataWithPrefix })
             });
 
-            // Read the response body ONCE (can't read body twice)
+            // อ่าน body ได้ครั้งเดียว
             const responseBody = await serverlessResponse.json().catch(() => ({}));
 
             if (serverlessResponse.ok && responseBody && responseBody.success) {
@@ -18,7 +18,7 @@ const AiWoundAnalyzer = {
                 return responseBody;
             }
 
-            // API returned an error
+            // API ตอบกลับมาเป็นข้อผิดพลาด
             console.warn(`[AI Analyzer] Server error (${serverlessResponse.status}):`, responseBody.error || 'Unknown');
             return {
                 success: false,

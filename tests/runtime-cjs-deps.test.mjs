@@ -1,8 +1,7 @@
 // ห้ามมีแพ็กเกจ ESM-only อยู่ใต้ขอบ `require()` ของ dependency ที่ใช้ตอนรันจริง
 //
 // 2026-09-14: WP1 ขึ้น production แล้วทุก endpoint ที่ import lib/firebase-admin.js ตายพร้อมกัน
-//   ERR_REQUIRE_ESM: require() of ES Module .../jose/dist/webapi/index.js
-//   from .../jwks-rsa/src/utils.js not supported
+//   กันพังตอนรันจริงจาก ERR_REQUIRE_ESM ที่ jwks-rsa เรียก jose ซึ่งเป็น ES Module
 // firebase-admin@14 → jwks-rsa@4.1.0 (CommonJS, `const jose = require('jose')`) → jose@6 ซึ่ง
 // ประกาศ "type":"module" และไม่มีเงื่อนไข `require` ใน exports เลย
 //

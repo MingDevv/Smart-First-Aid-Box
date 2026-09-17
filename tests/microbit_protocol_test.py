@@ -202,7 +202,7 @@ class ProtocolTests(unittest.TestCase):
             self.assertFalse(any(isinstance(e, tuple) for e in events))
 
     def test_no_button_dispensing_and_no_local_done(self):
-        # Identifiers, not prose: the header comment is allowed to explain why buttons went away.
+        # ตรวจชื่อตัวแปรและฟังก์ชัน ไม่ตรวจข้อความ คอมเมนต์หัวไฟล์อธิบายเรื่องปุ่มได้ตามปกติ
         tree = ast.parse(SOURCE.read_text())
         names = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)} | \
                 {n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)}

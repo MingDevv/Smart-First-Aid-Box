@@ -1,8 +1,8 @@
-// JS/API-BRIDGE.JS
+// ตัวเลือกเส้นทางส่งคำสั่งไปตู้ และคุยกับ API ของเว็บ
 //
-// Pi uses the local service. Vercel uses MQTT with protocol-2 readiness and ACKs.
-// An explicitly unconfigured MQTT server permits HTTP-LAN fallback. An uncertain
-// command never falls back to another actuator transport. Demo is explicit only.
+// อยู่บนตู้ใช้บริการในเครื่อง อยู่บนเว็บใช้ MQTT
+// คำสั่งที่ผลไม่ชัดเจน ห้ามเปลี่ยนไปลองอีกทางเด็ดขาด เพราะของจริงอาจขยับไปแล้ว
+// โหมดสาธิตต้องตั้งเองเท่านั้น ไม่มีการเดาให้
 const ApiBridge = {
     isPiLocal() {
         return window.SFAB_RUNTIME?.transport === 'pi-local';
@@ -55,7 +55,7 @@ const ApiBridge = {
         } finally { clearTimeout(timeout); }
     },
 
-    // GET may establish MQTT and receive retained hardware metadata (4.5s + 2s).
+    // GET อาจต้องต่อ MQTT ใหม่และรออ่านสถานะที่ค้างอยู่ จึงให้เวลานานกว่าปกติ
     MQTT_STATUS_TIMEOUT_MS: 8000,
     // ออด SOS ของคนที่ยังไม่ได้ล็อกอินข้ามการ preflight (ซึ่งต้องใช้โทเคน) แล้วยิง POST ตรง
     // เซิร์ฟเวอร์ตรวจ `hardware.connected` ให้อยู่แล้วก่อน publish · งบนี้ต้องคลุมงบ ACK
@@ -65,7 +65,7 @@ const ApiBridge = {
     isHardwareConfigured(settings) {
         if (!settings || !settings.esp32Url) return false;
         const url = settings.esp32Url.trim();
-        // If explicitly set to empty or default unconfigured placeholder, mark as not configured
+        // ถ้าตั้งเป็นค่าว่างหรือค่าตัวอย่าง ให้ถือว่ายังไม่ได้ตั้งค่า
         if (!url || settings.isConfigured === false) return false;
         return true;
     },
@@ -110,7 +110,7 @@ const ApiBridge = {
             : ack.event === 'buzzer_set' && ack.state === body.state);
     },
 
-    // Keep the deadline active through JSON body consumption, not only response headers.
+    // จับเวลาไปจนอ่าน body จบ ไม่ใช่แค่ได้ header มา
     async fetchJson(url, options, timeoutMs, { anonymous = false } = {}) {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -178,7 +178,7 @@ const ApiBridge = {
     },
 
     async sendLanCommand(baseUrl, body) {
-        // HTTPS Vercel cannot call an HTTP cabinet. The Pi kiosk provides the offline path.
+        // เว็บ https เรียกตู้ที่เป็น http ตรงๆ ไม่ได้ เบราว์เซอร์บล็อก เส้นออฟไลน์จึงต้องใช้จอบนตู้
         if (window.location?.protocol === 'https:' && baseUrl.startsWith('http:')) {
             return { success: false, mode: 'production', retrySafe: true,
                 error: 'เว็บ HTTPS ต้องตั้งค่า MQTT หรือใช้หน้าตู้บน Pi สำหรับการสั่งงานใน LAN' };
@@ -221,9 +221,8 @@ const ApiBridge = {
         return this.sendLanCommand(baseUrl, { action: 'open', drawer, id: commandId });
     },
 
-    // 'demo' | 'real' | 'unset'. Single source of truth, shared with NotificationService.
-    // Falls back to the module's own reading when StorageService is absent (tests, vm harnesses)
-    // so the two can never drift into disagreeing about what mode the cabinet is in.
+    // โหมดของตู้ demo real หรือยังไม่ได้ตั้ง อ่านจากที่เดียวกันทั้งระบบ
+    // ถ้าไม่มี StorageService (ตอนเทส) ให้อ่านเอง สองที่จะได้ไม่เห็นโหมดไม่ตรงกัน
     operatingMode() {
         const mode = window.SFAB_RUNTIME?.mode;
         return this.isPiLocal() && ['demo', 'real', 'unset'].includes(mode) ? mode : 'unset';
@@ -233,15 +232,14 @@ const ApiBridge = {
         return this.operatingMode(settings) === 'demo';
     },
 
-    // Nobody has chosen a mode, so nothing may be actuated and nothing may be claimed.
-    // retrySafe is true because no command left the browser — the operator can set the mode
-    // and the student can try again without risking a second physical operation.
+    // ยังไม่มีใครตั้งโหมด จึงห้ามสั่งของจริงและห้ามอ้างว่าสำเร็จ
+    // ลองใหม่ได้ปลอดภัยเพราะยังไม่มีคำสั่งไหนออกจากเบราว์เซอร์เลย
     unprovisioned(commandId) {
         return { success: false, mode: 'unprovisioned', commandId, retrySafe: true,
             error: 'ตู้ยังไม่ได้ตั้งโหมดการทำงาน ให้ครูตั้งค่าที่หน้าครูก่อนใช้งาน' };
     },
 
-    // Check if the hardware (ESP32 controller connected to micro:bit) is online
+    // เช็คว่าตู้ออนไลน์อยู่ไหม
     async getHardwareStatus() {
         const settings = this.getSettings();
         if (!this.isPiLocal() && !window.AuthService?.isSignedIn()) {
@@ -253,8 +251,7 @@ const ApiBridge = {
                 const data = await response.json();
                 return { connected: response.ok && data.connected === true,
                     ready: data.ready === true, reason: data.reason, mode: 'pi-local',
-                    // Survives reload and restart: the Pi reads it from the command journal,
-                    // not from anything this page remembers. See edge/controller.mjs unresolved().
+                    // อยู่ข้ามการรีเฟรชและรีสตาร์ต เพราะ Pi อ่านจากสมุดคำสั่ง ไม่ใช่จากที่หน้านี้จำไว้
                     unresolved: data.unresolved || null };
             } catch { return { connected: false, mode: 'pi-local' }; }
         }
@@ -276,7 +273,7 @@ const ApiBridge = {
         return { connected: false, mode: 'offline', error: 'ตู้ไม่ได้เชื่อมต่อฮาร์ดแวร์' };
     },
 
-    // Trigger physical box compartment opening (Compartment 1: Cut/Abrasion, Compartment 2: Insect Bite)
+    // สั่งเปิดช่องจ่ายยา ช่อง 1 แผลถลอก ช่อง 2 แมลงกัด
     // `presetId` ให้ผู้เรียกกำหนด id ของคำสั่งเองได้ สำหรับรอบที่ต้องผูกของอย่างอื่นเข้ากับ id
     // นั้นก่อนคำสั่งจะถูกส่ง (รอบไม่มีบัตรอัปรูปใบหน้าไว้ที่คีย์ `{cabinetId}~{id}` ก่อน)
     // ไม่ส่งมา = สร้างเองเหมือนเดิม
@@ -329,7 +326,7 @@ const ApiBridge = {
             return { success: true, mode: 'mqtt', compartment: mqttResult.compartment || compartmentNum };
         }
 
-        // Cloud failure never falls back to browser LAN dispatch.
+        // คลาวด์ล้มแล้วห้ามหันไปยิงตรงในวงแลนแทน
 
         // ปิดโหมดสาธิตอยู่และส่งสัญญาณฮาร์ดแวร์จริงไม่สำเร็จ -> คืนค่าความล้มเหลวตามจริง!
         return {
@@ -341,7 +338,7 @@ const ApiBridge = {
         };
     },
 
-    // Trigger Buzzer Siren for SOS emergencies
+    // สั่งออดเรียกครู
     async triggerBuzzer(state) {
         const commandId = this.createCommandId();
         if (this.isPiLocal()) {

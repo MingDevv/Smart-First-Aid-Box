@@ -68,7 +68,7 @@ export class CabinetOutbox {
         return row ? JSON.parse(row.payload) : null;
     }
     saveCache(bundle) {
-        // WP2 caches clearing decisions only. Applying staff clear requests belongs to WP4.
+        // ตรงนี้เก็บแค่ผลการตัดสินใจเคลียร์ ส่วนการลงมือเคลียร์ตามคำสั่งครูอยู่คนละส่วน
         this.db.prepare("INSERT OR REPLACE INTO inbox_cache (id, payload) VALUES ('bundle', ?)")
             .run(JSON.stringify(bundle));
     }

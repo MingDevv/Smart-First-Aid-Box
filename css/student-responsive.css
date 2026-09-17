@@ -1,7 +1,7 @@
 /*
- * Care Kit responsive compositions.
- * Mobile keeps Claude Design's 360px flow. Desktop reflows the same content
- * into full-viewport, task-focused workspaces instead of a centered app shell.
+ * จัดหน้าให้เข้ากับขนาดจอ
+ * มือถือใช้แบบเดิมกว้าง 360px ส่วนจอใหญ่จัดเนื้อหาเดิมใหม่ให้เต็มจอ
+ * ไม่ใช่กล่องแคบๆ กลางจอ
  */
 
 .home-hero-visual,
@@ -58,7 +58,7 @@
             var(--bg-canvas);
     }
 
-    /* Home and dedicated kiosk */
+    /* หน้าแรกกับจอตู้ */
     .home-app {
         display: grid;
         width: 100%;
@@ -279,7 +279,7 @@
         width: min(100%, 400px);
     }
 
-    /* Wound picker */
+    /* หน้าเลือกประเภทแผล */
     body.picker-body {
         display: flex;
         justify-content: center;
@@ -448,7 +448,7 @@
         min-height: 64px;
     }
 
-    /* AI scanner */
+    /* หน้าสแกนแผลด้วย AI */
     body.scan-body {
         display: flex;
         justify-content: center;
@@ -673,7 +673,7 @@
         margin-top: 22px;
     }
 
-    /* Guide detail, unlock and step states */
+    /* หน้าขั้นตอนทำแผล ปุ่มปลดล็อก และสถานะแต่ละขั้น */
     body.guide-body {
         display: block;
     }
@@ -968,7 +968,7 @@
         background: #fff;
     }
 
-    /* About */
+    /* หน้าเกี่ยวกับโครงงาน */
     body.about-body {
         display: flex;
         justify-content: center;
@@ -1133,7 +1133,7 @@
         text-align: right;
     }
 
-    /* Student history */
+    /* หน้าประวัติของนักเรียน */
     body.history-body {
         display: block;
     }

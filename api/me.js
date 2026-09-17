@@ -7,7 +7,7 @@ export default async function handler(req, res) {
         const { token, role, db } = await authorize(req);
         const student = await db.doc(`students/${token.uid}`).get();
         const data = student.exists ? student.data() : {};
-        // Firestore reads cannot redact fields. Never spread the clinical document here.
+        // Firestore ตัดฟิลด์ออกตอนอ่านไม่ได้ ห้ามกระจายเอกสารประวัติสุขภาพทั้งก้อนออกไป
         return res.status(200).json({
             uid: token.uid, email: token.email, name: typeof token.name === 'string' ? token.name : '',
             role, profile: { active: typeof data.active === 'boolean' ? data.active : null }

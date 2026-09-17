@@ -1,4 +1,4 @@
-/* Load after kiosk.css. Only the student-card view owns these dimensions. */
+/* ต้องโหลดหลัง kiosk.css ขนาดพวกนี้ใช้เฉพาะหน้าสแกนบัตร */
 #view-card .camera-frame {
     flex: 0 0 auto;
     width: min(220px, 100%);

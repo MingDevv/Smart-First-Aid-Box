@@ -1,4 +1,4 @@
-// JS/WOUND-DATA.JS
+// ข้อมูลประเภทแผลและขั้นตอนทำแผล
 const WOUND_DATA = {
     "cut_abrasion": {
         "id": "cut_abrasion",

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { MicrobitSerial, ReadinessLatch } from '../edge/microbit-serial.mjs';
 import { LocalController } from '../edge/controller.mjs';
 
-// No tty: feed() takes the bytes the board would have sent, write() is captured.
+// ไม่ใช้พอร์ตจริง ป้อนไบต์ที่บอร์ดจะส่งเข้า feed() แล้วดักสิ่งที่เขียนออกไป
 function fake({ ackTimeoutMs = 30000 } = {}) {
     let clock = 1_000_000;
     const serial = new MicrobitSerial({ device: '/dev/fake', ackTimeoutMs, now: () => clock });
@@ -126,7 +126,7 @@ test('LocalController over serial: mode gate, journal, hold and confirmed ack al
     assert.equal(status.connected, true);
     assert.equal(status.ready, true);
     assert.equal(status.configured, true);
-    // Confirm asynchronously, the way the board would, after the frame went out.
+    // ตอบกลับทีหลังแบบที่บอร์ดจริงทำ คือหลังคำสั่งออกไปแล้ว
     const task = controller.command({ action: 'open', drawer: 1, id: 'c-ctrl-serial-0001' });
     await new Promise(r => setTimeout(r, 5));
     assert.deepEqual(sent, ['OPEN1:c-ctrl-serial-0001:1']);
@@ -135,11 +135,11 @@ test('LocalController over serial: mode gate, journal, hold and confirmed ack al
     assert.equal(result.status, 200);
     assert.equal(result.body.ack.event, 'drawer_opened');
     assert.equal(controller.history()[0].state, 'confirmed');
-    // Same id again: journal answers, no second frame.
+    // id เดิมอีกครั้ง สมุดคำสั่งตอบให้เอง ไม่ส่งคำสั่งซ้ำ
     const replay = await controller.command({ action: 'open', drawer: 1, id: 'c-ctrl-serial-0001' });
     assert.equal(replay.status, 200);
     assert.equal(sent.length, 1);
-    // Fresh id before the board proves a new epoch: refused before any frame.
+    // id ใหม่แต่บอร์ดยังไม่ยืนยันว่าพร้อมรอบใหม่ ต้องปฏิเสธก่อนส่งอะไรออกไป
     board('READY:1\n');
     const early = await controller.command({ action: 'open', drawer: 2, id: 'c-ctrl-serial-0002' });
     assert.equal(early.status, 503);

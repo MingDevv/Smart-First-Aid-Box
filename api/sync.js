@@ -15,7 +15,7 @@ export function createSyncHandler({ services = firebaseServices, env = process.e
             const students = await db.collection('students').limit(MAX_STUDENTS + 1).get();
             if (students.size > MAX_STUDENTS) throw new Error('roster_limit');
             const requests = cabinet.data()?.clearRequests;
-            // Read-only cache contract for WP4; no role, roster, allergy or photo data in WP2.
+            // อ่านอย่างเดียว ไม่มีข้อมูลสิทธิ์ ทะเบียนนักเรียน ประวัติแพ้ยา หรือรูปในนี้
             const clearing = Array.isArray(requests) ? requests.filter(item => EVENT_ID.test(item?.commandId) &&
                 typeof item.decisionId === 'string' && item.decisionId.length <= 80 &&
                 typeof item.checkedBy === 'string' && item.checkedBy.length <= 128 &&

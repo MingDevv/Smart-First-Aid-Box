@@ -956,7 +956,7 @@
         stopTickers();
         const dispensed = session.state.dispatch.state === 'confirmed';
 
-        // History was committed at physical command completion by the edge controller.
+        // ประวัติถูกบันทึกตอนคำสั่งจริงทำงานเสร็จแล้ว ไม่ได้บันทึกจากหน้าจอ
         // พาดหัวต้องพูดความจริงของรอบนั้น ไม่ใช่ข้อความชัยชนะแบบตายตัว
         // สามกรณีต่างกันจริงๆ: ตู้รับคำสั่งแล้ว · สั่งไปแล้วไม่รู้ผล · ไม่เคยสั่งเลย
         const neverSent = session.state.dispatch.state === 'idle';

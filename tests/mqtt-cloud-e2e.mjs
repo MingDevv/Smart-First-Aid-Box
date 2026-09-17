@@ -3,10 +3,10 @@ import { test } from 'node:test';
 import mqtt from 'mqtt';
 import { CloudBridge } from '../edge/mqtt-cloud.mjs';
 
-// End to end over a real broker: the UNCHANGED Vercel handler (api/command.js) on one side,
-// the Pi bridge on the other, a stub controller standing in for the micro:bit. Proves the
-// two speak the same protocol-2 dialect the ESP32 used. Needs a loopback broker, like
-// tests/mqtt-e2e.mjs:  mosquitto -p 18884   (never point this at the cabinet's real topic).
+// ทดสอบตลอดเส้นผ่าน broker จริง ฝั่งหนึ่งคือโค้ด Vercel ตัวจริง อีกฝั่งคือสะพานของ Pi
+// ใช้ตัวปลอมแทน micro:bit พิสูจน์ว่าสองฝั่งพูดภาษาเดียวกัน
+// ต้องมี broker ในเครื่องก่อน เช่น mosquitto -p 18884
+// ห้ามชี้ไปที่หัวข้อของตู้จริงเด็ดขาด
 const brokerUrl = process.env.SFAB_TEST_MQTT_URL || 'mqtt://127.0.0.1:18884';
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -48,7 +48,7 @@ async function fixture(t, { deviceMode = 'real', outcome } = {}) {
         await api.closeMqttClientForTests();
         await bridge.close();
     });
-    // Let the bridge connect and publish its first retained status before the cloud asks.
+    // รอให้สะพานต่อและประกาศสถานะแรกก่อน แล้วค่อยให้ฝั่งคลาวด์ถาม
     for (let i = 0; i < 40 && !bridge.client.connected; i++) await delay(50);
     await delay(300);
     const call = async (method, body) => {

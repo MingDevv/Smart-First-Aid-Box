@@ -1,6 +1,6 @@
-// JS/NOTIFICATION.JS
+// แจ้งเตือน ทั้ง toast บนหน้าจอ และการ์ด LINE ถึงครู
 const NotificationService = {
-    // Helper function to escape HTML special characters to prevent XSS
+    // แปลงอักขระพิเศษของ HTML กัน XSS
     escapeHtml(str) {
         if (typeof str !== 'string') return '';
         return str
@@ -11,7 +11,7 @@ const NotificationService = {
             .replace(/'/g, "&#039;");
     },
 
-    // Show a beautiful, floating toast notification
+    // แสดงข้อความแจ้งเตือนลอยขึ้นมา
     showToast(message, type = 'info') {
         const safeMessage = this.escapeHtml(String(message));
         let container = document.getElementById('toast-container');
@@ -47,7 +47,7 @@ const NotificationService = {
         toast.style.fontFamily = '"IBM Plex Sans Thai", sans-serif';
         toast.style.lineHeight = '1.45';
 
-        // Add CSS keyframes dynamically if not present
+        // ใส่ keyframes ให้ถ้ายังไม่มี
         if (!document.getElementById('toast-animation-style')) {
             const style = document.createElement('style');
             style.id = 'toast-animation-style';
@@ -75,7 +75,7 @@ const NotificationService = {
         toast.innerHTML = `<span class="material-symbols-rounded" aria-hidden="true" style="font-size:20px; flex:0 0 auto;">${theme.icon}</span><span>${safeMessage}</span>`;
         container.appendChild(toast);
 
-        // Auto remove toast
+        // ลบทิ้งเอง
         setTimeout(() => {
             toast.style.animation = 'fadeOutToast 0.3s ease-out forwards';
             setTimeout(() => {
@@ -84,7 +84,7 @@ const NotificationService = {
         }, 3000);
     },
 
-    // SOS is constrained on both transports; arbitrary browser messages are not sent.
+    // SOS ส่งได้แค่รูปแบบที่กำหนดไว้ ห้ามเบราว์เซอร์แต่งข้อความเข้ากลุ่มครูเอง
     async sendLineNotification({ symptom = null } = {}) {
         const local = window.SFAB_RUNTIME?.transport === 'pi-local';
         // อาการเป็นค่าจากปุ่มที่มีให้เลือกตายตัว ฝั่งเซิร์ฟเวอร์ตรวจซ้ำอีกชั้นด้วย enum
@@ -123,7 +123,7 @@ const NotificationService = {
         return { success: false, error: 'ยังยืนยันการส่ง LINE ไม่ได้ กรุณาเรียกครูใกล้ที่สุดทันที' };
     },
 
-    // LINE acceptance and a cabinet ACK are independent evidence; neither proves the other.
+    // LINE ถึงกับตู้ตอบรับ เป็นหลักฐานคนละชิ้น อย่างหนึ่งไม่ได้พิสูจน์อีกอย่าง
     async sendSos(payload, options = {}) {
         // ไม่เกตการเรียกครูด้วยการล็อกอิน เด็กที่เจ็บจนล็อกอินไม่ไหวต้องเรียกครูได้
         // ตัวตนเป็นของแถมที่ทำให้ข้อความมีชื่อ ฝั่งเซิร์ฟเวอร์รับทั้งแบบมีและไม่มี token
@@ -156,7 +156,7 @@ const NotificationService = {
         return { line, buzzer };
     },
 
-    // Builder: SOS Emergency Flex Message (Clean, High Contrast, Prominent Student Profile)
+    // สร้างการ์ด LINE สำหรับการเรียกครูฉุกเฉิน
     buildSosFlexMessage(studentName, timeStr) {
         const timeVal = timeStr || new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
         return {
@@ -188,7 +188,7 @@ const NotificationService = {
                     paddingAll: '18px',
                     spacing: 'md',
                     contents: [
-                        // Prominent Student Identification Card
+                        // ส่วนหัวบอกว่าใครเป็นคนเรียก
                         {
                             type: 'box',
                             layout: 'vertical',
@@ -245,7 +245,7 @@ const NotificationService = {
         };
     },
 
-    // Builder: First Aid Usage Flex Message (Clean, Clean Layout, Prominent Student Profile)
+    // สร้างการ์ด LINE สำหรับการเบิกเวชภัณฑ์
     buildFirstAidFlexMessage({ studentId, name, studentClass, woundNameTh, woundNameEn, items, method, timeStr }) {
         const timeVal = timeStr || new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
         const itemsStr = Array.isArray(items) ? items.join(', ') : (items || 'ชุดทำแผลเบื้องต้น');
@@ -282,7 +282,7 @@ const NotificationService = {
                     paddingAll: '18px',
                     spacing: 'md',
                     contents: [
-                        // Clear Student Profile Header Card
+                        // ส่วนหัวบอกว่าใครเป็นคนเบิก
                         {
                             type: 'box',
                             layout: 'vertical',
@@ -305,9 +305,9 @@ const NotificationService = {
                                 }
                             ]
                         },
-                        // Separator line
+                        // เส้นคั่น
                         { type: 'separator', margin: 'md', color: '#E2E8F0' },
-                        // Clean Medical Details Section
+                        // รายละเอียดเวชภัณฑ์
                         {
                             type: 'box',
                             layout: 'vertical',
@@ -358,7 +358,7 @@ const NotificationService = {
         };
     },
 
-    // Display a clean, highly readable LINE notification simulation overlay
+    // โหมดสาธิต แสดงหน้าตาการ์ด LINE บนจอ ไม่ได้ส่งจริง
     showLineMockModal(payload) {
         const modal = document.createElement('div');
         modal.style.position = 'fixed';
@@ -394,7 +394,7 @@ const NotificationService = {
 
         let innerContentHtml = '';
 
-        // Check if payload is LINE Flex Message format
+        // ดูว่าเป็นการ์ด Flex หรือข้อความธรรมดา
         if (typeof payload === 'object' && payload !== null && (payload.contents || payload.type === 'flex')) {
             const bubble = payload.contents?.type === 'bubble' ? payload.contents : payload;
             const header = bubble.header || {};
@@ -416,12 +416,12 @@ const NotificationService = {
                 }
             }
 
-            // Parse body contents with clean highlights
+            // อ่านเนื้อการ์ดออกมาแสดง
             let bodyContentBlocks = '';
             const bodyContents = bubble.body?.contents || [];
             bodyContents.forEach(item => {
                 if (item.type === 'box' && item.backgroundColor) {
-                    // Highlight Profile Box
+                    // กล่องชื่อคน
                     const texts = item.contents || [];
                     const tagLabel = this.escapeHtml(texts[0]?.text || '');
                     const nameText = this.escapeHtml(texts[1]?.text || '');
@@ -440,7 +440,7 @@ const NotificationService = {
                         </div>
                     `;
                 } else if (item.type === 'box' && item.layout === 'vertical' && item.contents) {
-                    // Key-Value rows group
+                    // แถวหัวข้อกับค่า
                     item.contents.forEach(row => {
                         if (row.type === 'box' && row.layout === 'baseline') {
                             const label = this.escapeHtml(row.contents[0]?.text || '');
@@ -460,7 +460,7 @@ const NotificationService = {
                 }
             });
 
-            // Action button
+            // ปุ่มกด
             const footerBtn = bubble.footer?.contents?.[0];
             const btnLabel = this.escapeHtml(footerBtn?.action?.label || 'ตรวจสอบข้อมูล');
             const btnBg = footerBtn?.color || headerBg;
@@ -481,7 +481,7 @@ const NotificationService = {
                 </div>
             `;
         } else {
-            // Text Message Fallback
+            // กรณีเป็นข้อความธรรมดา
             const safeMsg = this.escapeHtml(typeof payload === 'string' ? payload : JSON.stringify(payload));
             innerContentHtml = `
                 <div style="background:#06C755; padding:14px 16px; color:white; display:flex; align-items:center; gap:8px;">
@@ -503,7 +503,7 @@ const NotificationService = {
 
         document.body.appendChild(modal);
 
-        // Auto remove after 12 seconds
+        // ปิดเองใน 12 วินาที
         setTimeout(() => {
             if (modal.parentElement) {
                 modal.style.animation = 'slideOutRight 0.3s ease-in forwards';

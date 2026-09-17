@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
-// Execute the real page dispatch; rendering is exercised separately in Chromium.
+// รันฟังก์ชันจริงของหน้านั้น ส่วนการแสดงผลทดสอบแยกด้วย Chromium
 const html = await readFile(new URL('../student/first-aid-guide.html', import.meta.url), 'utf8');
 // ตัดเอาเฉพาะตัว startTreatment ออกมารัน — จบที่ประกาศ `let` ตัวถัดไป ไม่ผูกกับชื่อตัวแปร
 // ของเดิมผูกกับชื่อ `isDemoSession` พอมันถูกลบ indexOf คืน -1 แล้ว slice ลากไปถึง </script>

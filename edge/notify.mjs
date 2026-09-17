@@ -1,6 +1,6 @@
 import { EVENT_ID } from '../lib/cabinet-protocol.js';
 
-// Journal SOS immediately, independently of internet, identity, mode and buzzer ACK.
+// ลงสมุด SOS ทันที ไม่ต้องรอเน็ต ไม่ต้องรู้ว่าใครกด ไม่ต้องรอออดตอบ
 export function createLocalNotify(outbox) {
     return async (req, res) => {
         if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'POST required' });

@@ -11,7 +11,7 @@ function project(doc) {
         syncedAt: row.syncedAt, drawer: row.drawer ?? null, ack: row.ack ?? null,
         uncertain: row.uncertain === true, clockTrust: row.clockTrust, lineStatus: row.lineStatus,
         buzzerAck: row.buzzerAck ?? null };
-    // All staff share the same explicit history projection.
+    // ครูทุกคนเห็นประวัติชุดเดียวกัน และเลือกฟิลด์ที่ส่งออกไว้ชัดเจน
     Object.assign(result, { uid: row.uid ?? null, studentId: row.studentId ?? null, woundType: row.woundType ?? null,
         verifiedBy: row.verifiedBy ?? null, itemsUsed: row.itemsUsed || [] });
     return result;

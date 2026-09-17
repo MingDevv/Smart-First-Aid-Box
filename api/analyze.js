@@ -1,4 +1,4 @@
-// API/ANALYZE.JS — Vercel Serverless Function for Secure Gemini Vision Analysis
+// วิเคราะห์รูปบาดแผลด้วย Gemini ผ่านเซิร์ฟเวอร์ ไม่ให้คีย์หลุดไปอยู่ในเบราว์เซอร์
 export const config = {
     api: {
         bodyParser: {
@@ -7,7 +7,7 @@ export const config = {
     }
 };
 
-// In-memory rate limiting map (10 requests per minute per IP)
+// เพดานเรียกต่อ IP เก็บในหน่วยความจำ 10 ครั้งต่อนาที
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 10;
@@ -25,14 +25,13 @@ function checkRateLimit(ip) {
     return windowData.count > MAX_REQUESTS_PER_WINDOW;
 }
 
-// Safe user-facing error message (never expose internals)
-// Exported because edge/server.mjs forwards the cabinet's /api/analyze here and must fail with the
-// SAME sentence: js/kiosk-app.js routes the student to manual wound selection on any analyze error,
-// and two different wordings for one situation read like two different faults.
+// ข้อความบอกผู้ใช้ ห้ามหลุดรายละเอียดข้างในออกไป
+// ต้อง export เพราะฝั่งตู้ส่งต่อมาที่นี่และต้องขึ้นข้อความเดียวกันเป๊ะ
+// เวลาวิเคราะห์ไม่สำเร็จ จอจะพาเด็กไปเลือกแผลเอง ถ้าข้อความต่างกันคนอ่านจะนึกว่าพังคนละเรื่อง
 export const USER_ERROR_MSG = 'ขณะนี้ระบบ AI วิเคราะห์แผลขัดข้องชั่วคราว กรุณาลองใหม่อีกครั้ง หรือเลือกประเภทแผลด้วยตนเองด้านล่าง';
 
 export default async function handler(req, res) {
-    // Set CORS headers safely
+    // ตั้งค่า CORS
     const origin = req.headers.origin || '*';
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -46,7 +45,7 @@ export default async function handler(req, res) {
         return res.status(405).json({ success: false, error: 'Method Not Allowed' });
     }
 
-    // Rate Limiting check
+    // เช็คเพดานการเรียก
     const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown-ip';
     if (checkRateLimit(clientIp)) {
         console.warn(`[Vercel Analyze] Rate limit exceeded for IP: ${clientIp}`);
@@ -103,9 +102,9 @@ export default async function handler(req, res) {
 ตอบเป็น JSON เท่านั้นในรูปแบบนี้ (ห้ามใส่ markdown code block):
 {"woundId": "cut_abrasion|insect|unknown", "confidence": 0-100, "description": "คำอธิบายลักษณะแผลสั้นๆ", "reasoning": "เหตุผลที่เลือก"}`;
 
-        // Build a simple, compatible payload (no responseSchema for max compatibility)
-        // NOTE: Gemini 3.x are "thinking models" — internal reasoning tokens consume maxOutputTokens
-        // Must set high enough to accommodate thinking + actual JSON output
+        // ส่ง payload แบบเรียบง่ายเพื่อให้เข้ากับได้หลายรุ่น
+        // Gemini รุ่นใหม่คิดในใจก่อนตอบ และโทเคนที่ใช้คิดกินโควตา maxOutputTokens ด้วย
+        // ต้องตั้งให้สูงพอสำหรับทั้งการคิดและคำตอบจริง
         const payload = {
             contents: [
                 {
@@ -128,7 +127,7 @@ export default async function handler(req, res) {
             }
         };
 
-        // Candidate models — Aug 2026 (Gemini 1.x/2.x fully retired)
+        // รุ่นที่เลือกใช้ได้ ไล่จากบนลงล่าง
         const candidateModels = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'];
         let responseData = null;
         let lastErrorMessage = '';
@@ -170,20 +169,20 @@ export default async function handler(req, res) {
             return res.status(502).json({ success: false, error: USER_ERROR_MSG });
         }
 
-        // Extract text response from Gemini
-        // Gemini 3.x "thinking models" may return multiple parts: thought parts + text part
-        // We need to find the actual text part (not the thought/thinking part)
+        // ดึงข้อความคำตอบออกมา
+        // รุ่นที่คิดในใจจะคืนมาหลายส่วน มีทั้งส่วนที่เป็นความคิดและส่วนที่เป็นคำตอบ
+        // ต้องหาส่วนที่เป็นคำตอบจริง ไม่ใช่ส่วนความคิด
         const parts = responseData.candidates?.[0]?.content?.parts || [];
         let textResponse = null;
         
-        // First try to find a part with 'text' but no 'thought' flag
+        // หาส่วนที่มี text แต่ไม่ได้ติดธง thought ก่อน
         for (const part of parts) {
             if (part.text && !part.thought) {
                 textResponse = part.text;
                 break;
             }
         }
-        // Fallback: just get any text from any part
+        // ถ้าไม่เจอ ก็เอา text จากส่วนไหนก็ได้
         if (!textResponse) {
             for (const part of parts) {
                 if (part.text) {
@@ -200,10 +199,10 @@ export default async function handler(req, res) {
             return res.status(502).json({ success: false, error: USER_ERROR_MSG });
         }
 
-        // Robust JSON parsing — handle markdown code fences and extra text
+        // อ่าน JSON แบบเผื่อใจ บางทีโมเดลใส่ code fence หรือข้อความอื่นมาด้วย
         let parsedResult;
         try {
-            // Strip markdown code fences if present: ```json ... ``` or ``` ... ```
+            // ตัด code fence ออกถ้ามี
             let cleanText = textResponse.trim();
             const jsonMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)```/);
             if (jsonMatch) {
@@ -213,7 +212,7 @@ export default async function handler(req, res) {
         } catch (parseErr) {
             console.error('[Vercel] JSON parse failed. Raw text:', textResponse.substring(0, 300));
             console.error('[Vercel] Parse error:', parseErr.message);
-            // Try to extract JSON object from text with regex as last resort
+            // ทางสุดท้าย งัด JSON ออกมาจากข้อความด้วย regex
             const jsonObjMatch = textResponse.match(/\{[\s\S]*?"woundId"[\s\S]*?\}/);
             if (jsonObjMatch) {
                 try {
@@ -227,7 +226,7 @@ export default async function handler(req, res) {
             }
         }
 
-        // Validate and sanitize the parsed result
+        // ตรวจและล้างค่าที่อ่านได้ก่อนใช้
         const validWoundIds = ['cut_abrasion', 'insect', 'unknown'];
         const woundId = validWoundIds.includes(parsedResult.woundId) ? parsedResult.woundId : 'unknown';
         const confidence = (typeof parsedResult.confidence === 'number' && parsedResult.confidence >= 0 && parsedResult.confidence <= 100)

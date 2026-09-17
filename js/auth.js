@@ -1,4 +1,4 @@
-// Firebase owns session persistence; application identity and roles stay in memory.
+// Firebase เป็นคนจำว่าใครล็อกอินอยู่ ส่วนสิทธิ์ของแอปเก็บไว้ในหน่วยความจำ
 (() => {
     const staff = ['teacher', 'admin'];   // ต้องตรงกับ STAFF_ROLES ใน lib/auth.js และ staff() ใน firestore.rules
     let sdk, auth, revision = 0;

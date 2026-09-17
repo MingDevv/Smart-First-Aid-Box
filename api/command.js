@@ -3,9 +3,9 @@
 // ทำไมต้องผ่านเซิร์ฟเวอร์แทนที่จะให้เบราว์เซอร์ publish เอง:
 //   JavaScript ในเบราว์เซอร์เปิดอ่านได้หมด ใครกด View Source ก็เห็นรหัส broker
 //   แล้วสั่งเปิดตู้ยาได้จากที่ไหนก็ได้ รหัสที่ publish ได้จึงต้องอยู่ใน env ของ Vercel
-//   Server-only credentials; browser requests use Firebase ID tokens.
-// Cloud status and open commands require a verified school account. Ringing the SOS buzzer needs no
-// account at all; silencing it is staff-only.
+//   รหัส broker อยู่ฝั่งเซิร์ฟเวอร์เท่านั้น เบราว์เซอร์ส่ง token ของ Firebase มาแทน
+// ดูสถานะกับสั่งเปิดลิ้นชัก ต้องล็อกอินด้วยบัญชีโรงเรียน
+// ส่วนสั่งออดเรียกครู ไม่ต้องมีบัญชีเลย แต่การสั่งหยุดเสียงเป็นของครูเท่านั้น
 import mqtt from 'mqtt';
 import { authorize, accessFailure, apiHeaders, AccessError, STAFF_ROLES } from '../lib/auth.js';
 
@@ -19,8 +19,7 @@ const MAX_REQUESTS_PER_IP = 30;
 // เพดานรวมทุก IP กันกรณีมีคนยิงจากหลายที่พร้อมกัน เซอร์โวจะได้ไม่ถูกสั่งรัว
 const MAX_REQUESTS_GLOBAL = 30;
 
-// Firmware advertises its measured motor budget. Include connect/status overhead
-// in the browser deadline; Vercel allows 180 seconds for this handler.
+// บอร์ดบอกเวลาที่มอเตอร์ต้องใช้มาเอง เวลาที่เบราว์เซอร์รอต้องเผื่อเวลาต่อและอ่านสถานะด้วย
 const MQTT_CONNECT_TIMEOUT_MS = 4500;
 const MQTT_PUBLISH_TIMEOUT_MS = 2500;
 const MQTT_STATUS_TIMEOUT_MS = 2000;
@@ -218,7 +217,7 @@ async function getClient(baseTopic) {
             try {
                 const data = JSON.parse(payload.toString());
                 if (topic === `${baseTopic}/status`) state.hardware = data;
-                // A retained result from an earlier connection is never completion evidence.
+                // ผลที่ค้างอยู่จากการต่อครั้งก่อน ใช้เป็นหลักฐานว่าคำสั่งนี้สำเร็จไม่ได้
                 if (topic === `${baseTopic}/evt` && !packet.retain) settleDrawerAck(data);
             } catch {
                 console.warn('[MQTT] ignored non-JSON event');
@@ -435,7 +434,7 @@ return async function handler(req, res) {
             return res.status(503).json({ success: false, mqttConfigured: true, commandId, retrySafe: true,
                 error: 'ยังไม่ได้ส่งคำสั่ง ตู้ยังไม่พร้อมหรือข้อมูลเวลารอเปลี่ยน กรุณาตรวจสถานะแล้วลองใหม่' });
         }
-        // Reserve the waiter before publishing: a fast board may ACK before broker PUBACK.
+        // จองที่รอคำตอบก่อนส่ง เพราะบอร์ดอาจตอบกลับมาเร็วกว่าที่ broker ยืนยันว่าส่งแล้ว
         ackWaiter = createDrawerAckWaiter(payload, hardware.ackTimeoutMs + 3000);
         payload.ts = Date.now();
         published = true;
