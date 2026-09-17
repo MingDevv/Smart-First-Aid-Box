@@ -28,13 +28,14 @@ ID_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-'
 # ตัวจับเวลาอยู่ที่บอร์ด ไม่ใช่ที่ Pi — Pi ดับกลางคันออดต้องยังดับเอง (README)
 BUZZ_MAX_MS = 5000
 
-# วิทยุ — ต้องตรงกับ remote.py · group กันคลื่นชนกัน, prefix กัน micro:bit ทีมอื่นในงานแข่ง
-# ที่บังเอิญตั้ง group ตรงกัน ไม่ให้สั่งออดของเราดังได้
+# Radio — every value here must match remote.py. The prefix, not the group, is what stops
+# another team's micro:bit from sounding our alarm (README).
 RADIO_GROUP = 91
 RADIO_PREFIX = 'SFAB1:SOS:'
+SOS_ACK = 'SFAB1:OK'
 BUZZ_ON = 'SFAB1:B1'
 BUZZ_OFF = 'SFAB1:B0'
-# beacon = "ยังร้องอยู่" ไม่ใช่ "สั่งเปิด" ⇒ รีโมตดับเองถ้าขาดการติดต่อ ไม่ค้างร้าง
+# A beacon says "still ringing", not "switch on", so the remote self-silences (README).
 BEACON_MS = 400
 
 # drawer -> coil phase map (IN1, IN3, IN2, IN4); motor_run traverses it in reverse.
@@ -72,7 +73,7 @@ def stop_buzzer():
 
 
 def check_radio():
-    # ปุ่มยิงซ้ำหลายครั้งกันแพ็กเก็ตหาย ⇒ กันซ้ำด้วย seq ไม่งั้นออดจะถูกสั่งเริ่มใหม่รัวๆ
+    # The button sends a burst; dedupe on seq or the alarm restarts on every copy.
     global last_sos_seq
     message = radio.receive()
     if message is None or not message.startswith(RADIO_PREFIX):
@@ -81,6 +82,7 @@ def check_radio():
     if seq == last_sos_seq:
         return
     last_sos_seq = seq
+    radio.send(SOS_ACK)         # ตอบก่อนทำอย่างอื่น รีโมตจะได้รู้ผลเร็วที่สุด
     start_buzzer()
     display.show(Image.SKULL)
     # id ต้องผ่าน ID regex ฝั่ง Pi (8-64 ตัว) และห้ามซ้ำข้ามการรีบูต จึงพ่วง running_time
@@ -203,7 +205,9 @@ def check_serial_commands():
 
 
 uart.init(baudrate=115200)      # USB CDC; nothing is redirected to edge pins any more
-radio.config(group=RADIO_GROUP, length=16, queue=2)
+# power=7 (+4 dBm, max) pushes harder; 250 kbit makes the receiver more sensitive. Two
+# different levers, both needed through a concrete floor (README).
+radio.config(group=RADIO_GROUP, length=16, queue=2, power=7, data_rate=radio.RATE_250KBIT)
 radio.on()
 coils_off()
 music.stop(pin16)

@@ -40,7 +40,7 @@ def load(*, busy=False, epoch=7, radio_inbox=None):
         sleep=lambda _: None,
         pin16=Pin('p16', events),
         RADIO_GROUP=91, RADIO_PREFIX='SFAB1:SOS:', last_sos_seq='',
-        BUZZ_ON='SFAB1:B1', BUZZ_OFF='SFAB1:B0', BEACON_MS=400, last_beacon=0,
+        SOS_ACK='SFAB1:OK', BUZZ_ON='SFAB1:B1', BUZZ_OFF='SFAB1:B0', BEACON_MS=400, last_beacon=0,
         DISPENSE_STEPS=200, STEP_MS=5, HEARTBEAT_MS=500, BUZZ_MAX_MS=5000, buzz_until=0,
         ID_CHARS='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-',
         MOTORS={1: [pins['p12'], pins['p14'], pins['p13'], pins['p15']],
@@ -140,22 +140,22 @@ class ProtocolTests(unittest.TestCase):
         ns, events, _ = load(radio_inbox=press)
         for _ in press:
             ns['check_radio']()
-        self.assertEqual(len(events), 2, 'การกดหนึ่งครั้ง = ออดครั้งเดียว รายงานครั้งเดียว')
-        self.assertEqual(events[0], 'sound-on')
-        self.assertTrue(events[1].startswith('REMOTE_SOS:rsos-7-'))
+        self.assertEqual(len(events), 3, 'การกดหนึ่งครั้ง = ตอบรับครั้งเดียว ออดครั้งเดียว รายงานครั้งเดียว')
+        self.assertEqual(events[:2], ['radio:SFAB1:OK', 'sound-on'], 'ต้องตอบรีโมตก่อนเริ่มออด')
+        self.assertTrue(events[2].startswith('REMOTE_SOS:rsos-7-'))
         self.assertEqual(ns['buzz_until'], 1000 + 5000, 'ออดต้องมีเวลาดับของตัวเอง')
 
     def test_radio_ignores_other_teams_and_a_new_press_sounds_again(self):
         ns, events, _ = load(radio_inbox=['HELLO', 'SFAB1:PING:1', 'SFAB1:SOS:8'])
         for _ in range(3):
             ns['check_radio']()
-        self.assertEqual(len(events), 2, 'เฉพาะ frame ที่ขึ้นต้นด้วย RADIO_PREFIX เท่านั้นที่สั่งออดได้')
-        self.assertTrue(events[1].startswith('REMOTE_SOS:rsos-8-'))
+        self.assertEqual(len(events), 3, 'เฉพาะ frame ที่ขึ้นต้นด้วย RADIO_PREFIX เท่านั้นที่สั่งออดได้')
+        self.assertTrue(events[2].startswith('REMOTE_SOS:rsos-8-'))
 
     def test_radio_sos_id_passes_the_pi_side_id_rule(self):
         ns, events, _ = load(radio_inbox=['SFAB1:SOS:1'])
         ns['check_radio']()
-        sent_id = events[1].split(':', 1)[1]
+        sent_id = events[2].split(':', 1)[1]
         self.assertTrue(ns['valid_id'](sent_id), 'Pi ทิ้ง frame ที่ id ไม่ผ่าน 8-64 ตัวอักษรเงียบๆ')
 
     def test_refusal_preserves_exact_id(self):
@@ -232,7 +232,8 @@ def load_remote(*, radio_inbox=None):
         pin3=Pin('p3', events),
         running_time=lambda: 1000,
         sleep=lambda _: None,
-        SOS_PREFIX='SFAB1:SOS:', BUZZ_ON='SFAB1:B1', BUZZ_OFF='SFAB1:B0',
+        SOS_PREFIX='SFAB1:SOS:', SOS_ACK='SFAB1:OK', BUZZ_ON='SFAB1:B1', BUZZ_OFF='SFAB1:B0',
+        ACK_WAIT_MS=1200, print=lambda *a: None,
         BURST=5, BURST_GAP_MS=60, HOLD_MS=1500, COOLDOWN_MS=10000,
         seq=0, last_sent=-10000, buzzing=False, last_beacon=0,
     )
@@ -270,6 +271,29 @@ class RemoteTests(unittest.TestCase):
 
     def test_remote_press_sends_a_burst_the_cabinet_can_dedupe(self):
         ns, events = load_remote()
+        now = [1000]
+        ns['running_time'] = lambda: now[0]
+        ns['sleep'] = lambda ms: now.__setitem__(0, now[0] + ms)
         ns['send_sos']()
         sent = [e for e in events if isinstance(e, str) and e.startswith('radio:')]
         self.assertEqual(sent, ['radio:SFAB1:SOS:1'] * 5, 'ยิงซ้ำ 5 ครั้ง seq เดียวกัน')
+
+    # เสียงตอบกลับคือเครื่องมือวัดระยะในมือ Bank ⇒ สองกรณีต้องแยกออกจากกันชัดเจน
+    def test_remote_reports_whether_the_cabinet_answered(self):
+        for inbox, tail in ((['SFAB1:OK'], 'ตู้ได้ยิน'), ([], 'ไม่มีใครตอบ')):
+            ns, events = load_remote(radio_inbox=inbox)
+            now = [1000]
+            ns['running_time'] = lambda: now[0]
+            ns['sleep'] = lambda ms: now.__setitem__(0, now[0] + ms)
+            ns['send_sos']()
+            beeps = [e for e in events if isinstance(e, str) and e == 'sound-on']
+            self.assertEqual(len(beeps), 2 if inbox else 1, tail)
+
+    def test_remote_gives_up_waiting_instead_of_hanging_forever(self):
+        ns, events = load_remote()
+        now = [1000]
+        ns['running_time'] = lambda: now[0]
+        ns['sleep'] = lambda ms: now.__setitem__(0, now[0] + ms)
+        ns['send_sos']()
+        elapsed = now[0] - 1000
+        self.assertLess(elapsed, ns['ACK_WAIT_MS'] + 2000, 'ต้องไม่ค้างรอ ACK ตลอดกาล')
