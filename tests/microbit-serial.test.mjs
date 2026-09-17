@@ -161,3 +161,24 @@ test('ReadinessLatch mirrors the ESP32 header rules', () => {
     assert.equal(l.needsResync(), false);
     assert.equal(l.canOpen(1400), true);
 });
+
+test('REMOTE_SOS fires the handler once per id and never disturbs the latch', () => {
+    const { serial, board } = fake();
+    const fired = [];
+    serial.onRemoteSos = id => fired.push(id);
+    board('READY:4\n');
+    board('REMOTE_SOS:rsos-7-123456\n');
+    board('REMOTE_SOS:rsos-7-123456\n');   // บอร์ดยิงซ้ำได้ ครูต้องไม่ได้ LINE สองใบ
+    assert.deepEqual(fired, ['rsos-7-123456']);
+    assert.equal(serial.status().data.ready, true, 'ปุ่มฉุกเฉินต้องไม่ทำให้ตู้ดูเหมือนไม่พร้อมจ่ายยา');
+    board('REMOTE_SOS:rsos-8-123999\n');
+    assert.deepEqual(fired, ['rsos-7-123456', 'rsos-8-123999']);
+});
+
+test('a throwing REMOTE_SOS handler does not kill the serial reader', () => {
+    const { serial, board } = fake();
+    serial.onRemoteSos = () => { throw new Error('journal down'); };
+    board('REMOTE_SOS:rsos-1-100000\n');
+    board('READY:9\n');
+    assert.equal(serial.status().data.ready, true, 'frame ถัดไปต้องยังถูกอ่านต่อ');
+});

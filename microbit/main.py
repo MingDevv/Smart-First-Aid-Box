@@ -1,16 +1,11 @@
 # SFAB cabinet firmware — micro:bit V1.5, MicroPython v1.1.1, USB serial to the Raspberry Pi.
+# Rationale and history: microbit/README.md. Script must stay under 8188 bytes (V1 limit).
 #
-# Replaces the MakeCode program (last MakeCode revision: git 2a1de19; that build is preserved
-# as a raw dump, harness-audits/sfab-nema-v1-20260912/live-20260912-*.bin).
-# Why the rewrite: the ESP32 is gone, the Pi drives the board over USB, and MicroPython is what
-# we can build, flash and verify from the Pi end to end.
-#
-# Frame contract is UNCHANGED from the MakeCode/ESP32 era, so edge/controller.mjs keeps its
-# journal, hold and ACK semantics; only the transport moved from ESP32-HTTP to Pi-USB-serial.
 #   board -> Pi : READY:<epoch> | BUSY            every 500 ms, unsolicited
-#                 DONE<drawer>:<id>               after the motor finished, remote commands only
+#                 DONE<drawer>:<id>               after the motor finished
 #                 REJECT:<id>                     busy, or the epoch in the frame is stale
 #                 BUZZ_DONE1:<id> | BUZZ_DONE0:<id>
+#                 REMOTE_SOS:<id>                 radio button pressed, not a reply to the Pi
 #   Pi -> board : OPEN1:<id>:<epoch> | OPEN2:<id>:<epoch> | BUZZ1:<id> | BUZZ0:<id>
 #
 # Hardware, measured on the cabinet (wiki smart-first-aid-box §7):
@@ -19,25 +14,28 @@
 #   drawer 2 (insect)       = top motor    P0  P1  P2  P8,  rotating order P0  P8  P1  P2
 #   buzzer on P16 — `music` defaults to P0, which is now a motor coil; P16 is the last free pin.
 #     P5/P11 are wired to buttons A/B in hardware and can never drive it (silent ACK trap).
-#     The board stops the buzzer itself after BUZZ_MAX_MS; BUZZ0 still stops it at once.
-# Physical buttons no longer dispense: an ungated button bypasses every safety in the Pi, so the
-# board must not start a dispense on its own.
+# Physical buttons never dispense: an ungated button bypasses every safety in the Pi.
 from microbit import uart, display, sleep, running_time, Image, pin16
 from microbit import pin0, pin1, pin2, pin8, pin12, pin13, pin14, pin15
 import music
+import radio
 
 DISPENSE_STEPS = 200
 STEP_MS = 5
 HEARTBEAT_MS = 500
 ID_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-'
 
-# ออดดับตัวเองหลังเท่านี้ ไม่ต้องรอใครสั่ง
-#
-# ของเดิม BUZZ1 เล่น music.pitch(..., -1) = ดังไปเรื่อยๆ และปุ่มปิดมีที่เดียวคือหน้าครูบน Vercel
-# ซึ่งต้องล็อกอิน ⇒ ถ้าไม่มีใครล็อกอินได้ ก็ไม่มีใครที่ตู้ปิดออดได้เลย ต้องยิงคำสั่งจากนอกให้
-# ตัวจับเวลาอยู่ที่บอร์ด ไม่ใช่ที่ Pi เพราะถ้า Pi ดับหรือ service ตายกลางคัน ออดต้องยังดับเอง
-# BUZZ0 ยังหยุดได้ทันทีเหมือนเดิม และ BUZZ1 ใหม่เริ่มนับใหม่
+# ตัวจับเวลาอยู่ที่บอร์ด ไม่ใช่ที่ Pi — Pi ดับกลางคันออดต้องยังดับเอง (README)
 BUZZ_MAX_MS = 5000
+
+# วิทยุ — ต้องตรงกับ remote.py · group กันคลื่นชนกัน, prefix กัน micro:bit ทีมอื่นในงานแข่ง
+# ที่บังเอิญตั้ง group ตรงกัน ไม่ให้สั่งออดของเราดังได้
+RADIO_GROUP = 91
+RADIO_PREFIX = 'SFAB1:SOS:'
+BUZZ_ON = 'SFAB1:B1'
+BUZZ_OFF = 'SFAB1:B0'
+# beacon = "ยังร้องอยู่" ไม่ใช่ "สั่งเปิด" ⇒ รีโมตดับเองถ้าขาดการติดต่อ ไม่ค้างร้าง
+BEACON_MS = 400
 
 # drawer -> coil phase map (IN1, IN3, IN2, IN4); motor_run traverses it in reverse.
 MOTORS = {1: [pin12, pin14, pin13, pin15], 2: [pin0, pin2, pin1, pin8]}
@@ -46,6 +44,8 @@ busy = False
 ready_epoch = 1
 last_heartbeat = 0
 buzz_until = 0
+last_beacon = 0
+last_sos_seq = ''
 line = b''
 overflow = False
 
@@ -56,12 +56,48 @@ def coils_off():
             p.write_digital(0)
 
 
-def service_buzzer():
-    # เรียกจากลูปหลัก และจากในลูปมอเตอร์ด้วย ไม่งั้นระหว่างจ่ายยา 1 วินาทีจะไม่มีใครมาดับให้
+def start_buzzer():
+    global buzz_until, last_beacon
+    music.pitch(880, -1, pin=pin16, wait=False)
+    buzz_until = running_time() + BUZZ_MAX_MS
+    last_beacon = 0             # ให้ beacon ตัวแรกออกทันที รีโมตจะได้ดังพร้อมกัน
+
+
+def stop_buzzer():
     global buzz_until
-    if buzz_until and running_time() >= buzz_until:
-        buzz_until = 0
-        music.stop(pin16)
+    buzz_until = 0
+    music.stop(pin16)
+    for _ in range(3):          # แพ็กเก็ตปิดหายได้ ยิงซ้ำ (รีโมตมี HOLD_MS กันค้างอีกชั้น)
+        radio.send(BUZZ_OFF)
+
+
+def check_radio():
+    # ปุ่มยิงซ้ำหลายครั้งกันแพ็กเก็ตหาย ⇒ กันซ้ำด้วย seq ไม่งั้นออดจะถูกสั่งเริ่มใหม่รัวๆ
+    global last_sos_seq
+    message = radio.receive()
+    if message is None or not message.startswith(RADIO_PREFIX):
+        return
+    seq = message[len(RADIO_PREFIX):]
+    if seq == last_sos_seq:
+        return
+    last_sos_seq = seq
+    start_buzzer()
+    display.show(Image.SKULL)
+    # id ต้องผ่าน ID regex ฝั่ง Pi (8-64 ตัว) และห้ามซ้ำข้ามการรีบูต จึงพ่วง running_time
+    uart.write('REMOTE_SOS:rsos-' + seq + '-' + str(running_time()) + '\n')
+
+
+def service_buzzer():
+    # Called from the main loop AND the motor loop: a dispense must not hold the buzzer on.
+    global last_beacon
+    if not buzz_until:
+        return
+    now = running_time()
+    if now >= buzz_until:
+        stop_buzzer()
+    elif now - last_beacon >= BEACON_MS:
+        last_beacon = now
+        radio.send(BUZZ_ON)
 
 
 def report_hardware_state():
@@ -128,15 +164,11 @@ def handle_serial_frame(frame):
     if not valid_id(command_id):
         return
     if len(parts) == 2 and parts[0] in ('BUZZ1', 'BUZZ0'):
-        global buzz_until
         if parts[0] == 'BUZZ1':
-            music.pitch(880, -1, pin=pin16, wait=False)
-            buzz_until = running_time() + BUZZ_MAX_MS
+            start_buzzer()
         else:
-            buzz_until = 0
-            music.stop(pin16)
-        # ACK ทันทีเหมือนเดิม = "รับคำสั่งแล้ว" ไม่ใช่ "เสียงจบแล้ว" · การดับเองตอนครบเวลา
-        # ไม่ส่งอะไรกลับ เพราะมันไม่มี command id และฝั่ง Pi ไม่ได้เก็บสถานะออดไว้เทียบอยู่แล้ว
+            stop_buzzer()
+        # ACK means "command received", never "sound finished" (README).
         uart.write('BUZZ_DONE' + parts[0][4] + ':' + command_id + '\n')
         return
     if len(parts) != 3 or parts[0] not in ('OPEN1', 'OPEN2'):
@@ -171,11 +203,14 @@ def check_serial_commands():
 
 
 uart.init(baudrate=115200)      # USB CDC; nothing is redirected to edge pins any more
+radio.config(group=RADIO_GROUP, length=16, queue=2)
+radio.on()
 coils_off()
 music.stop(pin16)
 display.show(Image.YES)
 while True:
     check_serial_commands()
+    check_radio()
     report_hardware_state()
     service_buzzer()
     sleep(10)
