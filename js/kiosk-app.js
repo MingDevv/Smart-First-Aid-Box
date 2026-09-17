@@ -139,7 +139,7 @@
     // js/storage.js ประกาศ `const StorageService` ไว้เฉยๆ ไม่ได้แขวนไว้บน window
     // (ต่างจาก notification.js และ api-bridge.js ที่แขวนไว้) สคริปต์ธรรมดาด้วยกัน
     // เรียกด้วยชื่อเปล่าได้ แต่ `window.StorageService` เป็น undefined เสมอ
-    // — ยืนยันด้วย Chromium จริงบนหน้า /kiosk, /student/kiosk และ /student/first-aid-guide
+    // — ยืนยันด้วย Chromium จริงบนหน้า /kiosk และ /student/first-aid-guide
     // อย่าเช็คผ่าน window ที่นี่ ไม่งั้นโค้ดจะข้ามไปเงียบๆ ทุกครั้ง
     function storage() {
         return typeof StorageService !== 'undefined' ? StorageService : null;

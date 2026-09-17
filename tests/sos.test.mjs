@@ -99,7 +99,7 @@ test('LINE failures and stalled JSON bodies remain bounded, unsuccessful and uns
 
 test('all four real SOS buttons distinguish total failure, partial success and Demo', async () => {
     for (const [file, name] of [['index.html', 'triggerHomeSos'], ['student/index.html', 'triggerSOS'],
-        ['student/kiosk.html', 'triggerKioskSos'], ['student/wound-select.html', 'triggerSelectSos']]) {
+        ['student/wound-select.html', 'triggerSelectSos']]) {
         const html = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
         const dispatch = html.slice(html.indexOf(`        async function ${name}()`), html.indexOf('    </script>', html.indexOf(`        async function ${name}()`)));
         for (const [line, sound, expected] of [[false, false, 'danger'], [false, true, 'warning'], [true, false, 'warning'], [true, true, 'success']]) {
@@ -217,7 +217,7 @@ test('shared cloud SOS delivers for anonymous callers too, and never blocks on i
 
 test('all four cloud SOS callers deliver without demanding a sign-in first', async () => {
     for (const [file,name] of [['index.html','triggerHomeSos'],['student/index.html','triggerSOS'],
-        ['student/kiosk.html','triggerKioskSos'],['student/wound-select.html','triggerSelectSos']]) {
+        ['student/wound-select.html','triggerSelectSos']]) {
         const html=await read(file);
         const start=html.indexOf(`        async function ${name}()`);
         assert.notEqual(start,-1);

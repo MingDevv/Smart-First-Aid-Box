@@ -78,7 +78,7 @@ assert.doesNotMatch(
     'Landing page must not execute the removed statistics UI'
 );
 // หน้าแรกต้องไม่มีลิงก์ที่ซ่อนไว้จนกดไม่ได้ — ลิงก์ที่เขียน `style="display:none;"` หรือ
-// `aria-hidden="true"` ทำให้เกตที่ตรวจแค่ว่า "มีลิงก์ไป student/kiosk ไหม" เขียวได้
+// `aria-hidden="true"` ทำให้เกตที่ตรวจแค่ว่า "มีลิงก์ไหม" เขียวได้
 // โดยที่ไม่มีผู้ใช้คนไหนเห็นหรือกดมันได้เลย ⇒ ต้องตรวจว่าลิงก์เข้าถึงได้จริง
 assert.doesNotMatch(
     landingHtml,
@@ -114,7 +114,6 @@ assert.match(
 );
 for (const relativePath of [
     'student/index.html',
-    'student/kiosk.html',
     'student/wound-select.html',
     'student/wound-scan.html',
     'student/first-aid-guide.html',
@@ -164,23 +163,7 @@ for (const selector of [
     );
 }
 
-const kioskHtml = await readFile(path.join(rootDir, 'student', 'kiosk.html'), 'utf8');
-assert.match(
-    kioskHtml,
-    /id=["']kiosk-mode-badge["'][^>]*role=["']status["']/i,
-    'Kiosk must expose live, simulation, or offline state through an accessible status badge'
-);
-assert.match(
-    kioskHtml,
-    /ApiBridge\.getHardwareStatus\(\)/,
-    'Kiosk status badge must come from the hardware connection state'
-);
-// เรื่องการส่ง SOS จริงกับโหมดสาธิต อยู่ใน sos.test.mjs
-assert.doesNotMatch(
-    kioskHtml,
-    /background:\s*#0F172A/i,
-    'Kiosk must not regress to the discarded dark redesign'
-);
+// หน้าจอตู้ของจริงคือ kiosk/index.html ตรวจอยู่ในบล็อกข้างล่าง
 
 const scannerHtml = await readFile(path.join(rootDir, 'student', 'wound-scan.html'), 'utf8');
 assert.match(

@@ -49,10 +49,6 @@
       "destination": "/dashboard/statistics.html"
     },
     {
-      "source": "/student/kiosk",
-      "destination": "/student/kiosk.html"
-    },
-    {
       "source": "/student/wound-select",
       "destination": "/student/wound-select.html"
     },

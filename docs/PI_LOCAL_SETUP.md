@@ -45,7 +45,6 @@ back to cloud MQTT or simulated success after a real command fails.
    `/kiosk` is the cabinet's own single-page app (`kiosk/index.html`), built for the
    800x480 touchscreen: no links leaving the page, no file input, no CDN script or
    stylesheet, and fonts served from `fonts/`, so it starts with the internet unplugged.
-   หน้า `/student/kiosk` ตัวเก่ายังอยู่ในเรพและยังเสิร์ฟอยู่ แต่ไม่ใช่หน้าที่ตู้เปิดแล้ว
    คำสั่งเปิด Chromium ของจริงอยู่ใน `deploy/pi/user-units/sfab-kiosk-start.sh`
 
 8. **Pick an operating mode before the cabinet can actuate anything.** The mode is
