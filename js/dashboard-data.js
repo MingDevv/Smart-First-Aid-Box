@@ -6,9 +6,12 @@
     const day = value => new Date(value).toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
     function node(tag, value) { const item = document.createElement(tag); if (value !== undefined) item.textContent = value; return item; }
     const woundName = value => ({ cut_abrasion: 'แผลมีดบาด / ถลอก', insect: 'แมลงสัตว์กัดต่อย' })[value] || 'ไม่ระบุประเภทแผล';
+    // ผลจากเซนเซอร์วัดระยะที่ถาดรับของ · 'ไม่ได้ตรวจ' ต้องอ่านต่างจาก 'ไม่เห็นของ' ให้ชัด
+    // รายการก่อนติดเซนเซอร์ไม่มีฟิลด์นี้ จึงตกมาที่ 'ไม่ได้ตรวจ' ซึ่งตรงความจริง
+    const dropName = value => ({ confirmed: 'เซนเซอร์เห็นของตกถาด', not_found: 'เซนเซอร์ไม่เห็นของตกลงมา · ช่องอาจหมด' })[value] || 'ไม่ได้ตรวจของตก';
     const resultName = record => record.kind === 'sos'
         ? record.buzzerAck === true ? 'ตู้ตอบรับให้เปิดเสียงเรียกครู' : record.buzzerAck === false ? 'ตู้ไม่ตอบรับการเปิดเสียง' : 'ยังไม่ทราบผลการเปิดเสียง'
-        : ({ confirmed: 'ตู้ตอบรับแล้ว', uncertain: 'ยังไม่ทราบผล · กรุณาตรวจตู้', rejected: 'ตู้ไม่รับคำสั่ง', resolved_by_operator: 'ผู้ดูแลตรวจสอบและปิดรายการแล้ว' })[record.ack] || 'ยังไม่ทราบผล';
+        : `${({ confirmed: 'ตู้ตอบรับแล้ว', uncertain: 'ยังไม่ทราบผล · กรุณาตรวจตู้', rejected: 'ตู้ไม่รับคำสั่ง', resolved_by_operator: 'ผู้ดูแลตรวจสอบและปิดรายการแล้ว' })[record.ack] || 'ยังไม่ทราบผล'} · ${dropName(record.dropCheck)}`;
     const lineName = value => ({ delivered: 'ส่งเข้า LINE แล้ว', pending: 'รอส่งข้อความ', skipped: 'รายการย้อนหลัง · ไม่ส่งแจ้งเตือน', manual_review: 'ส่งไม่แน่ชัด · ครูควรตรวจ LINE' })[value] || 'ยังไม่ทราบสถานะข้อความ';
     // บอกทั้งชื่อและ **ที่มาของชื่อ** — บัตรพิสูจน์แค่ว่ามีคนถือบัตรใบนั้น ส่วนบัญชีโรงเรียน
     // ผ่านการยืนยันโทเคนฝั่งเซิร์ฟเวอร์ · ครูต้องแยกสองอย่างนี้ออกจากกันได้

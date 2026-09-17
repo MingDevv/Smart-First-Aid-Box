@@ -36,6 +36,9 @@ export class CabinetOutbox {
             uid: identity?.uid || identity?.studentId || null, studentId: identity?.studentId || null, badgeId: identity?.badgeId || null, verifiedBy, clockTrust: 'untrusted',
             drawer: row.drawer, woundType: row.drawer === 1 ? 'cut_abrasion' : 'insect',
             itemsUsed: [], ack: result?.body?.ack ? 'confirmed' : row.state,
+            // เหตุการณ์เก่าที่ค้างใน SQLite ก่อนวันนี้ไม่มีฟิลด์นี้ ⇒ ตกไปที่ "ตรวจไม่ได้"
+            // ซึ่งตรงความจริง ตอนนั้นยังไม่มีเซนเซอร์
+            dropCheck: result?.body?.ack?.dropCheck ?? 'unknown',
             uncertain: row.state === 'uncertain', historical });
     }
     queueSos(id = randomUUID(), symptom = null) {

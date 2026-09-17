@@ -1,13 +1,10 @@
-# โปรแกรมในตู้ยา micro:bit V1.5 ต่อ USB เข้า Raspberry Pi
-# ไฟล์นี้ยาวเกิน 8188 ไบต์ไม่ได้ บอร์ด V1 รับไม่ไหว คำอธิบายเต็มอยู่ใน README
-#
-# การต่อสาย (วัดจากตู้จริง) มอเตอร์ NEMA-17 ผ่าน L298N หมุนครบรอบ 200 สเต็ป
-#   ช่อง 1 แผลถลอก ตัวล่าง P12 P13 P14 P15   ช่อง 2 แมลงกัด ตัวบน P0 P1 P2 P8
-#   ออด P16 ห้ามย้ายไป P5 หรือ P11 สองขานั้นต่อกับปุ่ม A/B อยู่ ย้ายไปแล้วจะเงียบ
-#
+# ตู้ยา micro:bit V1.5 ต่อ USB เข้า Pi · เกิน 8188 ไบต์ไม่ได้ · เต็มใน README
+# ขา: ช่อง1 P12-P15 · ช่อง2 P0,P1,P2,P8 · ออด P16 · เซนเซอร์ TRIG P10 ECHO P9
+# ห้ามใช้ P5,P11 (ปุ่ม A/B) · P9,P10 เป็นขาจอ ต้อง display.off() ก่อน
 # ปุ่มบนบอร์ดไม่จ่ายยา เพราะจะข้ามการตรวจสิทธิ์ที่อยู่ฝั่ง Pi ทั้งหมด
-from microbit import uart, display, sleep, running_time, Image, pin16
-from microbit import pin0, pin1, pin2, pin8, pin12, pin13, pin14, pin15
+from microbit import uart, display, sleep, running_time, pin16
+from microbit import pin0, pin1, pin2, pin8, pin9, pin10, pin12, pin13, pin14, pin15
+from machine import time_pulse_us
 import music
 import radio
 
@@ -15,21 +12,23 @@ DISPENSE_STEPS = 200
 STEP_MS = 5
 HEARTBEAT_MS = 500
 ID_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-'
+BUZZ_MAX_MS = 5000          # ออดดับเอง เผื่อ Pi ดับกลางคัน
 
-# ออดดับเองหลังเวลานี้ ให้บอร์ดนับเอง เผื่อ Pi ดับกลางคัน
-BUZZ_MAX_MS = 5000
-
-# ต้องตรงกับ remote.py · ที่ต้องมี SFAB1: นำหน้า เพราะในงานแข่งมีบอร์ดทีมอื่นเยอะ
-# ถ้าดูแต่ group สัญญาณคนอื่นสั่งออดเราดังได้
+# ตรงกับ remote.py · SFAB1: กันบอร์ดทีมอื่นสั่งออดเราดัง
 RADIO_GROUP = 91
 RADIO_PREFIX = 'SFAB1:SOS:'
 SOS_ACK = 'SFAB1:OK'
 BUZZ_ON = 'SFAB1:B1'
 BUZZ_OFF = 'SFAB1:B0'
-# ระหว่างร้อง ตู้บอกรีโมตเรื่อยๆ ว่ายังร้องอยู่ ขาดไปรีโมตจะดับเอง
-BEACON_MS = 400
+BEACON_MS = 400             # บอกรีโมตว่ายังร้อง ขาดไปรีโมตดับเอง
 
-# ขาคอยล์ของแต่ละช่อง เรียง IN1 IN3 IN2 IN4 · motor_run เดินย้อนลำดับนี้
+# ของตกผ่านลำคลื่น ~8 ms · ยิงรอบละ 2.3 ms จึงเห็นอย่างน้อย 3 ครั้ง
+WATCH_MS = 1500             # เฝ้าต่อหลังมอเตอร์หยุด เผื่อของค้างเกลียว
+BLOCK_MM = 40               # ใกล้กว่าถาดว่างเท่านี้ = มีของบัง
+ECHO_US = 3000
+FAR_MM = 9999
+
+# เรียง IN1 IN3 IN2 IN4 · motor_run เดินย้อนลำดับ
 MOTORS = {1: [pin12, pin14, pin13, pin15], 2: [pin0, pin2, pin1, pin8]}
 
 busy = False
@@ -40,6 +39,9 @@ last_beacon = 0
 last_sos_seq = ''
 line = b''
 overflow = False
+empty_mm = 0
+near_mm = FAR_MM
+hits = 0
 
 
 def coils_off():
@@ -48,40 +50,54 @@ def coils_off():
             p.write_digital(0)
 
 
+def ping_mm():
+    pin10.write_digital(0)
+    pin10.write_digital(1)
+    pin10.write_digital(0)
+    echo = time_pulse_us(pin9, 1, ECHO_US)
+    return FAR_MM if echo < 0 else echo * 343 // 2000   # ไปกลับ หาร 2000
+
+
+def watch():
+    global near_mm, hits
+    d = ping_mm()
+    if d < near_mm:
+        near_mm = d
+    if empty_mm and d < empty_mm - BLOCK_MM:
+        hits += 1
+
+
 def start_buzzer():
     global buzz_until, last_beacon
     music.pitch(880, -1, pin=pin16, wait=False)
     buzz_until = running_time() + BUZZ_MAX_MS
-    last_beacon = 0             # ให้ส่งสัญญาณทันที รีโมตจะได้ร้องพร้อมกัน
+    last_beacon = 0             # ส่งทันที รีโมตจะร้องพร้อมกัน
 
 
 def stop_buzzer():
     global buzz_until
     buzz_until = 0
     music.stop(pin16)
-    for _ in range(3):          # ส่งซ้ำ กันสัญญาณหาย
+    for _ in range(3):
         radio.send(BUZZ_OFF)
 
 
 def check_radio():
-    # รีโมตส่งซ้ำหลายครั้ง ต้องกันซ้ำด้วย seq ไม่งั้นออดจะถูกสั่งเริ่มใหม่รัวๆ
     global last_sos_seq
     message = radio.receive()
     if message is None or not message.startswith(RADIO_PREFIX):
         return
     seq = message[len(RADIO_PREFIX):]
-    if seq == last_sos_seq:
+    if seq == last_sos_seq:      # รีโมตส่งซ้ำ กันออดเริ่มใหม่รัวๆ
         return
     last_sos_seq = seq
-    radio.send(SOS_ACK)         # ตอบรีโมตก่อน จะได้รู้เร็วว่าสัญญาณถึง
+    radio.send(SOS_ACK)
     start_buzzer()
-    display.show(Image.SKULL)
-    # ต่อเวลาท้าย id กันซ้ำ และให้ยาวพอผ่านการตรวจฝั่ง Pi (8-64 ตัว)
     uart.write('REMOTE_SOS:rsos-' + seq + '-' + str(running_time()) + '\n')
 
 
 def service_buzzer():
-    # เรียกตอนมอเตอร์หมุนด้วย ไม่งั้นระหว่างจ่ายยาไม่มีใครมาดับออด
+    # เรียกตอนมอเตอร์หมุนด้วย ไม่งั้นไม่มีใครมาดับออด
     global last_beacon
     if not buzz_until:
         return
@@ -94,7 +110,7 @@ def service_buzzer():
 
 
 def report_hardware_state():
-    # ต้องเรียกตอนมอเตอร์หมุนด้วย Pi จะได้เห็นว่ายัง BUSY อยู่
+    # เรียกตอนมอเตอร์หมุนด้วย Pi จะเห็นว่ายัง BUSY
     global last_heartbeat
     now = running_time()
     if now - last_heartbeat < HEARTBEAT_MS:
@@ -116,25 +132,33 @@ def motor_run(pins, steps, delay_ms):
             active = (-i) % 4
             for j in range(4):
                 pins[j].write_digital(1 if j == active else 0)
-            sleep(delay_ms)
+            watch()             # ยิงแทนนอนรอ จังหวะสเต็ปเท่าเดิม
+            sleep(delay_ms - 2)
     finally:
         for p in pins:
             p.write_digital(0)
 
 
 def dispense(drawer, command_id):
-    # เปลี่ยน epoch ก่อนเสมอ คำสั่งเก่าที่ค้างอยู่ในสายจะได้ถูกปฏิเสธ
-    global busy, ready_epoch
+    # เปลี่ยน epoch ก่อน คำสั่งเก่าที่ค้างในสายจะถูกปฏิเสธ
+    global busy, ready_epoch, near_mm, hits
     ready_epoch += 1
     busy = True
+    near_mm = FAR_MM
+    hits = 0
     uart.write('BUSY\n')
-    display.show(Image.ARROW_S if drawer == 1 else Image.ARROW_N)
     try:
         motor_run(MOTORS[drawer], DISPENSE_STEPS, STEP_MS)
+        deadline = running_time() + WATCH_MS
+        while running_time() < deadline:
+            watch()
+            report_hardware_state()
+            service_buzzer()
     finally:
         busy = False
-        display.show(Image.YES)
-    # ตอบหลังมอเตอร์หมุนจบเท่านั้น ห้ามตอบตอนเพิ่งรับคำสั่ง
+    # แยกเฟรม DONE จึงไม่เปลี่ยนรูป หายได้โดยไม่พังอะไร
+    uart.write('DROP:' + command_id + ':' + str(near_mm) + ':' + str(hits) + '\n')
+    # ตอบหลังมอเตอร์จบเท่านั้น ห้ามตอบตอนเพิ่งรับคำสั่ง
     uart.write('DONE' + str(drawer) + ':' + command_id + '\n')
 
 
@@ -148,18 +172,22 @@ def valid_id(command_id):
 
 
 def handle_serial_frame(frame):
+    global empty_mm
     parts = frame.split(':')
     if len(parts) < 2 or len(parts) > 3:
         return
     command_id = parts[1]
     if not valid_id(command_id):
         return
+    if len(parts) == 2 and parts[0] == 'BASE':
+        empty_mm = ping_mm()    # วัดสด ของค้างรอบก่อนจะไม่หลอก
+        uart.write('BASE:' + command_id + ':' + str(empty_mm) + '\n')
+        return
     if len(parts) == 2 and parts[0] in ('BUZZ1', 'BUZZ0'):
         if parts[0] == 'BUZZ1':
             start_buzzer()
         else:
             stop_buzzer()
-        # ตอบว่ารับคำสั่งแล้ว ไม่ได้แปลว่าเสียงจบแล้ว
         uart.write('BUZZ_DONE' + parts[0][4] + ':' + command_id + '\n')
         return
     if len(parts) != 3 or parts[0] not in ('OPEN1', 'OPEN2'):
@@ -194,12 +222,12 @@ def check_serial_commands():
 
 
 uart.init(baudrate=115200)
-# power=7 คือแรงสุด ส่วน 250 kbit ทำให้ฝั่งรับไวขึ้น ช่วยเรื่องระยะคนละแบบกัน
+display.off()                   # P9 P10 เป็นขาจอ ปิดก่อนจึงใช้เซนเซอร์ได้
+pin9.read_digital()
 radio.config(group=RADIO_GROUP, length=16, queue=2, power=7, data_rate=radio.RATE_250KBIT)
 radio.on()
 coils_off()
 music.stop(pin16)
-display.show(Image.YES)
 while True:
     check_serial_commands()
     check_radio()
