@@ -117,6 +117,15 @@ class ProtocolTests(unittest.TestCase):
         self.assertIn('BUZZ_DONE1:c-sos-motor-01', events)
         self.assertEqual(events[-4:], [('pin', n, 0) for n in ('p12', 'p14', 'p13', 'p15')], 'coils released at the end')
 
+    def test_both_motors_rotate_in_reverse_and_release_coils(self):
+        for drawer, cycle in ((1, ['p12', 'p15', 'p13', 'p14']),
+                              (2, ['p0', 'p8', 'p1', 'p2'])):
+            ns, events, _ = load()
+            ns['_actual_motor_run'](ns['MOTORS'][drawer], 200, 5)
+            active_pins = [e[1] for e in events if isinstance(e, tuple) and e[0] == 'pin' and e[2] == 1]
+            self.assertEqual(active_pins, cycle * 50, '200 steps in the requested reverse phase order')
+            self.assertEqual(events[-4:], [('pin', p.name, 0) for p in ns['MOTORS'][drawer]])
+
     def test_refusal_preserves_exact_id(self):
         ns, events, _ = load(busy=True)
         ns['handle_serial_frame']('OPEN1:c-reject-wire-01:7')

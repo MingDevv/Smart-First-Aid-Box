@@ -15,8 +15,8 @@
 #
 # Hardware, measured on the cabinet (wiki smart-first-aid-box §7):
 #   two NEMA-17 steppers on two L298N modules, one-hot wave drive, 200 steps = one revolution.
-#   drawer 1 (cut/abrasion) = bottom motor P12 P13 P14 P15, rotating order P12 P14 P13 P15
-#   drawer 2 (insect)       = top motor    P0  P1  P2  P8,  rotating order P0  P2  P1  P8
+#   drawer 1 (cut/abrasion) = bottom motor P12 P13 P14 P15, rotating order P12 P15 P13 P14
+#   drawer 2 (insect)       = top motor    P0  P1  P2  P8,  rotating order P0  P8  P1  P2
 #   buzzer on P16 — `music` defaults to P0, which is now a motor coil; P16 is the last free pin.
 #     P5/P11 are wired to buttons A/B in hardware and can never drive it (silent ACK trap).
 #     The board stops the buzzer itself after BUZZ_MAX_MS; BUZZ0 still stops it at once.
@@ -39,7 +39,7 @@ ID_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-'
 # BUZZ0 ยังหยุดได้ทันทีเหมือนเดิม และ BUZZ1 ใหม่เริ่มนับใหม่
 BUZZ_MAX_MS = 5000
 
-# drawer -> coil pins in the order that rotates cleanly (IN1, IN3, IN2, IN4 of each L298N)
+# drawer -> coil phase map (IN1, IN3, IN2, IN4); motor_run traverses it in reverse.
 MOTORS = {1: [pin12, pin14, pin13, pin15], 2: [pin0, pin2, pin1, pin8]}
 
 busy = False
@@ -85,7 +85,7 @@ def motor_run(pins, steps, delay_ms):
                 check_serial_commands()
                 report_hardware_state()
                 service_buzzer()
-            active = i % 4
+            active = (-i) % 4
             for j in range(4):
                 pins[j].write_digital(1 if j == active else 0)
             sleep(delay_ms)
