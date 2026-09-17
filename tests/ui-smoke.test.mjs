@@ -465,6 +465,13 @@ assert.match(
     'The retry button must ship hidden and be revealed only for a rejected dispatch: a hardware command whose outcome is uncertain must never be offered for retry'
 );
 
+// goCollect() เขียนผลเซนเซอร์ลงกล่องนี้ · ถ้า id หาย setNotice จะระเบิดบนหน้าจอตู้จริง
+// และเทสอื่นจับไม่ได้ เพราะไม่มีเบราว์เซอร์ในเรพนี้
+for (const id of ['collect-notice', 'collect-notice-text']) {
+    assert.match(kioskMarkup, new RegExp(`id=["']${id}["']`, 'i'),
+        `kiosk/index.html must keep #${id} — js/kiosk-app.js writes the tray-sensor verdict into it`);
+}
+
 assert.doesNotMatch(
     kioskSessionSource,
     /\bdocument\b/,

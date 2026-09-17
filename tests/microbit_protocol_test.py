@@ -20,13 +20,15 @@ class Pin:
         self.events.append(('pin', self.name, value))
 
 
-def load(*, busy=False, epoch=7, radio_inbox=None):
+def load(*, busy=False, epoch=7, radio_inbox=None, echoes=None, empty_mm=0):
     tree = ast.parse(SOURCE.read_text())
     functions = ast.Module(body=[n for n in tree.body if isinstance(n, ast.FunctionDef)], type_ignores=[])
     events = []
     chunks = []
     inbox = list(radio_inbox or [])
     pins = {n: Pin(n, events) for n in ('p0', 'p1', 'p2', 'p8', 'p12', 'p13', 'p14', 'p15')}
+    # เสียงสะท้อนปลอมเป็นไมโครวินาที · -1 คือไม่มีอะไรกลับมา = ถาดโล่ง
+    echo_queue = list(echoes or [])
     ns = dict(
         uart=SimpleNamespace(write=lambda s: events.append(s.strip()) if isinstance(s, str) else events.append(s),
                              read=lambda n: chunks.pop(0) if chunks else None),
@@ -39,6 +41,10 @@ def load(*, busy=False, epoch=7, radio_inbox=None):
         running_time=lambda: 1000,
         sleep=lambda _: None,
         pin16=Pin('p16', events),
+        pin9=Pin('p9', events), pin10=Pin('p10', events),
+        time_pulse_us=lambda *a: echo_queue.pop(0) if echo_queue else -1,
+        WATCH_MS=1500, BLOCK_MM=40, ECHO_US=3000, FAR_MM=9999,
+        empty_mm=empty_mm, near_mm=9999, hits=0,
         RADIO_GROUP=91, RADIO_PREFIX='SFAB1:SOS:', last_sos_seq='',
         SOS_ACK='SFAB1:OK', BUZZ_ON='SFAB1:B1', BUZZ_OFF='SFAB1:B0', BEACON_MS=400, last_beacon=0,
         DISPENSE_STEPS=200, STEP_MS=5, HEARTBEAT_MS=500, BUZZ_MAX_MS=5000, buzz_until=0,
@@ -53,12 +59,25 @@ def load(*, busy=False, epoch=7, radio_inbox=None):
     return ns, events, chunks
 
 
+def skip_watch_window(ns):
+    """ปิดหน้าต่างเฝ้าถาดทันที เทสจะได้ไม่ต้องนอนรอ 1.5 วินาทีจริง"""
+    clock = [0]
+
+    def now():
+        value = clock[0]
+        clock[0] += ns['WATCH_MS']
+        return value
+    ns['running_time'] = now
+
+
 class ProtocolTests(unittest.TestCase):
     def test_ack_only_after_motor_finishes_and_epoch_bumps_first(self):
         for drawer in (1, 2):
             ns, events, _ = load(epoch=7)
+            skip_watch_window(ns)
             ns['dispense'](drawer, 'c-motor-test-01')
-            self.assertEqual(events, ['BUSY', 'motor-finished', f'DONE{drawer}:c-motor-test-01'])
+            self.assertEqual(events, ['BUSY', 'motor-finished',
+                                      'DROP:c-motor-test-01:9999:0', f'DONE{drawer}:c-motor-test-01'])
             self.assertEqual(ns['ready_epoch'], 8, 'epoch must change before the motor moves')
             self.assertFalse(ns['busy'])
 
@@ -120,7 +139,7 @@ class ProtocolTests(unittest.TestCase):
         ns['running_time'] = lambda: now[0]
         ns['sleep'] = lambda ms: now.__setitem__(0, now[0] + ms)
         chunks.append(b'BUZZ1:c-sos-motor-01\n')
-        ns['_actual_motor_run'](ns['MOTORS'][1], 512, 2)
+        ns['_actual_motor_run'](ns['MOTORS'][1], 512, ns['STEP_MS'])
         self.assertIn('BUSY', events)
         self.assertIn('BUZZ_DONE1:c-sos-motor-01', events)
         self.assertEqual(events[-4:], [('pin', n, 0) for n in ('p12', 'p14', 'p13', 'p15')], 'coils released at the end')
@@ -130,7 +149,10 @@ class ProtocolTests(unittest.TestCase):
                               (2, ['p0', 'p8', 'p1', 'p2'])):
             ns, events, _ = load()
             ns['_actual_motor_run'](ns['MOTORS'][drawer], 200, 5)
-            active_pins = [e[1] for e in events if isinstance(e, tuple) and e[0] == 'pin' and e[2] == 1]
+            # กรองเฉพาะขาคอยล์ · TRIG ของเซนเซอร์ (P10) ก็เขียนอยู่ในลูปเดียวกัน
+            coils = {p.name for p in ns['MOTORS'][drawer]}
+            active_pins = [e[1] for e in events
+                           if isinstance(e, tuple) and e[0] == 'pin' and e[2] == 1 and e[1] in coils]
             self.assertEqual(active_pins, cycle * 50, '200 steps in the requested reverse phase order')
             self.assertEqual(events[-4:], [('pin', p.name, 0) for p in ns['MOTORS'][drawer]])
 
@@ -201,12 +223,74 @@ class ProtocolTests(unittest.TestCase):
             ns['check_serial_commands']()
             self.assertFalse(any(isinstance(e, tuple) for e in events))
 
+    # --- เซนเซอร์วัดระยะ พิสูจน์ว่าของตกลงถาดจริง (2026-09-17) ---
+
+    def test_ping_converts_microseconds_to_millimetres_and_survives_a_miss(self):
+        ns, _, _ = load(echoes=[1458, -1])
+        # 1458 µs ไปกลับ = ราว 25 ซม. ซึ่งคือความกว้างถาดที่ยิงข้าม
+        self.assertEqual(ns['ping_mm'](), 1458 * 343 // 2000)
+        # ไม่มีเสียงกลับ ต้องได้ค่า "ไม่เห็นอะไร" ไม่ใช่ค่าติดลบที่เอาไปเทียบต่อไม่ได้
+        self.assertEqual(ns['ping_mm'](), ns['FAR_MM'])
+
+    def test_watch_keeps_the_closest_reading_and_counts_only_real_blocks(self):
+        # ถาดว่าง 250 มม. · เกณฑ์คือใกล้กว่า 250-40 = 210 มม. จึงนับว่ามีของบัง
+        ns, _, _ = load(empty_mm=250, echoes=[1458, 1300, 700, 1458])
+        for _ in range(4):
+            ns['watch']()
+        self.assertEqual(ns['near_mm'], 700 * 343 // 2000)
+        self.assertEqual(ns['hits'], 1, '222 มม. ยังไม่ถึงเกณฑ์ มีแต่ 120 มม. ที่นับ')
+
+    def test_watch_counts_nothing_until_a_baseline_exists(self):
+        # ยังไม่เคยวัดถาดว่าง = ไม่มีอะไรให้เทียบ ⇒ ห้ามเดาว่ามีของ
+        ns, _, _ = load(empty_mm=0, echoes=[100, 100, 100])
+        for _ in range(3):
+            ns['watch']()
+        self.assertEqual(ns['hits'], 0)
+
+    def test_base_frame_measures_the_empty_tray_and_reports_it(self):
+        ns, events, _ = load(echoes=[1458])
+        ns['handle_serial_frame']('BASE:c-baseline-001')
+        frames = [e for e in events if isinstance(e, str)]
+        self.assertEqual(frames, ['BASE:c-baseline-001:' + str(1458 * 343 // 2000)])
+        self.assertEqual(ns['empty_mm'], 1458 * 343 // 2000)
+
+    def test_drop_frame_reports_what_the_sensor_saw_during_the_motor(self):
+        ns, events, _ = load(empty_mm=250, echoes=[1458] * 90 + [700] * 3 + [1458] * 200)
+        skip_watch_window(ns)
+        ns['motor_run'] = ns['_actual_motor_run']
+        ns['dispense'](1, 'c-drop-seen-001')
+        drop = [e for e in events if isinstance(e, str) and e.startswith('DROP:')]
+        self.assertEqual(drop, ['DROP:c-drop-seen-001:' + str(700 * 343 // 2000) + ':3'])
+        # DROP ต้องมาก่อน DONE เสมอ ฝั่ง Pi จึงผูกผลเข้ากับคำสั่งใบเดียวกันได้
+        self.assertLess(events.index(drop[0]), events.index('DONE1:c-drop-seen-001'))
+
+    def test_drop_counters_reset_so_the_previous_round_cannot_leak(self):
+        ns, events, _ = load(empty_mm=250, echoes=[700] * 400)
+        skip_watch_window(ns)
+        ns['motor_run'] = ns['_actual_motor_run']
+        ns['dispense'](1, 'c-drop-first-01')
+        first = ns['near_mm']
+        ns['dispense'](1, 'c-drop-second-1')
+        self.assertEqual(ns['near_mm'], first)
+        self.assertEqual(ns['hits'], 200, 'รอบใหม่ต้องเริ่มนับจากศูนย์ ไม่ใช่สะสมต่อจากรอบก่อน')
+
+    def test_motor_step_timing_is_unchanged_by_the_sensor(self):
+        # ยิงคลื่นกิน 2 ms จึงนอนรอสั้นลง 2 ms · จังหวะรวมต่อสเต็ปต้องเท่าเดิม
+        ns, _, _ = load()
+        naps = []
+        ns['sleep'] = naps.append
+        ns['_actual_motor_run'](ns['MOTORS'][1], 10, 5)
+        self.assertEqual(naps, [3] * 10)
+
     def test_no_button_dispensing_and_no_local_done(self):
         # ตรวจชื่อตัวแปรและฟังก์ชัน ไม่ตรวจข้อความ คอมเมนต์หัวไฟล์อธิบายเรื่องปุ่มได้ตามปกติ
         tree = ast.parse(SOURCE.read_text())
         names = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)} | \
                 {n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
-        for forbidden in ('button_a', 'button_b', 'PIN_START', 'PIN_ABRASION', 'PIN_INSECT', 'read_digital', 'is_pressed'):
+        # เดิมห้ามคำว่า read_digital ทั้งไฟล์ แต่ตอนนี้ ECHO ของเซนเซอร์เป็นขาเข้าจริงๆ
+        # ⇒ ห้ามที่ตัวปุ่มกับขาของปุ่มแทน ซึ่งแคบกว่าและปิดทางอ่านปุ่มได้หมดเหมือนเดิม
+        for forbidden in ('button_a', 'button_b', 'is_pressed',
+                          'pin5', 'pin11', 'PIN_START', 'PIN_ABRASION', 'PIN_INSECT'):
             self.assertNotIn(forbidden, names)
         self.assertNotIn('LOCAL_DONE', SOURCE.read_text())
 

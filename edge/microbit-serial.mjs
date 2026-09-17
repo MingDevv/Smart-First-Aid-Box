@@ -11,6 +11,24 @@ import { open } from 'node:fs/promises';
 const ID = /^[a-zA-Z0-9_-]{8,64}$/;
 const CONNECTED_WINDOW_MS = 1500;
 
+// เซนเซอร์วัดระยะที่ยิงขวางถาดรับของ · บอร์ดส่งผลมาเป็นเฟรม DROP แยกจาก DONE
+const FAR_MM = 9999;        // ต้องตรงกับ FAR_MM ใน microbit/main.py
+const MIN_HITS = 2;         // เห็นครั้งเดียวอาจเป็นเสียงก้อง ต้องเห็นซ้ำจึงนับ
+
+const toInt = value => {
+    const n = Number.parseInt(value, 10);
+    return Number.isInteger(n) && n >= 0 ? n : null;
+};
+
+// สามค่า ไม่ใช่ boolean · "ตรวจไม่ได้" ต้องแยกจาก "ไม่พบของตก" ให้ขาด
+// ไม่งั้นเซนเซอร์หลุดสายจะกลายเป็นคำกล่าวหาว่าตู้ไม่จ่ายของ ซึ่งผิดและทำให้ไล่ผิดทาง
+export function dropVerdict(drop, emptyMm) {
+    if (!drop) return 'unknown';                        // เฟิร์มแวร์เก่า หรือเฟรมหาย
+    if (drop.nearMm === null || drop.nearMm >= FAR_MM) return 'unknown';  // ไม่เห็นแม้แต่ผนังฝั่งตรงข้าม = เซนเซอร์ไม่ตอบ
+    if (!emptyMm || emptyMm >= FAR_MM) return 'unknown';                  // ไม่มีค่าถาดว่างให้เทียบ
+    return drop.hits >= MIN_HITS ? 'confirmed' : 'not_found';
+}
+
 // ตัวคุมว่าตู้พร้อมรับคำสั่งถัดไปหรือยัง ใช้ชื่อเดิมกับของเก่า เทสที่เขียนไว้แล้วจึงใช้ต่อได้
 export class ReadinessLatch {
     constructor() {
@@ -94,6 +112,15 @@ export class MicrobitSerial {
             return;
         }
         if (frame === 'BUSY') return this.latch.busy(now);
+        // ผลเซนเซอร์มีสามช่องขึ้นไป ต้องแยกก่อนถึงตัวตรวจ id ข้างล่างซึ่งรับได้แค่สองช่อง
+        if (frame.startsWith('BASE:') || frame.startsWith('DROP:')) {
+            const [head, id, ...rest] = frame.split(':');
+            const command = ID.test(id) ? this.commands.get(id) : null;
+            if (!command || command.action !== 'open') return;
+            if (head === 'BASE') command.emptyMm = toInt(rest[0]);
+            else command.drop = { nearMm: toInt(rest[0]), hits: toInt(rest[1]) ?? 0 };
+            return;
+        }
         const sep = frame.indexOf(':');
         if (sep < 0) return;
         const head = frame.slice(0, sep);
@@ -117,7 +144,10 @@ export class MicrobitSerial {
         }
         if ((head === 'DONE1' || head === 'DONE2') && command.action === 'open' && command.drawer === Number(head[4])) {
             command.completed = true;
-            command.ack = { success: true, protocol: 2, event: 'drawer_opened', id, drawer: command.drawer };
+            command.ack = { success: true, protocol: 2, event: 'drawer_opened', id, drawer: command.drawer,
+                // หลักฐานทางกายภาพว่ามีของตกผ่านลำคลื่นจริง · DONE พิสูจน์แค่ว่ามอเตอร์หมุนจบ
+                dropCheck: dropVerdict(command.drop, command.emptyMm),
+                dropNearMm: command.drop?.nearMm ?? null, dropEmptyMm: command.emptyMm ?? null };
             return;
         }
         if ((head === 'BUZZ_DONE1' || head === 'BUZZ_DONE0') && command.action === 'buzzer' &&
@@ -172,6 +202,9 @@ export class MicrobitSerial {
                 const command = { action: 'open', drawer, sentAt: this.now(), completed: false, rejected: false };
                 this.commands.set(id, command);
                 this.latch.consume(id);
+                // วัดถาดว่างก่อนจ่ายทุกครั้ง · บอร์ดอ่านเฟรมตามลำดับที่มาถึง จึงไม่ต้องรอคำตอบ
+                // และของที่ค้างถาดจากรอบก่อนจะไม่ถูกนับเป็นของรอบนี้
+                await this.write(`BASE:${id}`);
                 await this.write(`OPEN${drawer}:${id}:${this.latch.consumedEpoch}`);
                 return { status: 202, data: { success: false, id, pending: true } };
             }
