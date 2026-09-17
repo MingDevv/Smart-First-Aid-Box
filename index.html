@@ -61,9 +61,12 @@
                 <span class="material-symbols-rounded home-action-arrow" aria-hidden="true">chevron_right</span>
             </a>
 
-            <!-- ไม่ติด data-staff-only เหมือนหน้า /student เพราะที่นั่นครูล็อกอินแล้วแน่ๆ
-                 แต่หน้านี้เป็นประตูหน้า ถ้าซ่อนไว้จนกว่าจะล็อกอิน ครูพยาบาลจะไม่มีทางเข้า -->
-            <a class="home-action" href="/dashboard/">
+            <!-- เดิมไม่ติด data-staff-only เพราะกลัวว่าครูพยาบาลจะไม่มีทางเข้าถ้าซ่อนก่อนล็อกอิน
+                 เหตุผลนั้นตกไปแล้ว: ชิปล็อกอินเป็น position:fixed มุมขวาบนของทุกหน้า (js/auth-ui.js)
+                 ครูจึงล็อกอินจากหน้านี้ได้โดยไม่ต้องเห็นเมนูก่อน แล้วเมนูจะโผล่มาเอง
+                 ⚠️ นี่คือการซ่อน ไม่ใช่การกัน — ด่านจริงคือ data-auth-required="staff" ที่ body
+                 ของทุกหน้าใน /dashboard/ และการตรวจ role ฝั่งเซิร์ฟเวอร์ใน api/ -->
+            <a class="home-action" data-staff-only href="/dashboard/">
                 <img class="home-action-icon" src="/images/menu-icons/teacher-dashboard.svg" alt="" aria-hidden="true" width="48" height="48">
                 <span class="home-action-copy">
                     <span class="home-action-title">ครูพยาบาล</span>
