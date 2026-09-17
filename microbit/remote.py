@@ -1,34 +1,27 @@
-# SFAB remote SOS button + repeater — micro:bit V1, MicroPython v1.1.1.
+# ปุ่มเรียกครูไร้สาย ใช้คู่กับตู้ยา
+# กด A = ตู้ร้องออด + ส่ง LINE ถึงครู
+# ตู้ร้องเมื่อไหร่ ตัวนี้ร้องตาม ดับพร้อมกัน
 #
-#   กด A     -> ยิง SOS ให้ตู้ -> ตู้ร้องออด + Pi ยิง LINE ถึงครู
-#   ตู้ร้อง   -> ตู้ยิง beacon ทุก BEACON_MS -> รีโมตร้องตาม และดับพร้อมกัน
-#
-# เสียงตอบกลับตอนกด = เครื่องมือวัดระยะในตัว ไม่ต้องมีใครยืนดูอีกฝั่ง
-#   ตี๊ด ตี๊ด (สูง สั้น สองครั้ง) = ตู้ได้ยินแล้ว
-#   ตี๊————ด (ต่ำ ยาว)          = ส่งออกไปแล้วแต่ตู้ไม่ตอบ = ไกลเกินไป/ตู้ไม่ทำงาน
-#   เงียบสนิท                    = ปุ่มหรือบอร์ดมีปัญหา ไม่ใช่เรื่องระยะ
-#
-# beacon ไม่ใช่ "สั่งเปิด/สั่งปิด" แต่เป็น "ตู้ยังร้องอยู่นะ" ⇒ ถ้าแพ็กเก็ตปิดหาย หรือตู้ดับ
-# หรือเดินออกนอกระยะ รีโมตก็เงียบเองใน HOLD_MS ไม่มีทางค้างร้อง
-#
-# ⚠️ ออดอยู่ P3 ซึ่งเป็นขาสแกนจอ LED ⇒ ต้อง display.off() ถาวร ไม่งั้นการสแกนจอทำให้ออด
-# ร้องตลอดเวลาโดยไม่ต้องมีใครสั่ง (เจอกับตัว 2026-09-17) · ย้ายไป P0/P1/P2 จะได้จอคืนมา
+# เสียงตอบกลับตอนกด
+#   ตี๊ดเดียว        กำลังส่ง
+#   ตี๊ดสูง 2 ครั้ง   ตู้รับแล้ว
+#   ตี๊ดต่ำ 3 ครั้ง   ตู้ไม่ตอบ อาจอยู่ไกลเกิน
 from microbit import button_a, display, sleep, running_time, pin3
 import radio
 import music
 
-# ต้องตรงกับ main.py ฝั่งตู้
+# ค่าพวกนี้ต้องตรงกับ main.py ฝั่งตู้
 RADIO_GROUP = 91
 SOS_PREFIX = 'SFAB1:SOS:'
 SOS_ACK = 'SFAB1:OK'
 BUZZ_ON = 'SFAB1:B1'
 BUZZ_OFF = 'SFAB1:B0'
 
-BURST = 5            # วิทยุหายได้ ยิงซ้ำให้ตู้ได้ยินอย่างน้อยหนึ่งครั้ง
+BURST = 5            # ส่งซ้ำ กันสัญญาณหาย
 BURST_GAP_MS = 60
-ACK_WAIT_MS = 1200   # รอตู้ตอบนานเท่านี้ก่อนสรุปว่าไม่ถึง
-HOLD_MS = 1500       # ไม่ได้ยิน beacon นานเท่านี้ = ตู้เลิกร้องแล้ว (หรือคุยกันไม่ได้แล้ว)
-COOLDOWN_MS = 10000  # กันกดโดนในกระเป๋า ครูไม่ควรได้ LINE รัวๆ
+ACK_WAIT_MS = 1200
+HOLD_MS = 1500       # เงียบเกินนี้ = ตู้เลิกร้อง หรือคุยกันไม่ได้แล้ว
+COOLDOWN_MS = 10000  # กันกดโดนในกระเป๋า ครูจะได้ไม่โดน LINE รัว
 
 seq = 0
 last_sent = -COOLDOWN_MS
@@ -54,11 +47,10 @@ def beep(freq, ms):
 
 
 def handle(message):
-    # คืน True ถ้าเป็น ACK ของการกดครั้งล่าสุด ให้ผู้เรียกรู้ว่าตู้ได้ยินแล้ว
     global last_beacon
     if message is None:
         return False
-    print(message)              # ออก USB serial — ใช้ไล่ปัญหาตอนเสียบกับคอม
+    print(message)
     if message == SOS_ACK:
         return True
     if message == BUZZ_ON:
@@ -70,8 +62,9 @@ def handle(message):
 
 
 def follow_cabinet():
+    # ตู้ส่งสัญญาณบอกว่ายังร้องอยู่เรื่อยๆ ถ้าขาดไปก็ดับเอง จะได้ไม่ค้างร้อง
     if not handle(radio.receive()) and buzzing and running_time() - last_beacon > HOLD_MS:
-        set_buzzer(False)       # ขาดการติดต่อ = เงียบเอง ห้ามค้างร้อง
+        set_buzzer(False)
 
 
 def send_sos():
@@ -86,18 +79,19 @@ def send_sos():
     while running_time() < deadline:
         if handle(radio.receive()):
             print('ack')
-            beep(1800, 90)      # ตู้ได้ยินแล้ว
+            beep(1800, 90)
             sleep(80)
             beep(1800, 90)
             return
         sleep(20)
     print('no-ack')
-    for _ in range(3):          # สามครั้งรัวต่ำ = แยกจากเสียงสำเร็จด้วยจังหวะ ไม่ใช่ความสูง
+    for _ in range(3):
         beep(400, 220)
         sleep(120)
 
 
-display.off()                   # คืน P3 จากจอมาให้ออด — ต้องมาก่อนแตะ pin3
+# ห้ามลบ display.off() ออด P3 ใช้ขาเดียวกับจอ ถ้าจอเปิดไว้ออดจะร้องเองไม่หยุด
+display.off()
 pin3.write_digital(0)
 radio.config(group=RADIO_GROUP, length=16, queue=2, power=7, data_rate=radio.RATE_250KBIT)
 radio.on()
@@ -106,6 +100,6 @@ while True:
     follow_cabinet()
     if button_a.was_pressed() and running_time() - last_sent >= COOLDOWN_MS:
         print('press')
-        beep(1400, 120)         # ยืนยันว่าปุ่มทำงานและกำลังส่ง — ดังก่อนรู้ผลเสมอ
+        beep(1400, 120)
         send_sos()
     sleep(20)

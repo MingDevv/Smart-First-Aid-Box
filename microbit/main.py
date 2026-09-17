@@ -1,20 +1,11 @@
-# SFAB cabinet firmware — micro:bit V1.5, MicroPython v1.1.1, USB serial to the Raspberry Pi.
-# Rationale and history: microbit/README.md. Script must stay under 8188 bytes (V1 limit).
+# โปรแกรมในตู้ยา micro:bit V1.5 ต่อ USB เข้า Raspberry Pi
+# ไฟล์นี้ยาวเกิน 8188 ไบต์ไม่ได้ บอร์ด V1 รับไม่ไหว คำอธิบายเต็มอยู่ใน README
 #
-#   board -> Pi : READY:<epoch> | BUSY            every 500 ms, unsolicited
-#                 DONE<drawer>:<id>               after the motor finished
-#                 REJECT:<id>                     busy, or the epoch in the frame is stale
-#                 BUZZ_DONE1:<id> | BUZZ_DONE0:<id>
-#                 REMOTE_SOS:<id>                 radio button pressed, not a reply to the Pi
-#   Pi -> board : OPEN1:<id>:<epoch> | OPEN2:<id>:<epoch> | BUZZ1:<id> | BUZZ0:<id>
+# การต่อสาย (วัดจากตู้จริง) มอเตอร์ NEMA-17 ผ่าน L298N หมุนครบรอบ 200 สเต็ป
+#   ช่อง 1 แผลถลอก ตัวล่าง P12 P13 P14 P15   ช่อง 2 แมลงกัด ตัวบน P0 P1 P2 P8
+#   ออด P16 ห้ามย้ายไป P5 หรือ P11 สองขานั้นต่อกับปุ่ม A/B อยู่ ย้ายไปแล้วจะเงียบ
 #
-# Hardware, measured on the cabinet (wiki smart-first-aid-box §7):
-#   two NEMA-17 steppers on two L298N modules, one-hot wave drive, 200 steps = one revolution.
-#   drawer 1 (cut/abrasion) = bottom motor P12 P13 P14 P15, rotating order P12 P15 P13 P14
-#   drawer 2 (insect)       = top motor    P0  P1  P2  P8,  rotating order P0  P8  P1  P2
-#   buzzer on P16 — `music` defaults to P0, which is now a motor coil; P16 is the last free pin.
-#     P5/P11 are wired to buttons A/B in hardware and can never drive it (silent ACK trap).
-# Physical buttons never dispense: an ungated button bypasses every safety in the Pi.
+# ปุ่มบนบอร์ดไม่จ่ายยา เพราะจะข้ามการตรวจสิทธิ์ที่อยู่ฝั่ง Pi ทั้งหมด
 from microbit import uart, display, sleep, running_time, Image, pin16
 from microbit import pin0, pin1, pin2, pin8, pin12, pin13, pin14, pin15
 import music
@@ -25,20 +16,20 @@ STEP_MS = 5
 HEARTBEAT_MS = 500
 ID_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-'
 
-# ตัวจับเวลาอยู่ที่บอร์ด ไม่ใช่ที่ Pi — Pi ดับกลางคันออดต้องยังดับเอง (README)
+# ออดดับเองหลังเวลานี้ ให้บอร์ดนับเอง เผื่อ Pi ดับกลางคัน
 BUZZ_MAX_MS = 5000
 
-# Radio — every value here must match remote.py. The prefix, not the group, is what stops
-# another team's micro:bit from sounding our alarm (README).
+# ต้องตรงกับ remote.py · ที่ต้องมี SFAB1: นำหน้า เพราะในงานแข่งมีบอร์ดทีมอื่นเยอะ
+# ถ้าดูแต่ group สัญญาณคนอื่นสั่งออดเราดังได้
 RADIO_GROUP = 91
 RADIO_PREFIX = 'SFAB1:SOS:'
 SOS_ACK = 'SFAB1:OK'
 BUZZ_ON = 'SFAB1:B1'
 BUZZ_OFF = 'SFAB1:B0'
-# A beacon says "still ringing", not "switch on", so the remote self-silences (README).
+# ระหว่างร้อง ตู้บอกรีโมตเรื่อยๆ ว่ายังร้องอยู่ ขาดไปรีโมตจะดับเอง
 BEACON_MS = 400
 
-# drawer -> coil phase map (IN1, IN3, IN2, IN4); motor_run traverses it in reverse.
+# ขาคอยล์ของแต่ละช่อง เรียง IN1 IN3 IN2 IN4 · motor_run เดินย้อนลำดับนี้
 MOTORS = {1: [pin12, pin14, pin13, pin15], 2: [pin0, pin2, pin1, pin8]}
 
 busy = False
@@ -61,19 +52,19 @@ def start_buzzer():
     global buzz_until, last_beacon
     music.pitch(880, -1, pin=pin16, wait=False)
     buzz_until = running_time() + BUZZ_MAX_MS
-    last_beacon = 0             # ให้ beacon ตัวแรกออกทันที รีโมตจะได้ดังพร้อมกัน
+    last_beacon = 0             # ให้ส่งสัญญาณทันที รีโมตจะได้ร้องพร้อมกัน
 
 
 def stop_buzzer():
     global buzz_until
     buzz_until = 0
     music.stop(pin16)
-    for _ in range(3):          # แพ็กเก็ตปิดหายได้ ยิงซ้ำ (รีโมตมี HOLD_MS กันค้างอีกชั้น)
+    for _ in range(3):          # ส่งซ้ำ กันสัญญาณหาย
         radio.send(BUZZ_OFF)
 
 
 def check_radio():
-    # The button sends a burst; dedupe on seq or the alarm restarts on every copy.
+    # รีโมตส่งซ้ำหลายครั้ง ต้องกันซ้ำด้วย seq ไม่งั้นออดจะถูกสั่งเริ่มใหม่รัวๆ
     global last_sos_seq
     message = radio.receive()
     if message is None or not message.startswith(RADIO_PREFIX):
@@ -82,15 +73,15 @@ def check_radio():
     if seq == last_sos_seq:
         return
     last_sos_seq = seq
-    radio.send(SOS_ACK)         # ตอบก่อนทำอย่างอื่น รีโมตจะได้รู้ผลเร็วที่สุด
+    radio.send(SOS_ACK)         # ตอบรีโมตก่อน จะได้รู้เร็วว่าสัญญาณถึง
     start_buzzer()
     display.show(Image.SKULL)
-    # id ต้องผ่าน ID regex ฝั่ง Pi (8-64 ตัว) และห้ามซ้ำข้ามการรีบูต จึงพ่วง running_time
+    # ต่อเวลาท้าย id กันซ้ำ และให้ยาวพอผ่านการตรวจฝั่ง Pi (8-64 ตัว)
     uart.write('REMOTE_SOS:rsos-' + seq + '-' + str(running_time()) + '\n')
 
 
 def service_buzzer():
-    # Called from the main loop AND the motor loop: a dispense must not hold the buzzer on.
+    # เรียกตอนมอเตอร์หมุนด้วย ไม่งั้นระหว่างจ่ายยาไม่มีใครมาดับออด
     global last_beacon
     if not buzz_until:
         return
@@ -103,8 +94,7 @@ def service_buzzer():
 
 
 def report_hardware_state():
-    # Called from the main loop AND from inside the motor loop, so the Pi keeps seeing BUSY
-    # (and can still stop the buzzer) while a drawer is moving.
+    # ต้องเรียกตอนมอเตอร์หมุนด้วย Pi จะได้เห็นว่ายัง BUSY อยู่
     global last_heartbeat
     now = running_time()
     if now - last_heartbeat < HEARTBEAT_MS:
@@ -133,8 +123,7 @@ def motor_run(pins, steps, delay_ms):
 
 
 def dispense(drawer, command_id):
-    # Bump the epoch FIRST: any OPEN frame queued during the previous idle period carries the
-    # old epoch and is refused. Same rule as the MakeCode go_to_state().
+    # เปลี่ยน epoch ก่อนเสมอ คำสั่งเก่าที่ค้างอยู่ในสายจะได้ถูกปฏิเสธ
     global busy, ready_epoch
     ready_epoch += 1
     busy = True
@@ -145,7 +134,7 @@ def dispense(drawer, command_id):
     finally:
         busy = False
         display.show(Image.YES)
-    # ACK only after the motor loop returned — never before, never on the way in.
+    # ตอบหลังมอเตอร์หมุนจบเท่านั้น ห้ามตอบตอนเพิ่งรับคำสั่ง
     uart.write('DONE' + str(drawer) + ':' + command_id + '\n')
 
 
@@ -170,7 +159,7 @@ def handle_serial_frame(frame):
             start_buzzer()
         else:
             stop_buzzer()
-        # ACK means "command received", never "sound finished" (README).
+        # ตอบว่ารับคำสั่งแล้ว ไม่ได้แปลว่าเสียงจบแล้ว
         uart.write('BUZZ_DONE' + parts[0][4] + ':' + command_id + '\n')
         return
     if len(parts) != 3 or parts[0] not in ('OPEN1', 'OPEN2'):
@@ -204,9 +193,8 @@ def check_serial_commands():
                 line += bytes([ch])
 
 
-uart.init(baudrate=115200)      # USB CDC; nothing is redirected to edge pins any more
-# power=7 (+4 dBm, max) pushes harder; 250 kbit makes the receiver more sensitive. Two
-# different levers, both needed through a concrete floor (README).
+uart.init(baudrate=115200)
+# power=7 คือแรงสุด ส่วน 250 kbit ทำให้ฝั่งรับไวขึ้น ช่วยเรื่องระยะคนละแบบกัน
 radio.config(group=RADIO_GROUP, length=16, queue=2, power=7, data_rate=radio.RATE_250KBIT)
 radio.on()
 coils_off()
