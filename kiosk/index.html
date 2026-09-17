@@ -314,17 +314,17 @@
         <section class="view" id="view-collect" aria-label="รับอุปกรณ์" hidden>
             <div class="view-head">
                 <div>
-                    <!-- เซนเซอร์วัดระยะที่ถาดบอกได้ว่ามีของตกลงมาจริงไหม แต่บอกไม่ได้ว่าเป็นของถูกชนิด
-                         พาดหัวจึงพูดได้แค่เท่าที่เซนเซอร์เห็น · ข้อความจริงเขียนจาก kiosk-app.js -->
+                    <!-- ตู้ตอบรับคำสั่ง ไม่เท่ากับลิ้นชักเปิดจริงหรือของออกมาจริง
+                         ยังไม่มีเซนเซอร์ที่พิสูจน์ได้ พาดหัวจึงพูดได้แค่ว่ารับคำสั่งแล้ว -->
                     <h1 class="view-title" id="collect-title">ตู้รับคำสั่งเปิดช่องที่ 1 แล้ว</h1>
                     <p class="view-lead">หยิบของตามรูป แล้วปิดช่องให้สนิท</p>
                 </div>
             </div>
             <div class="view-body">
                 <div class="supply-row" id="collect-supplies"></div>
-                <div class="notice" data-tone="info" id="collect-notice">
+                <div class="notice" data-tone="info">
                     <svg class="icon" aria-hidden="true"><use href="#i-alert"></use></svg>
-                    <span id="collect-notice-text">ตู้ตอบรับคำสั่งแล้ว ถ้าของยังไม่ออกมา ให้กดเรียกครู อย่ากดสั่งซ้ำ</span>
+                    <span>ตู้ตอบรับคำสั่งแล้ว ถ้าของยังไม่ออกมา ให้กดเรียกครู อย่ากดสั่งซ้ำ</span>
                 </div>
             </div>
             <div class="view-foot">

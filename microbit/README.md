@@ -101,52 +101,6 @@ sound (measured 2026-09-17 — `music.stop(pin3)` itself fails with `ValueError:
 mode`). `remote.py` therefore calls `display.off()` at boot and never turns it back on, so the board
 shows nothing. Moving the buzzer to P0, P1 or P2 would give the display back.
 
-## Tray sensor — proving the item actually fell (2026-09-17)
-
-`DONE<d>:<id>` only ever proved that the motor finished its 200 steps. An HC-SR04 fires across the
-collection tray, about 3 cm above its floor, so a falling item breaks the beam on its way down.
-
-| pin | role |
-|---|---|
-| P10 | TRIG |
-| P9 | ECHO — **through a 1 kΩ + 2 kΩ divider**; the module drives 5 V and the pin takes 3.3 V |
-
-Both are LED-matrix column pins, so `main.py` calls `display.off()` at boot and never turns the
-display back on. Nothing is lost in practice: the board sits at the bottom of the cabinet where
-nobody can see a 5×5 matrix. Without that call the sensor reads garbage and `music.stop` on a
-display pin raises `ValueError: Pin N in display mode`.
-
-**Why sampling fast is safe, and why it does not slow the motor.** Measured on this board with a
-probe build on 2026-09-17: three `write_digital` calls cost **340 µs**, and `time_pulse_us` adds
-its timeout plus ~84 µs (single timeout, not double — a 1000 µs and a 3000 µs run differed by
-exactly 1996 µs). With the sensor answering at ~1.5 ms across a 25 cm tray, one reading costs about
-**2.3 ms**. A step already sleeps 5 ms, so `motor_run` pings and then sleeps `STEP_MS - 2`: step
-timing is unchanged and the firmware gets 200 free readings while the spiral turns, plus
-`WATCH_MS` (1500 ms) more after it stops in case an item hangs on the coil.
-
-An item falling ~18 cm crosses the beam at ~1.9 m/s, so even a box landing on its 1.5 cm edge sits
-in the beam for ~8 ms — at least three readings.
-
-**Frames.** `BASE:<id>` measures the empty tray and answers `BASE:<id>:<mm>`; the Pi writes it
-immediately before `OPEN<d>`, and the board processes frames in arrival order, so no waiting is
-needed. Measuring fresh every round is what stops an item left in the tray from last time being
-counted as this round's. After the motor and the watch window, the board sends
-`DROP:<id>:<nearest mm>:<blocked readings>` **before** `DONE<d>:<id>`.
-
-`DROP` is a separate frame on purpose: `DONE` keeps its old shape, every existing test and the
-Pi-side parser are untouched, and a board without this firmware simply never sends `DROP` — which
-the Pi reads as "not checked", not as "nothing fell".
-
-**Three states, never a boolean** (`dropVerdict` in `edge/microbit-serial.mjs`): two or more
-blocked readings is `confirmed`; fewer is `not_found`; and a sensor that never echoed at all, or a
-round with no usable baseline, is `unknown`. One lone reading is not proof — we fire 26× faster
-than the datasheet's 60 ms guidance, so a lingering echo inside a closed acrylic box looks exactly
-like a single blip. Collapsing `unknown` into `not_found` would turn a loose wire into an
-accusation that the cabinet never dispensed.
-
-**What it does not prove**: that the right item fell, or that the student picked it up. Something
-very thin — a single plaster — may not register at all.
-
 ## Script size limit
 
 MicroPython on micro:bit V1 refuses a script over **8188 bytes** — `uflash.hexlify()` raises

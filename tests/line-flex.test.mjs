@@ -41,20 +41,6 @@ test('every cabinet answer has a Thai sentence, so no state can leak out raw', (
     }
 });
 
-// เซนเซอร์ที่ถาดเป็นสิ่งเดียวในการ์ดที่พูดถึง "ของ" ไม่ใช่ "คำสั่ง" ⇒ ต้องอยู่ทุกใบ
-test('the card always says what the tray sensor saw, in three distinguishable ways', () => {
-    for (const [dropCheck, expected] of [['confirmed', /เห็นของตกลงถาด/], ['not_found', /ไม่เห็นของตกลงมา/],
-        ['unknown', /ตรวจไม่ได้/]]) {
-        assert.match(words(dispenseBubble({ ...DISPENSE, dropCheck })), expected, dropCheck);
-    }
-    // เหตุการณ์เก่าที่ไม่มีฟิลด์นี้ต้องอ่านว่า "ตรวจไม่ได้" ห้ามเงียบ และห้ามแปลว่าไม่มีของ
-    const legacy = words(dispenseBubble(DISPENSE));
-    assert.match(legacy, /ตรวจไม่ได้/);
-    assert.ok(!legacy.includes('ไม่เห็นของตกลงมา'), 'ไม่มีข้อมูล ไม่ใช่หลักฐานว่าตู้ไม่จ่ายของ');
-    for (const raw of ['confirmed', 'not_found', 'unknown'])
-        assert.ok(!legacy.includes(raw), `ค่าดิบ "${raw}" ต้องไม่โผล่ให้ครูเห็น`);
-});
-
 // ชื่อนักเรียนเป็นของที่ "ยังไม่มี" ไม่ใช่ของที่ "ไม่มี"
 // การ์ดต้องพร้อมรับมันอยู่แล้ว และระหว่างนี้ต้องบอกตามตรง ไม่ใช่เว้นว่างให้ครูเดา
 test('the student name shows when it is known, and says so plainly when it is not', () => {
