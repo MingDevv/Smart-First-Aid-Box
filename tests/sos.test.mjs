@@ -114,7 +114,9 @@ test('all four real SOS buttons distinguish total failure, partial success and D
     }
 });
 
-test('student web SOS sends only the constrained event and never calls the buzzer', async () => {
+// เว็บส่งได้แค่ {event:'sos'} ห้ามให้เบราว์เซอร์แต่งข้อความเข้ากลุ่มครูเอง
+// ส่วนออดต้องดังด้วย คนที่กดจากมือถือก็ต้องเรียกคนแถวตู้ได้ ไม่ใช่เฉพาะคนที่ยืนอยู่หน้าตู้
+test('student web SOS sends only the constrained event, and still rings the buzzer', async () => {
     let buzzers = 0;
     const requests = [];
     const b = browser({ local: false,
@@ -124,10 +126,23 @@ test('student web SOS sends only the constrained event and never calls the buzze
     b.localStorage.setItem('smart_first_aid_settings', JSON.stringify({demoMode:true,dashboard_auth:true}));
     const result = await b.service.sendSos({name:'forged',messages:[{}]});
     assert.deepEqual(requests,[['/api/notify',{event:'sos'}]]);
-    assert.equal(buzzers,0);
-    assert.equal(result.buzzer.mode,'not-requested');
+    assert.equal(buzzers,1);
+    assert.equal(result.buzzer.success,true);
     assert.equal(b.notices.at(-1).type,'success');
     assert.equal(b.mocks.length,0);
+});
+
+// ออดเงียบต้องไม่ทำให้เด็กเข้าใจว่าไม่มีใครมา LINE กับออดเป็นหลักฐานคนละชิ้น
+test('web SOS still reports success to the student when only LINE got through', async () => {
+    const b = browser({ local: false,
+        fetch: async () => reply({success:true}),
+        buzzer: async () => ({success:false, mode:'mqtt', error:'ตู้ไม่ตอบ'})
+    });
+    const result = await b.service.sendSos('synthetic');
+    assert.equal(result.line.success,true);
+    assert.equal(result.buzzer.success,false);
+    assert.equal(b.notices.at(-1).type,'warning');
+    assert.match(b.notices.at(-1).message,/แจ้งครูพยาบาลแล้ว/);
 });
 
 test('one rejected SOS channel preserves the other channel result', async () => {

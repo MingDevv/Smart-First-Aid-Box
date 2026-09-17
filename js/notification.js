@@ -125,13 +125,12 @@ const NotificationService = {
 
     // LINE acceptance and a cabinet ACK are independent evidence; neither proves the other.
     async sendSos(payload, options = {}) {
-        if (window.SFAB_RUNTIME?.transport !== 'pi-local') {
-            // ไม่เกตการเรียกครูด้วยการล็อกอิน — เด็กที่เจ็บจนล็อกอินไม่ไหวต้องเรียกครูได้
-            // ตัวตนเป็นของแถมที่ทำให้ข้อความมีชื่อ ฝั่งเซิร์ฟเวอร์รับทั้งแบบมีและไม่มี token
-            const line = await this.sendLineNotification(options);
-            this.showToast(line.success ? 'ส่งคำขอ SOS ผ่าน LINE แล้ว' : 'ยังยืนยันการส่ง LINE ไม่ได้ กรุณาเรียกครูใกล้ที่สุดทันที', line.success ? 'success' : 'danger');
-            return { line, buzzer: { success: false, mode: 'not-requested' } };
-        }
+        // ไม่เกตการเรียกครูด้วยการล็อกอิน เด็กที่เจ็บจนล็อกอินไม่ไหวต้องเรียกครูได้
+        // ตัวตนเป็นของแถมที่ทำให้ข้อความมีชื่อ ฝั่งเซิร์ฟเวอร์รับทั้งแบบมีและไม่มี token
+        //
+        // ออดดังทุกที่ที่กด ไม่ใช่เฉพาะจอบนตู้ คนที่กดจากมือถืออาจอยู่ห่างตู้และต้องการ
+        // ให้คนแถวตู้ได้ยิน triggerBuzzer เลือกทางเอง อยู่บนตู้สั่งผ่านสาย ที่อื่นสั่งผ่าน MQTT
+        // ฝั่งเซิร์ฟเวอร์ปล่อยเฉพาะการเปิดเสียง ส่วนการปิดเสียงยังเป็นของครู (api/command.js)
         const results = await Promise.allSettled([
             Promise.resolve().then(() => this.sendLineNotification(options)),
             Promise.resolve().then(() => window.ApiBridge.triggerBuzzer('on'))
