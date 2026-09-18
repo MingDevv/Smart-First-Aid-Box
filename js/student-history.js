@@ -8,8 +8,9 @@
             if (busy) return; busy = true; more.disabled = true; const generation = revision;
             try {
                 const res = await AuthService.authorizedFetch('/api/students?action=me' + (append && cursor ? '&cursor=' + encodeURIComponent(cursor) : ''), { signal: AbortSignal.timeout(15000) });
-                const data = await res.json(); if (generation !== revision) return;
-                if (!res.ok) throw new Error(res.status === 404 ? 'ยังไม่ได้เชื่อมบัญชีนี้กับทะเบียนนักเรียน กรุณาติดต่อครู' : 'โหลดประวัติไม่ได้ กรุณาลองใหม่');
+                // คำตอบที่ไม่ใช่ JSON (เช่น 404 ตัวเปล่า) ต้องกลายเป็นข้อความไทย ไม่ใช่ "Unexpected end of JSON input" บนจอเด็ก
+                const data = await res.json().catch(() => null); if (generation !== revision) return;
+                if (!res.ok || !data) throw new Error(res.status === 404 && data ? 'ยังไม่ได้เชื่อมบัญชีนี้กับทะเบียนนักเรียน กรุณาติดต่อครู' : 'โหลดประวัติไม่ได้ กรุณาลองใหม่');
                 for (const value of data.history.rows) {
                     const tr = document.createElement('tr');
                     for (const text of [new Date(value.ts).toLocaleString('th-TH'), 'ช่อง ' + value.drawer, value.clockTrust === 'untrusted' ? 'เวลาตู้ยังไม่ยืนยัน' : 'เวลาจากตู้', value.ack]) { const td=document.createElement('td');td.textContent=text;tr.append(td); }
