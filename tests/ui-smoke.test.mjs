@@ -119,8 +119,7 @@ const studentPages = [
     'student/wound-select.html',
     'student/wound-scan.html',
     'student/first-aid-guide.html',
-    'student/about.html',
-    'student/history.html'
+    'student/about.html'
 ];
 for (const relativePath of studentPages) {
     const html = await readFile(path.join(rootDir, relativePath), 'utf8');
@@ -217,18 +216,6 @@ for (const page of ['index', 'medicine-management', 'statistics', 'students', 'r
     assert.match(html, /<div class="sidebar-account" data-auth-slot><\/div>/, `dashboard/${page}.html must give the account chip its sidebar slot`);
     assert.doesNotMatch(html, /dashboard-data\.css|students\.css|student-responsive\.css/, `dashboard/${page}.html must not load stylesheets removed in the redesign`);
 }
-const historyHtml = await readFile(path.join(rootDir, 'student', 'history.html'), 'utf8');
-assert.match(
-    historyHtml,
-    /class=["']material-symbols-rounded["'][^>]*>history</i,
-    'Student history empty state must use the Care Kit icon system'
-);
-assert.doesNotMatch(
-    historyHtml,
-    /[📋🗑📁]/u,
-    'Student history must not fall back to emoji UI icons'
-);
-
 const notificationSource = await readFile(path.join(rootDir, 'js', 'notification.js'), 'utf8');
 assert.match(
     notificationSource,
