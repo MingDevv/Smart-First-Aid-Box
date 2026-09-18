@@ -65,10 +65,10 @@ const NotificationService = {
         }
 
         const themes = {
-            success: { background: 'oklch(0.48 0.11 165)', icon: 'check_circle' },
+            success: { background: 'oklch(0.50 0.13 155)', icon: 'check_circle' },
             danger: { background: 'oklch(0.55 0.18 28)', icon: 'error' },
             warning: { background: 'oklch(0.57 0.14 55)', icon: 'warning' },
-            info: { background: 'oklch(0.44 0.09 195)', icon: 'info' }
+            info: { background: 'oklch(0.45 0.15 245)', icon: 'info' }
         };
         const theme = themes[type] || themes.info;
         toast.style.backgroundColor = theme.background;

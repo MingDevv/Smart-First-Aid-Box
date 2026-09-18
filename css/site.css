@@ -1,0 +1,782 @@
+/* CSS/SITE.CSS — โครงหน้าเว็บสาธารณะ + ฝั่งนักเรียน (design handoff 2026-09-17)
+ *
+ * ทุกหน้าที่ไม่ใช่หลังบ้านครูและไม่ใช่หน้าตู้ใช้โครงเดียวกัน:
+ *   .site (พื้นหลังกริด/แสง) → .site-header (sticky) → .site-main → .site-footer (ปุ่ม SOS)
+ * ค่าสี/ระยะ/มุม/เงา อ้างจาก css/global.css เท่านั้น — ไม่ตั้งสีใหม่ในไฟล์นี้
+ *
+ * หน้าตู้ (kiosk/) ห้ามโหลดไฟล์นี้ — มันสมมติจอสาธารณะที่มีอินเทอร์เน็ตและมีเมาส์/นิ้ว */
+
+:root {
+    --site-width: 1180px;
+    --site-gutter: 28px;
+}
+
+/* ─── โครงหน้า ─────────────────────────────────────────────────────────── */
+
+.site {
+    position: relative;
+    display: flex;
+    min-height: 100vh;
+    min-height: 100dvh;
+    flex-direction: column;
+    overflow: hidden;
+    background: #fff;
+    isolation: isolate;
+}
+
+/* พื้นหลัง 4 ชั้น — กริดเลื่อน · จุด · แสงสองก้อน (ต้นแบบ: 21st.dev grid-background เขียนใหม่เป็น CSS ล้วน)
+ * ทุกชั้น z-index:0 และ pointer-events:none ⇒ เนื้อหาอยู่ที่ z-index:2 เสมอ */
+.site-bg-grid,
+.site-bg-dots,
+.site-aura {
+    position: absolute;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.site-bg-grid {
+    inset: 0;
+    background-image:
+        linear-gradient(to right, oklch(0.62 0.14 248 / 0.16) 1px, transparent 1px),
+        linear-gradient(to bottom, oklch(0.62 0.14 248 / 0.16) 1px, transparent 1px);
+    background-size: 64px 64px;
+    -webkit-mask-image: radial-gradient(ellipse 85% 70% at 60% 25%, #000 35%, transparent 78%);
+    mask-image: radial-gradient(ellipse 85% 70% at 60% 25%, #000 35%, transparent 78%);
+    animation: gridDrift 26s linear infinite;
+}
+
+/* หน้าฝั่งนักเรียนใช้กริดจางกว่าและไล่จากขอบบนลงมา (Student App.dc.html) */
+.site-student .site-bg-grid {
+    background-image:
+        linear-gradient(to right, oklch(0.62 0.14 248 / 0.14) 1px, transparent 1px),
+        linear-gradient(to bottom, oklch(0.62 0.14 248 / 0.14) 1px, transparent 1px);
+    -webkit-mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, #000 30%, transparent 80%);
+    mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, #000 30%, transparent 80%);
+}
+
+.site-bg-dots {
+    inset: 0;
+    background-image: radial-gradient(oklch(0.55 0.16 250 / 0.28) 1px, transparent 1.4px);
+    background-size: 64px 64px;
+    background-position: 32px 32px;
+    -webkit-mask-image: radial-gradient(ellipse 60% 55% at 62% 30%, #000 10%, transparent 72%);
+    mask-image: radial-gradient(ellipse 60% 55% at 62% 30%, #000 10%, transparent 72%);
+}
+
+.site-aura {
+    border-radius: 50%;
+    filter: blur(10px);
+}
+
+.site-aura-top {
+    top: -22%;
+    right: -12%;
+    width: 60vw;
+    height: 60vw;
+    max-width: 820px;
+    max-height: 820px;
+    background: radial-gradient(circle, oklch(0.72 0.14 245 / 0.32), transparent 62%);
+    animation: auraFloat 18s ease-in-out infinite;
+}
+
+.site-aura-bottom {
+    bottom: -26%;
+    left: -14%;
+    width: 52vw;
+    height: 52vw;
+    max-width: 700px;
+    max-height: 700px;
+    background: radial-gradient(circle, oklch(0.80 0.10 220 / 0.30), transparent 65%);
+    animation: auraFloat 24s ease-in-out infinite reverse;
+}
+
+.site-student .site-aura-top {
+    top: -24%;
+    width: 58vw;
+    height: 58vw;
+    max-width: 760px;
+    max-height: 760px;
+    background: radial-gradient(circle, oklch(0.74 0.13 245 / 0.28), transparent 62%);
+    animation-duration: 20s;
+}
+
+/* ─── ส่วนหัว ───────────────────────────────────────────────────────────── */
+
+.site-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    border-bottom: 1px solid oklch(0.92 0.02 240 / 0.9);
+    background: oklch(1 0 0 / 0.72);
+    backdrop-filter: blur(16px);
+}
+
+.site-header-inner {
+    display: flex;
+    min-height: 70px;
+    max-width: var(--site-width);
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 24px;
+    margin: 0 auto;
+    padding: 8px var(--site-gutter);
+}
+
+.site-brand {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 11px;
+    color: inherit;
+}
+
+.site-brand:hover {
+    color: inherit;
+}
+
+.site-brand img {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 auto;
+    border-radius: 10px;
+    object-fit: cover;
+}
+
+.site-brand-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.site-brand-name {
+    color: var(--primary-link);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    white-space: nowrap;
+}
+
+.site-brand-sub {
+    color: var(--text-muted);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.site-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 26px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.site-nav > a:not(.site-tab) {
+    color: var(--text-nav);
+}
+
+.site-nav > a:not(.site-tab):hover {
+    color: var(--primary);
+}
+
+/* แท็บของฝั่งนักเรียน — เม็ดยา 42px แท็บที่เปิดอยู่ทึบสี primary */
+.site-tabs {
+    gap: 6px;
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+.site-tab {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    padding: 0 15px;
+    border: 1px solid oklch(0.91 0.025 240);
+    border-radius: 999px;
+    background: oklch(1 0 0 / 0.7);
+    color: var(--text-nav);
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.site-tab:hover {
+    border-color: var(--scan);
+    color: var(--primary);
+}
+
+.site-tab.active,
+.site-tab[aria-current='page'] {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+}
+
+/* ชิปบัญชี (js/auth-ui.js) เมื่อวางในช่องของส่วนหัวจะเลิกลอย และแต่งเป็นเม็ดยา "เข้าสู่ระบบ" ตามดีไซน์ */
+.site-header #auth-chip {
+    position: relative;   /* เลิก fixed แต่ยังเป็นจุดอ้างอิงให้เมนู #auth-menu ที่เป็น absolute */
+    top: auto;
+    right: auto;
+}
+
+.site-header #auth-chip-button {
+    min-height: 42px;
+    padding: 0 16px;
+    border-color: var(--border-strong);
+    box-shadow: none;
+    transition: box-shadow 0.25s, border-color 0.25s;
+}
+
+.site-header #auth-chip-button:hover {
+    border-color: var(--scan);
+    background: #fff;
+    box-shadow: 0 8px 22px -14px oklch(0.45 0.16 250 / 0.8);
+}
+
+.site-header #auth-chip .auth-dot {
+    position: relative;
+    width: 8px;
+    height: 8px;
+    background: var(--accent-dot);
+}
+
+/* วงคลื่นรอบจุดสถานะ — เฉพาะตอนยังไม่ล็อกอิน เป็นการเรียกให้กด */
+.site-header #auth-chip[data-state='signed-out'] .auth-dot::after {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--accent-dot);
+    content: '';
+    animation: ping 2.4s ease-out infinite;
+}
+
+/* ─── ตัวเนื้อหา ────────────────────────────────────────────────────────── */
+
+.site-main {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    min-width: 0;
+    max-width: var(--site-width);
+    flex: 1;
+    margin: 0 auto;
+    padding: 36px var(--site-gutter) 56px;
+}
+
+/* ฝั่งนักเรียนเป็น app-shell: สูงเท่าจอพอดี header/footer ตายตัว เนื้อหาจบในจอเดียว (Bank 2026-09-18)
+ * .site-main เป็น flex column ที่มีความสูงแน่นอน ⇒ ลูกที่ตั้ง flex:1 + min-height:0 จะย่อ/ยืดตามจอ
+ * ถ้าจอเตี้ยจนของไม่พอจริงๆ (< ~640px) ค่อยเลื่อนในตัวเนื้อหา ไม่ใช่เลื่อนทั้งหน้า */
+.site-student {
+    height: 100vh;
+    height: 100dvh;
+}
+
+.site-student .site-main {
+    --site-width: 1120px;
+    --site-gutter: 24px;
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 18px var(--site-gutter) 16px;
+}
+
+.site-student .site-header-inner,
+.site-student .site-footer-inner {
+    max-width: 1120px;
+    padding-inline: 24px;
+}
+
+.site-student .site-header-inner {
+    min-height: 62px;
+    padding-block: 6px;
+}
+
+.site-student .site-footer-inner {
+    padding-block: 9px;
+}
+
+.site-student .sos-button {
+    min-height: 44px;
+}
+
+.site-student .page-head {
+    margin-bottom: 14px;
+}
+
+.site-student .page-title {
+    font-size: clamp(22px, 2.4vw, 30px);
+}
+
+.site-student .page-lead {
+    font-size: 13.5px;
+}
+
+/* ส่วนที่ต้องกินความสูงที่เหลือของจอ (ใช้คู่กับ .split หรือ grid ของหน้า) */
+.fill {
+    min-height: 0;
+    flex: 1;
+}
+
+/* หัวเรื่องของหน้า: eyebrow · h1 · คำอธิบาย · ชิปด้านขวา */
+.page-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px 18px;
+    margin-bottom: 22px;
+}
+
+.page-head-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.page-title {
+    font-size: clamp(26px, 3.2vw, 38px);
+    line-height: 1.12;
+}
+
+.page-lead {
+    max-width: 560px;
+    color: var(--text-body);
+    font-size: 14px;
+}
+
+.chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 13px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: oklch(1 0 0 / 0.8);
+    color: oklch(0.40 0.035 240);
+    font-size: 12px;
+}
+
+.chip .material-symbols-rounded {
+    color: var(--accent-icon);
+    font-size: 18px;
+}
+
+.chip-num {
+    color: var(--primary);
+    font-family: var(--font-mono);
+    font-weight: 600;
+}
+
+/* เม็ดยาสถานะ (SYSTEM ONLINE · STEP 01) */
+.pill {
+    display: inline-flex;
+    align-self: flex-start;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 13px;
+    border: 1px solid oklch(0.86 0.045 240);
+    border-radius: 999px;
+    background: oklch(1 0 0 / 0.75);
+    color: oklch(0.45 0.14 245);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    backdrop-filter: blur(8px);
+}
+
+.pill-dot {
+    position: relative;
+    display: inline-flex;
+    width: 7px;
+    height: 7px;
+}
+
+.pill-dot::before,
+.pill-dot::after {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--accent-dot);
+    content: '';
+}
+
+.pill-dot::after {
+    animation: ping 2s ease-out infinite;
+}
+
+/* กล่อง / การ์ด */
+.panel {
+    border: 1px solid var(--border-panel);
+    border-radius: 22px;
+    background: oklch(1 0 0 / 0.85);
+}
+
+.panel-pad {
+    padding: 18px;
+}
+
+.panel-shadow {
+    box-shadow: var(--shadow-md);
+}
+
+.panel-title {
+    font-size: 17px;
+}
+
+.icon-tile {
+    display: inline-flex;
+    width: 46px;
+    height: 46px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    background: var(--primary-light);
+    color: oklch(0.50 0.15 248);
+}
+
+.icon-tile .material-symbols-rounded {
+    font-size: 24px;
+}
+
+.icon-button {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: oklch(1 0 0 / 0.8);
+    color: var(--text-main);
+    cursor: pointer;
+}
+
+.icon-button:hover {
+    border-color: var(--scan);
+    color: var(--primary);
+}
+
+/* การ์ดตัวเลขสรุป */
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+    gap: 14px;
+}
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px;
+    border: 1px solid var(--border-panel);
+    border-radius: 20px;
+    background: oklch(1 0 0 / 0.85);
+}
+
+.stat-card-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.stat-label {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.stat-value {
+    color: var(--text-hero);
+    font-family: var(--font-prompt);
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.15;
+}
+
+/* ตารางข้อมูล */
+.data-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border-panel);
+    border-radius: 20px;
+    background: oklch(1 0 0 / 0.9);
+}
+
+.data-table {
+    width: 100%;
+    min-width: 620px;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    text-align: left;
+}
+
+.data-table th {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--surface-soft);
+    color: oklch(0.50 0.10 245);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+}
+
+.data-table td {
+    padding: 13px 16px;
+    border-bottom: 1px solid oklch(0.95 0.012 240);
+    color: oklch(0.38 0.03 240);
+    vertical-align: top;
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.data-table td:first-child {
+    white-space: nowrap;
+}
+
+/* กล่องข้อความเตือน / ช่วยเหลือ */
+.notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.notice-title {
+    display: block;
+    margin-bottom: 3px;
+    font-family: var(--font-prompt);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.notice-warning {
+    border-color: var(--warning-border);
+    background: var(--warning-bg);
+    color: oklch(0.45 0.08 60);
+}
+
+.notice-warning .material-symbols-rounded {
+    color: oklch(0.52 0.13 60);
+}
+
+.notice-warning .notice-title {
+    color: oklch(0.42 0.11 55);
+}
+
+.notice-info {
+    align-items: center;
+    border-color: oklch(0.90 0.035 240);
+    background: oklch(0.97 0.022 240);
+    color: oklch(0.42 0.05 245);
+}
+
+.notice-info .material-symbols-rounded {
+    color: var(--primary-link);
+}
+
+.notice-danger {
+    border-color: oklch(0.87 0.06 35);
+    background: var(--danger-light);
+    color: var(--danger);
+}
+
+.notice-danger .material-symbols-rounded {
+    color: var(--danger);
+}
+
+/* รายการคำแนะนำแบบแถว (หน้าสแกน / เกี่ยวกับ) */
+.tip-list {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding: 0;
+    list-style: none;
+}
+
+.tip-list li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: oklch(1 0 0 / 0.8);
+    color: var(--text-nav);
+    font-size: 13px;
+}
+
+.tip-list .material-symbols-rounded {
+    color: var(--accent-icon);
+    font-size: 19px;
+}
+
+/* ─── กรอบสแกน: กริดใน · เส้นสแกน · มุมสี่มุม (ใช้ทั้งฮีโร่หน้าแรกและกล้องจริงหน้าสแกน) ─── */
+
+.panel-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(to right, oklch(0.62 0.14 248 / 0.12) 1px, transparent 1px),
+        linear-gradient(to bottom, oklch(0.62 0.14 248 / 0.12) 1px, transparent 1px);
+    background-size: 32px 32px;
+    -webkit-mask-image: radial-gradient(circle at 50% 45%, #000 20%, transparent 75%);
+    mask-image: radial-gradient(circle at 50% 45%, #000 20%, transparent 75%);
+}
+
+.scan-sweep {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 22%;
+    border-bottom: 1.5px solid oklch(0.62 0.18 248 / 0.75);
+    background: linear-gradient(180deg, transparent, oklch(0.62 0.16 248 / 0.22) 65%, oklch(0.62 0.16 248 / 0.55));
+    animation: scanSweep 5.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* มุมกรอบสแกน 4 มุม — คลาส .corner ใช้ร่วมกับหน้าสแกนจริงใน css/student.css */
+.corner {
+    position: absolute;
+    width: 34px;
+    height: 30px;
+    border: 0 solid var(--scan);
+    animation: cornerGlow 3.2s ease-in-out infinite;
+}
+
+.corner-tl { top: 26px; left: 26px; border-top-width: 3px; border-left-width: 3px; border-radius: 14px 0 0 0; }
+.corner-tr { top: 26px; right: 26px; border-top-width: 3px; border-right-width: 3px; border-radius: 0 14px 0 0; animation-delay: 0.4s; }
+.corner-bl { bottom: 26px; left: 26px; border-bottom-width: 3px; border-left-width: 3px; border-radius: 0 0 0 14px; animation-delay: 1.2s; }
+.corner-br { bottom: 26px; right: 26px; border-bottom-width: 3px; border-right-width: 3px; border-radius: 0 0 14px 0; animation-delay: 0.8s; }
+
+/* ─── ส่วนท้าย + ปุ่ม SOS ─────────────────────────────────────────────── */
+
+.site-footer {
+    position: relative;
+    z-index: 2;
+    border-top: 1px solid var(--border-color);
+    background: oklch(1 0 0 / 0.78);
+    backdrop-filter: blur(10px);
+}
+
+.site-footer-inner {
+    display: flex;
+    max-width: var(--site-width);
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 auto;
+    padding: 16px var(--site-gutter);
+}
+
+.site-footer-note {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.sos-button {
+    display: inline-flex;
+    min-height: 48px;
+    align-items: center;
+    gap: 9px;
+    padding: 0 22px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    font-family: var(--font-prompt);
+    font-size: 15px;
+    font-weight: 700;
+    box-shadow: 0 14px 26px -20px oklch(0.48 0.16 30 / 0.9);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.sos-button .material-symbols-rounded {
+    font-size: 20px;
+}
+
+.sos-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 32px -20px oklch(0.48 0.16 30);
+}
+
+.sos-button:disabled {
+    cursor: wait;
+    opacity: 0.68;
+}
+
+/* กริดสองคอลัมน์ที่ยุบเองเมื่อแคบ — `min(100%, …)` กันล้นที่ความกว้างต่ำกว่า ~980px */
+.split {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
+    grid-auto-rows: minmax(0, 1fr);   /* แถวย่อได้ ไม่งั้นรูปดันความสูงเกินจอ */
+    gap: 24px 32px;
+    align-items: stretch;
+}
+
+.split > * {
+    min-width: 0;
+    min-height: 0;
+}
+
+@media (max-width: 640px) {
+    :root {
+        --site-gutter: 18px;
+    }
+
+    .site-student .site-header-inner,
+    .site-student .site-footer-inner {
+        padding-inline: 18px;
+    }
+
+    .site-student .site-main {
+        --site-gutter: 18px;
+        padding-top: 16px;
+    }
+
+    /* จอแคบ: คอลัมน์ซ้อนกัน ให้แถวสูงตามเนื้อหาแล้วเลื่อนใน .site-main แทน */
+    .split {
+        grid-auto-rows: auto;
+    }
+
+    .site-brand-sub {
+        display: none;
+    }
+
+    .site-tabs {
+        width: 100%;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 4px;
+        scrollbar-width: none;
+    }
+
+    .site-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .site-tab {
+        flex: 0 0 auto;
+    }
+
+    .data-table {
+        min-width: 560px;
+    }
+}

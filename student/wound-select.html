@@ -3,68 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#f7fcf9">
+    <meta name="theme-color" content="#ffffff">
     <title>เลือกอาการ — Smart First Aid Box</title>
     <link rel="stylesheet" href="../css/global.css">
-    <style>
-        body { display: flex; justify-content: center; }
-        .picker-app { display: flex; width: min(100%, 460px); min-height: 100vh; min-height: 100dvh; flex-direction: column; overflow: hidden; background: var(--bg-main); }
-        .picker-header { display: flex; flex-direction: column; gap: 5px; padding: 18px 20px 14px; border-bottom: 1px solid var(--border-color); }
-        .picker-title-row { display: flex; align-items: center; gap: 12px; }
-        .picker-back { display: grid; width: 42px; height: 42px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 13px; background: var(--secondary-light); color: var(--text-main); cursor: pointer; }
-        .picker-header h1 { font-size: 19px; }
-        .picker-header p { padding-left: 54px; color: var(--text-muted); font-size: 12px; }
-        .wound-grid { display: flex; flex: 1; flex-direction: column; gap: 14px; padding: 16px 20px; }
-        .wound-card { overflow: hidden; padding: 0; border: 1px solid var(--border-color); border-radius: 24px; background: #fff; color: var(--text-main); cursor: pointer; text-align: left; box-shadow: var(--shadow-sm); transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
-        .wound-card:hover { transform: translateY(-2px); border-color: var(--primary); box-shadow: var(--shadow-md); }
-        .wound-card.featured { border: 1px solid oklch(0.80 0.08 170); background: var(--primary-light); }
-        .wound-photo-wrap { position: relative; display: block; height: 158px; overflow: hidden; background: oklch(0.93 0.015 190); }
-        /* รูปชุดนี้เป็นภาพประกอบ 4:3 ที่มีพื้นหลังออกแบบมาแล้ว และแผลอยู่กลางเฟรม
-           ⚠️ ห้ามครอปด้วยค่าจูนมือ (เช่น ซูม 216% แล้วเลื่อน top -57.5%) เพราะค่าพวกนั้นผูกกับรูปชุดใดชุดหนึ่ง
-           พอเปลี่ยนรูป แผลจะหลุดออกนอกเฟรม ⇒ ให้เบราว์เซอร์จัดเองด้วย object-fit: cover */
-        .wound-photo { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; display: block; object-fit: cover; object-position: center; }
-        .wound-copy { display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: center; gap: 8px; padding: 13px 15px 14px; }
-        .wound-name { display: block; margin-bottom: 2px; font-family: var(--font-prompt); font-size: 17px; font-weight: 700; }
-        .featured .wound-name { color: oklch(0.34 0.07 190); }
-        .wound-meta { display: block; color: var(--text-muted); font-size: 11px; line-height: 1.4; }
-        .picker-footer { display: flex; flex-direction: column; gap: 9px; padding: 8px 20px 20px; }
-        .picker-help { display: flex; align-items: center; gap: 10px; padding: 13px 14px; border: 1px solid oklch(0.88 0.04 250); border-radius: 18px; background: oklch(0.95 0.02 250); color: oklch(0.42 0.05 255); font-size: 12px; }
-        .picker-sos { min-height: 62px; border: 0; border-radius: 20px; background: var(--accent); color: #fff; font-size: 17px; }
-        .empty-state { padding: 32px 18px; color: var(--text-muted); text-align: center; }
-        .wound-card.is-locked { opacity: 0.78; background: oklch(0.985 0.005 190); cursor: pointer; border-style: dashed; }
-        .wound-card.is-locked:hover { transform: translateY(-1px); border-color: oklch(0.75 0.05 190); box-shadow: var(--shadow-sm); }
-        .wound-card.is-locked .wound-photo { filter: grayscale(40%) contrast(90%); }
-        .coming-soon-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: oklch(0.92 0.04 60); color: oklch(0.48 0.12 60); font-family: var(--font-mono); font-size: 10px; font-weight: 700; }
-        .lock-indicator { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: oklch(0.93 0.02 60); color: oklch(0.50 0.12 60); font-size: 16px; }
-        @media (min-width: 461px) { .picker-app { border-inline: 1px solid var(--border-color); box-shadow: 0 26px 70px -42px oklch(0.30 0.03 200 / .65); } }
-    </style>
-    <link rel="stylesheet" href="../css/student-responsive.css">
+    <link rel="stylesheet" href="../css/site.css">
+    <link rel="stylesheet" href="../css/student.css">
     <link rel="stylesheet" href="../css/auth.css">
     <script src="../js/auth.js" defer></script>
     <script src="../js/auth-ui.js" defer></script>
 </head>
+<!-- เลือกอาการ (design handoff 2026-09-17 · Student App › select symptom)
+     หน้านี้เปิดดูได้โดยไม่ล็อกอิน แต่การ์ดที่พาไปเปิดช่องยาติด data-requires-auth ให้เด้งกล่องล็อกอินตอนกด -->
 <body class="picker-body">
-    <main class="picker-app animate-fade-in">
-        <header class="picker-header">
-            <div class="picker-title-row">
-                <button class="picker-back" type="button" onclick="location.href='/student/'" aria-label="กลับหน้าแรก"><span class="material-symbols-rounded">arrow_back</span></button>
-                <h1>เลือกอาการ</h1>
-            </div>
-            <p>แตะการ์ดเพื่อดูขั้นตอนและเวชภัณฑ์ที่ต้องใช้</p>
-            <div class="picker-flow">
-                <div class="picker-flow-item"><span class="picker-flow-number">01</span><span>เลือกอาการที่ตรงกับตัวเอง</span></div>
-                <div class="picker-flow-item"><span class="picker-flow-number">02</span><span>ตรวจรายการเวชภัณฑ์และข้อควรระวัง</span></div>
-                <div class="picker-flow-item"><span class="picker-flow-number">03</span><span>ยืนยันก่อนปลดล็อกช่องเก็บยา</span></div>
+    <div class="site site-student">
+        <div class="site-bg-grid" aria-hidden="true"></div>
+        <div class="site-aura site-aura-top" aria-hidden="true"></div>
+
+        <header class="site-header">
+            <div class="site-header-inner">
+                <a class="site-brand" href="/student/" aria-label="กลับหน้าหลักนักเรียน">
+                    <img src="../images/logo_first_aid.webp" width="36" height="36" alt="">
+                    <span class="site-brand-copy">
+                        <span class="site-brand-name">SMART FIRST AID BOX</span>
+                        <span class="site-brand-sub">ฝั่งนักเรียน · โรงเรียนเทศบาล 6</span>
+                    </span>
+                </a>
+                <nav class="site-nav site-tabs" aria-label="เมนูนักเรียน">
+                    <a class="site-tab" href="/student/wound-scan">สแกนแผล AI</a>
+                    <a class="site-tab" aria-current="page" href="/student/wound-select">เลือกอาการ</a>
+                    <a class="site-tab" href="/student/history">ประวัติของฉัน</a>
+                    <a class="site-tab" href="/student/about">เกี่ยวกับ</a>
+                    <span data-auth-slot></span>
+                </nav>
             </div>
         </header>
 
-        <section class="wound-grid" id="wound-list" aria-live="polite"></section>
+        <main class="site-main animate-rise">
+            <div class="page-head">
+                <div class="page-head-copy">
+                    <span class="eyebrow">STEP 01 · SELECT SYMPTOM</span>
+                    <h1 class="page-title">เลือกอาการ</h1>
+                    <p class="page-lead">แตะการ์ดเพื่อดูขั้นตอนและเวชภัณฑ์ที่ต้องใช้</p>
+                </div>
+                <div class="chip-row picker-flow">
+                    <span class="chip"><span class="chip-num">01</span>เลือกอาการที่ตรงกับตัวเอง</span>
+                    <span class="chip"><span class="chip-num">02</span>ตรวจเวชภัณฑ์และข้อควรระวัง</span>
+                    <span class="chip"><span class="chip-num">03</span>ยืนยันก่อนปลดล็อกช่องเก็บยา</span>
+                </div>
+            </div>
 
-        <footer class="picker-footer">
-            <a class="picker-help" href="/student/wound-scan"><span class="material-symbols-rounded" aria-hidden="true">help</span><span>ไม่แน่ใจว่าเป็นแผลแบบไหน? ใช้ AI สแกนช่วยดูได้</span></a>
-            <button class="btn picker-sos" id="select-sos-button" type="button" onclick="triggerSelectSos()"><span class="material-symbols-rounded" aria-hidden="true">emergency</span><span>เรียกครูพยาบาลด่วน</span></button>
+            <section class="wound-grid" id="wound-list" aria-live="polite"></section>
+
+            <div class="notice notice-info picker-help">
+                <span><span class="material-symbols-rounded" aria-hidden="true">help</span>ไม่แน่ใจว่าเป็นแผลแบบไหน? ใช้ AI สแกนช่วยดูได้</span>
+                <a class="btn btn-primary" href="/student/wound-scan"><span class="material-symbols-rounded" aria-hidden="true">center_focus_weak</span>สแกนแผลด้วย AI</a>
+            </div>
+        </main>
+
+        <footer class="site-footer">
+            <div class="site-footer-inner">
+                <span class="site-footer-note">พัฒนาโดย CRMS6 Team · โรงเรียนเทศบาล 6 นครเชียงราย</span>
+                <button class="sos-button" id="select-sos-button" type="button" onclick="triggerSelectSos()">
+                    <span class="material-symbols-rounded" aria-hidden="true">emergency</span>
+                    <span>เรียกครูพยาบาลด่วน</span>
+                </button>
+            </div>
         </footer>
-    </main>
+    </div>
 
     <script src="../js/wound-data.js"></script>
     <script src="../js/storage.js"></script>
@@ -85,30 +90,36 @@
                 list.innerHTML = '<div class="empty-state">ยังไม่มีอาการในระบบ</div>';
                 return;
             }
-            list.innerHTML = wounds.map((wound, index) => {
+            list.innerHTML = wounds.map(wound => {
                 const isLocked = wound.locked || wound.comingSoon;
                 if (isLocked) {
                     return `
                         <button class="wound-card is-locked" type="button" onclick="handleLockedWound('${escapeHtml(wound.name_th)}')" aria-label="${escapeHtml(wound.name_th)} (เร็วๆ นี้)">
-                            <span class="wound-photo-wrap"><img class="wound-photo" src="${escapeHtml(wound.image)}" alt="${escapeHtml(wound.name_th)}"></span>
+                            <span class="wound-photo-wrap">
+                                <img class="wound-photo" src="${escapeHtml(wound.image)}" alt="">
+                                <span class="coming-soon-badge"><span class="material-symbols-rounded" aria-hidden="true">lock</span>เร็วๆ นี้</span>
+                            </span>
                             <span class="wound-copy">
                                 <span>
-                                    <span style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
-                                        <span class="wound-name" style="margin-bottom:0;">${escapeHtml(wound.name_th)}</span>
-                                        <span class="coming-soon-badge"><span class="material-symbols-rounded" style="font-size:12px;">lock</span>เร็วๆ นี้</span>
-                                    </span>
-                                    <span class="wound-meta">${escapeHtml(wound.description || 'อยู่ในระหว่างพัฒนาระบบจ่ายยาอัตโนมัติ')}</span>
+                                    <span class="wound-name">${escapeHtml(wound.name_th)}</span>
+                                    <span class="wound-meta">อยู่ในระหว่างพัฒนาระบบจ่ายยาอัตโนมัติ</span>
                                 </span>
-                                <span class="lock-indicator" aria-hidden="true"><span class="material-symbols-rounded">lock</span></span>
+                                <span class="material-symbols-rounded wound-arrow" aria-hidden="true">lock</span>
                             </span>
                         </button>
                     `;
                 }
 
                 return `
-                    <button class="wound-card${index === 0 ? ' featured' : ''}" type="button" data-requires-auth onclick="location.href='/student/first-aid-guide?wound=${encodeURIComponent(wound.id)}'">
-                        <span class="wound-photo-wrap"><img class="wound-photo" src="${escapeHtml(wound.image)}" alt="${escapeHtml(wound.name_th)}"></span>
-                        <span class="wound-copy"><span><span class="wound-name">${escapeHtml(wound.name_th)}</span><span class="wound-meta">${wound.steps.length} ขั้นตอน · ช่องเก็บที่ ${Number(wound.drawer) || 1} · เวชภัณฑ์ ${wound.items.length} รายการ</span></span><span class="material-symbols-rounded" aria-hidden="true" style="color:var(--primary);">chevron_right</span></span>
+                    <button class="wound-card" type="button" data-requires-auth="เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน จึงจะเปิดคู่มือและช่องยาได้" onclick="location.href='/student/first-aid-guide?wound=${encodeURIComponent(wound.id)}'">
+                        <span class="wound-photo-wrap"><img class="wound-photo" src="${escapeHtml(wound.image)}" alt=""></span>
+                        <span class="wound-copy">
+                            <span>
+                                <span class="wound-name">${escapeHtml(wound.name_th)}</span>
+                                <span class="wound-meta">${wound.steps.length} ขั้นตอน · ช่องเก็บที่ ${Number(wound.drawer) || 1} · เวชภัณฑ์ ${wound.items.length} รายการ</span>
+                            </span>
+                            <span class="material-symbols-rounded wound-arrow" aria-hidden="true">chevron_right</span>
+                        </span>
                     </button>
                 `;
             }).join('');

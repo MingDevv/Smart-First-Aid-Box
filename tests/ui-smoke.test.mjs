@@ -71,7 +71,8 @@ assert.deepEqual(
 );
 
 const landingHtml = await readFile(path.join(rootDir, 'index.html'), 'utf8');
-const studentResponsiveCss = await readFile(path.join(rootDir, 'css', 'student-responsive.css'), 'utf8');
+const siteCss = await readFile(path.join(rootDir, 'css', 'site.css'), 'utf8');
+const homeCss = await readFile(path.join(rootDir, 'css', 'home.css'), 'utf8');
 assert.doesNotMatch(
     landingHtml,
     /stat-med-count|stat-total-usage/,
@@ -85,83 +86,56 @@ assert.doesNotMatch(
     /<a\b[^>]*(?:aria-hidden=["']true["']|style=["'][^"']*display\s*:\s*none)/i,
     'Landing page must not carry links nobody can see or reach'
 );
-assert.match(
-    landingHtml,
-    /href=["']css\/home\.css["']/i,
-    'Landing page must load the shared Care Kit home styling'
-);
-// หน้าแรกกับ /student ใช้การออกแบบชุดเดียวกัน ⇒ พาดหัวและภาพฮีโร่ต้องตรงกัน
-// ตรวจเทียบกับไฟล์จริงของ /student ไม่ใช่ฝังสตริงไว้ที่นี่ ไม่งั้นแก้หน้าหนึ่งแล้วอีกหน้าค้าง
-// โดยไม่มีอะไรร้อง
-const studentHomeHtml = await readFile(path.join(rootDir, 'student', 'index.html'), 'utf8');
-for (const pattern of [/<h1 class="home-title">([\s\S]*?)<\/h1>/, /<figure class="home-hero-mascot">[\s\S]*?<\/figure>/]) {
-    const fromStudent = studentHomeHtml.match(pattern);
-    assert.ok(fromStudent, `student/index.html must still contain ${pattern}`);
-    assert.ok(
-        landingHtml.includes(fromStudent[0].replace(/\.\.\/images\//g, 'images/')),
-        'Landing page hero must stay identical to the student home hero'
-    );
+// ดีไซน์ 2026-09-17 (Home B Tech AI): โครงร่วมอยู่ใน css/site.css ฮีโร่และแถบโลโก้อยู่ใน css/home.css
+for (const href of ['css/global.css', 'css/site.css', 'css/home.css']) {
+    assert.ok(landingHtml.includes(`href="${href}"`), `Landing page must load ${href}`);
 }
 assert.match(
     landingHtml,
-    /class=["'][^"']*home-action[^"']*primary-action[^"']*["'][^>]*href=["']\/?student\/wound-scan["']/i,
-    'Landing page must make AI wound scanning the primary Care Kit action'
+    /class=["'][^"']*btn-primary[^"']*primary-action[^"']*["'][^>]*href=["']\/?student\/wound-scan["']/i,
+    'Landing page must make AI wound scanning the primary call to action'
 );
-assert.match(
-    landingHtml,
-    /href=["']css\/student-responsive\.css["']/i,
-    'Landing page must load the wide Care Kit compositions for desktop'
-);
-for (const relativePath of [
+// มาสคอตต้องเป็นไฟล์เดิมไม่ถูกวาดใหม่ และห้ามใช้ ai_scanner_hero.webp ที่มีพาดหัวฝังในรูป (README ของ handoff)
+assert.match(landingHtml, /<img[^>]*class=["']mascot["'][^>]*src=["']images\/mascot\.webp["']/i,
+    'Landing hero must show the original mascot artwork');
+assert.doesNotMatch(landingHtml, /ai_scanner_hero\.webp/, 'Landing page must not use the hero image with a baked-in headline');
+// แถบโลโก้ผู้สนับสนุนวางกลุ่มโลโก้สองชุด ชุดที่สองซ่อนจาก screen reader — เลื่อน -50% จึงต่อกันไม่มีรอยต่อ
+const logoGroups = [...landingHtml.matchAll(/<div class="logo-group"([^>]*)>/g)];
+assert.equal(logoGroups.length, 2, 'Partner marquee needs exactly two logo groups for a seamless loop');
+assert.match(logoGroups[1][1], /aria-hidden="true"/, 'The duplicated logo group must be hidden from assistive tech');
+assert.match(homeCss, /@keyframes marquee|\.logo-track\s*\{[^}]*animation:\s*marquee/, 'Partner marquee must animate via the marquee keyframe');
+// ลดการเคลื่อนไหวต้องไม่ดับแถบโลโก้ — กฎเดิม `* { animation: none }` ทำให้มันหายทั้งแถบ
+const globalCss = await readFile(path.join(rootDir, 'css', 'global.css'), 'utf8');
+assert.match(globalCss, /prefers-reduced-motion:\s*reduce\)[\s\S]*\.logo-track\s*\{\s*animation-duration/,
+    'Reduced motion must slow the logo marquee instead of removing it');
+assert.doesNotMatch(globalCss, /prefers-reduced-motion:\s*reduce\)\s*\{[^}]*\*\s*\{[^}]*animation(?:-duration)?:\s*(?:none|0\.01ms)/,
+    'Reduced motion must not blanket-disable every animation');
+// ชิปบัญชีต้องมีช่องในส่วนหัวของทุกหน้า (js/auth-ui.js วางชิปเข้า data-auth-slot) — ไม่งั้นมันลอยทับเมนู
+assert.match(landingHtml, /<span data-auth-slot><\/span>/, 'Landing header must reserve the account chip slot');
+assert.match(landingHtml, /class=["']sos-button["'][^>]*id=["']home-sos-button["']/, 'Landing footer must keep the SOS button');
+
+const studentPages = [
     'student/index.html',
     'student/wound-select.html',
     'student/wound-scan.html',
     'student/first-aid-guide.html',
     'student/about.html',
     'student/history.html'
-]) {
+];
+for (const relativePath of studentPages) {
     const html = await readFile(path.join(rootDir, relativePath), 'utf8');
-    assert.match(
-        html,
-        /href=["']\.\.\/css\/student-responsive\.css["']/i,
-        `${relativePath} must load the shared desktop Care Kit compositions`
-    );
+    for (const href of ['../css/global.css', '../css/site.css', '../css/student.css']) {
+        assert.ok(html.includes(`href="${href}"`), `${relativePath} must load ${href}`);
+    }
+    assert.match(html, /<nav class="site-nav site-tabs"/, `${relativePath} must use the shared student tab header`);
+    assert.match(html, /data-auth-slot/, `${relativePath} must reserve the account chip slot in its header`);
+    assert.match(html, /<div class="site site-student">/, `${relativePath} must sit inside the shared student shell`);
 }
-assert.match(
-    studentResponsiveCss,
-    /@media\s*\(min-width:\s*900px\)[\s\S]*?\.home-app\s*\{[\s\S]*?grid-template-columns:/,
-    'Desktop home must recompose into columns instead of retaining a centered phone shell'
-);
-for (const selector of [
-    '.home-app',
-    '.picker-app',
-    '.scan-app',
-    '.guide-container.is-visible',
-    '.unlock-view.is-visible',
-    '.steps-view.is-visible',
-    '.about-app',
-    'body.history-body .container'
-]) {
-    const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    assert.match(
-        studentResponsiveCss,
-        new RegExp(`${escapedSelector}\\s*\\{[^}]*width:\\s*100%;[^}]*min-height:\\s*[^;]*100dvh[^;]*;`),
-        `Desktop Care Kit shell ${selector} must fill the viewport`
-    );
-}
-for (const selector of [
-    '.picker-app',
-    '.scan-main',
-    '.guide-container.is-visible',
-    '.steps-view.is-visible',
-    '.about-app',
-    'body.history-body .container'
-]) {
-    assert.ok(
-        studentResponsiveCss.includes(selector),
-        `Responsive Care Kit CSS must cover ${selector}`
-    );
-}
+// โครงร่วมต้องยุบเป็นคอลัมน์เดียวเองเมื่อแคบ — `min(100%, …)` กันล้นแนวนอนที่ความกว้างต่ำกว่า ~980px
+assert.match(siteCss, /\.split\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(min\(100%,\s*\d+px\),\s*1fr\)\)/,
+    'Two-column layouts must collapse via minmax(min(100%, …)) instead of fixed columns');
+assert.match(homeCss, /\.hero\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fit,\s*minmax\(min\(100%,\s*\d+px\),\s*1fr\)\)/,
+    'Landing hero must collapse the same way');
 
 // หน้าจอตู้ของจริงคือ kiosk/index.html ตรวจอยู่ในบล็อกข้างล่าง
 
@@ -200,7 +174,7 @@ assert.doesNotMatch(
 );
 assert.match(
     guideHtml,
-    /class=["']guide-overview["'][\s\S]*class=["']step-copy-panel["']/,
+    /class=["'][^"']*\bguide-overview\b[^"']*["'][\s\S]*class=["'][^"']*\bstep-copy-panel\b[^"']*["']/,
     'First-aid flow must include the desktop wound overview and instruction panel'
 );
 
@@ -212,6 +186,7 @@ assert.match(
 //
 // ⚠️ นี่เป็นการซ่อนทางเข้า ไม่ใช่การกันการเข้าถึง · ด่านจริงคือ data-auth-required="staff"
 // ที่ body ของหน้า /dashboard/ และการตรวจ role ฝั่งเซิร์ฟเวอร์ ⇒ เกตด้านล่างตรวจทั้งสองชั้น
+const studentHomeHtml = await readFile(path.join(rootDir, 'student', 'index.html'), 'utf8');
 for (const [label, html] of [['index.html', landingHtml], ['student/index.html', studentHomeHtml]]) {
     const dashboardLinks = [...html.matchAll(/<a\b[^>]*href=["']\/?dashboard\/?["'][^>]*>/gi)];
     assert.ok(dashboardLinks.length > 0, `${label} must still offer the staff dashboard entry`);
@@ -221,38 +196,26 @@ for (const [label, html] of [['index.html', landingHtml], ['student/index.html',
     }
 }
 const dashboardHtml = await readFile(path.join(rootDir, 'dashboard', 'index.html'), 'utf8');
-const medicineManagementHtml = await readFile(path.join(rootDir, 'dashboard', 'medicine-management.html'), 'utf8');
-const statisticsHtml = await readFile(path.join(rootDir, 'dashboard', 'statistics.html'), 'utf8');
 const dashboardCss = await readFile(path.join(rootDir, 'css', 'dashboard.css'), 'utf8');
 assert.match(
     dashboardHtml,
     /class=["']dashboard-shell["']/i,
-    'Nurse dashboard must use the Care Kit sidebar workspace layout'
+    'Teacher dashboard must use the sidebar workspace layout'
 );
-assert.match(
-    dashboardCss,
-    /--db-sidebar:\s*oklch\(0\.49 0\.10 195\)/,
-    'Nurse dashboard must keep the Claude Design teal sidebar token'
-);
+// ดีไซน์ 2026-09-17: แถบข้างพื้นขาว — โทเคนมิ้นต์เดิม (oklch(0.49 0.10 195)) และธีมมืดต้องไม่กลับมา
+assert.match(dashboardCss, /--db-sidebar:\s*#fff/, 'Teacher dashboard sidebar must be the white Tech-AI sidebar');
+assert.doesNotMatch(dashboardCss, /oklch\(0\.49 0\.10 195\)/, 'Teacher dashboard must not keep the discarded teal sidebar token');
 assert.doesNotMatch(
     dashboardCss,
     /--db-dark-bg/,
-    'Nurse dashboard must not keep the discarded dark-theme token'
+    'Teacher dashboard must not keep the discarded dark-theme token'
 );
-for (const [name, html] of [
-    ['medicine management', medicineManagementHtml],
-    ['statistics', statisticsHtml]
-]) {
-    assert.match(
-        html,
-        /class=["']dashboard-shell["']/i,
-        `${name} must remain inside the Claude Design dashboard shell`
-    );
-    assert.doesNotMatch(
-        html,
-        /class=["']dashboard-nav["']/i,
-        `${name} must not fall back to the legacy top-tab dashboard layout`
-    );
+for (const page of ['index', 'medicine-management', 'statistics', 'students', 'roles']) {
+    const html = await readFile(path.join(rootDir, 'dashboard', `${page}.html`), 'utf8');
+    assert.match(html, /class=["']dashboard-shell["']/i, `dashboard/${page}.html must remain inside the dashboard shell`);
+    assert.doesNotMatch(html, /class=["']dashboard-nav["']/i, `dashboard/${page}.html must not fall back to the legacy top-tab layout`);
+    assert.match(html, /<div class="sidebar-account" data-auth-slot><\/div>/, `dashboard/${page}.html must give the account chip its sidebar slot`);
+    assert.doesNotMatch(html, /dashboard-data\.css|students\.css|student-responsive\.css/, `dashboard/${page}.html must not load stylesheets removed in the redesign`);
 }
 const historyHtml = await readFile(path.join(rootDir, 'student', 'history.html'), 'utf8');
 assert.match(
@@ -419,7 +382,7 @@ assert.match(
 );
 assert.doesNotMatch(
     kioskMarkup,
-    /css\/(?:global|home|student-responsive)\.css/i,
+    /css\/(?:global|site|home|student)\.css/i,
     'Kiosk deliberately replaces the phone stylesheets: they assume a scrolling portrait column, which pushes the dispense and call-teacher buttons off an 800x480 landscape panel'
 );
 

@@ -213,13 +213,16 @@ body[data-auth-required]:not([data-local-kiosk='true']):not([data-auth-ready='tr
  * บนหน้าหลักหลังบ้านมันทับปุ่ม "เติมเวชภัณฑ์" พอดี
  * `--auth-chip-width` ถูกวัดและประกาศโดย js/auth-ui.js เพราะความกว้างขึ้นกับความยาวชื่อ
  * ค่าสำรอง 132px คือกรณีที่สคริปต์ยังไม่ทันรัน — กันไว้ก่อนดีกว่าให้ทับแล้วค่อยขยับ
+ *
+ * ใช้เฉพาะหน้าที่ชิปยังลอยอยู่ — หน้าที่มีช่อง `data-auth-slot` (ทุกหน้าหลังดีไซน์ 2026-09-17)
+ * ชิปอยู่ในสายเลย์เอาต์แล้ว กันที่ซ้ำจะเหลือช่องว่างเปล่าทางขวา
  */
-.dashboard-topbar { padding-right: calc(var(--auth-chip-width, 132px) + 16px); }
+body:not([data-auth-slotted='true']) .dashboard-topbar { padding-right: calc(var(--auth-chip-width, 132px) + 16px); }
 
 /* จอเล็กเรียงเป็นแนวตั้งอยู่แล้ว ปุ่มจึงไม่ได้อยู่แถวเดียวกับชิป — กันที่ซ้ำจะเหลือช่องว่างเปล่า */
 @media (max-width: 900px) {
-    .dashboard-topbar { padding-right: 0; }
-    .dashboard-greeting { padding-right: calc(var(--auth-chip-width, 132px) + 16px); }
+    body:not([data-auth-slotted='true']) .dashboard-topbar { padding-right: 0; }
+    body:not([data-auth-slotted='true']) .dashboard-greeting { padding-right: calc(var(--auth-chip-width, 132px) + 16px); }
 }
 
 body:not([data-staff='true']):not([data-local-kiosk='true']) [data-staff-only] { display: none !important; }

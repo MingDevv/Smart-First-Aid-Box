@@ -1,386 +1,278 @@
-body.home-body {
-    display: flex;
-    justify-content: center;
-    background: var(--bg-canvas);
-}
+/* CSS/HOME.CSS — หน้าแรกสาธารณะ (design handoff 2026-09-17 · Home B Tech AI)
+ *
+ * โครงมาจาก css/site.css · ไฟล์นี้มีเฉพาะฮีโร่ กรอบสแกนมาสคอต และแถบโลโก้ผู้สนับสนุน
+ * ค่าทุกตัว (ขนาด มุม เงา จังหวะ) ตรงกับ README ของ handoff — อย่าปรับด้วยสายตา */
 
-.home-app {
-    position: relative;
-    display: flex;
-    width: min(100%, 430px);
-    min-height: 100vh;
-    min-height: 100dvh;
-    flex-direction: column;
-    overflow: hidden;
-    background: var(--bg-main);
-}
-
-.home-hero {
-    padding: 22px 20px 28px;
-    border-radius: 0 0 30px 30px;
-    background: linear-gradient(145deg, oklch(0.58 0.10 190), oklch(0.46 0.09 200));
-    color: #fff;
-}
-
-.home-brand-row {
-    display: flex;
+.hero {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+    gap: 44px;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 22px;
+    padding: 56px var(--site-gutter) 40px;
 }
 
-.home-brand {
-    display: flex;
+.hero > * {
     min-width: 0;
-    align-items: center;
-    gap: 9px;
 }
 
-.home-logo {
-    width: 28px;
-    height: 28px;
-    flex: 0 0 auto;
-    border-radius: 8px;
-    object-fit: cover;
-    box-shadow: 0 3px 8px oklch(0.25 0.04 200 / 0.22);
+.hero-copy {
+    display: flex;
+    max-width: 540px;
+    flex-direction: column;
+    gap: 22px;
 }
 
-.home-brand-name {
-    overflow: hidden;
-    color: #fff;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+/* ลูกของคอลัมน์ซ้ายทยอยโผล่ทีละ .08s */
+.hero-copy > * {
+    animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.3, 1) both;
 }
 
-.home-status {
-    display: inline-flex;
-    min-height: 30px;
-    flex: 0 0 auto;
-    align-items: center;
-    gap: 7px;
-    padding: 5px 10px;
-    border: 0;
-    border-radius: 999px;
-    background: oklch(1 0 0 / 0.18);
-    color: #fff;
-    font-size: 11px;
-    font-weight: 600;
-}
+.hero-copy > :nth-child(2) { animation-delay: 0.08s; }
+.hero-copy > :nth-child(3) { animation-delay: 0.16s; }
+.hero-copy > :nth-child(4) { animation-delay: 0.24s; }
+.hero-copy > :nth-child(5) { animation-delay: 0.32s; }
 
-button.home-status {
-    cursor: pointer;
-}
-
-.home-status::before {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: oklch(0.79 0.18 145);
-    box-shadow: 0 0 0 4px oklch(0.79 0.18 145 / 0.13);
-    content: '';
-}
-
-.home-title {
-    max-width: 330px;
-    margin-bottom: 10px;
-    color: #fff;
-    font-size: clamp(27px, 8vw, 32px);
+.hero-title {
+    color: var(--text-hero);
+    font-size: clamp(38px, 4.8vw, 62px);
     letter-spacing: -0.025em;
-    line-height: 1.16;
+    line-height: 1.08;
 }
 
-.home-description {
-    max-width: 340px;
-    color: oklch(0.95 0.018 190);
-    font-size: 13px;
-    line-height: 1.55;
+.hero-title span {
+    color: var(--primary);
 }
 
-.home-content {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: 11px;
-    padding: 16px 20px 132px;
+.hero-lead {
+    max-width: 470px;
+    color: var(--text-body);
+    font-size: 17px;
+    line-height: 1.7;
 }
 
-.home-alert {
-    display: flex;
-    align-items: flex-start;
-    gap: 9px;
-    padding: 12px 14px;
-    border: 1px solid oklch(0.82 0.08 45);
-    border-radius: 15px;
-    background: var(--accent-light);
-    color: oklch(0.40 0.09 36);
-    font-size: 12px;
-}
-
-.home-action {
-    display: grid;
-    grid-template-columns: 58px minmax(0, 1fr) 24px;
-    min-height: 86px;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    border: 1px solid var(--border-color);
-    border-radius: 20px;
-    background: #fff;
-    color: var(--text-main);
-    box-shadow: var(--shadow-sm);
-    transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
-}
-
-.home-action:hover {
-    border-color: oklch(0.75 0.07 185);
-    color: var(--text-main);
-    text-decoration: none;
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
-
-.home-action.primary-action {
-    border-color: oklch(0.80 0.08 165);
-    background: oklch(0.92 0.055 165);
-}
-
-.home-action-media,
-.home-action-icon {
-    width: 58px;
-    height: 58px;
-    border-radius: 16px;
-}
-
-.home-action-media {
-    object-fit: cover;
-}
-
-.home-action-icon {
-    display: grid;
-    place-items: center;
-    background: var(--secondary-light);
-    color: oklch(0.43 0.08 195);
-}
-
-.home-action-icon.peach {
-    background: oklch(0.92 0.07 50);
-    color: oklch(0.52 0.14 35);
-}
-
-.home-action-icon .material-symbols-rounded {
-    font-size: 28px;
-}
-
-.home-action-copy {
-    min-width: 0;
-}
-
-.home-action-title {
-    margin-bottom: 2px;
-    color: var(--text-main);
-    font-family: var(--font-prompt);
-    font-size: 16px;
-    font-weight: 700;
-}
-
-.primary-action .home-action-title {
-    color: oklch(0.36 0.07 190);
-}
-
-.home-action-desc {
-    color: var(--text-muted);
-    font-size: 12px;
-    line-height: 1.35;
-}
-
-.home-action-arrow {
-    color: oklch(0.52 0.04 195);
-}
-
-/* แถวลิงก์ท้ายเมนู — เคยเป็น style ฝังในหน้าและถูกคัดลอกไว้สองที่
-   พอเป็นคลาสเดียว หน้าแรกกับหน้านักเรียนจึงขยับพร้อมกันเสมอ */
-.home-meta-links {
+.hero-actions {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
-    gap: 18px;
+    gap: 12px;
+    margin-top: 6px;
 }
 
-.home-meta-link {
-    display: inline-flex;
-    min-height: 44px;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    color: var(--text-muted);
-    font-size: 12px;
+.hero-cta {
+    position: relative;
+    overflow: hidden;
 }
 
-.home-meta-link:hover {
-    color: var(--primary);
+.hero-cta .material-symbols-rounded {
+    font-size: 22px;
 }
 
-.sos-dock {
+.hero-cta > * {
+    position: relative;
+}
+
+/* แถบแสงวิ่งผ่านปุ่มหลัก */
+.cta-shimmer {
     position: absolute;
-    right: 0;
+    top: 0;
     bottom: 0;
     left: 0;
-    z-index: 20;
-    padding: 12px 20px 18px;
-    background: linear-gradient(to top, var(--bg-main) 72%, transparent);
+    width: 45%;
+    background: linear-gradient(100deg, transparent, oklch(1 0 0 / 0.32), transparent);
+    animation: shimmer 3.6s ease-in-out infinite;
 }
 
-.sos-button {
+.feature-chips {
     display: flex;
-    width: 100%;
-    min-height: 62px;
-    align-items: center;
-    justify-content: center;
-    gap: 9px;
-    border: 0;
-    border-radius: 21px;
-    background: var(--accent);
-    color: #fff;
-    cursor: pointer;
-    font-family: var(--font-prompt);
-    font-size: 16px;
-    font-weight: 700;
-    box-shadow: 0 16px 30px -20px oklch(0.48 0.16 30 / 0.9);
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
 }
 
-.sos-button:hover:not(:disabled) {
-    background: var(--accent-hover);
-}
-
-.sos-button:disabled {
-    opacity: 0.68;
-}
-
-.sos-school {
-    display: block;
-    margin-top: 6px;
-    color: var(--text-muted);
-    font-size: 10px;
-    text-align: center;
-}
-
-a.sos-school:hover {
-    color: var(--primary);
-}
-
-.student-login-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 10000;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    background: oklch(0.20 0.025 210 / 0.68);
-    backdrop-filter: blur(10px);
-}
-
-.login-box {
-    width: min(100%, 350px);
-    padding: 24px;
-    border: 1px solid var(--border-color);
-    border-radius: 26px;
-    background: var(--bg-main);
-    box-shadow: 0 28px 70px -34px oklch(0.20 0.03 210 / 0.8);
-    text-align: center;
-}
-
-.login-icon {
-    display: grid;
-    width: 54px;
-    height: 54px;
-    margin: 0 auto 10px;
-    place-items: center;
-    border-radius: 17px;
-    background: var(--primary-light);
-    color: var(--primary);
-}
-
-.login-icon .material-symbols-rounded {
-    font-size: 28px;
-}
-
-.id-display {
+.feature-chip {
     display: flex;
-    min-height: 58px;
     align-items: center;
-    justify-content: center;
-    margin: 16px 0;
-    padding: 10px;
-    border: 1px solid var(--border-color);
-    border-radius: 15px;
-    background: #fff;
-    color: var(--text-main);
-    font-family: var(--font-mono);
-    font-size: 25px;
-    font-weight: 600;
-    letter-spacing: 0.18em;
-}
-
-.numpad-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
     gap: 9px;
-    margin-bottom: 14px;
-}
-
-.num-btn {
-    min-height: 48px;
+    padding: 10px 14px;
     border: 1px solid var(--border-color);
     border-radius: 14px;
-    background: #fff;
-    color: var(--text-main);
-    cursor: pointer;
-    font-family: var(--font-mono);
+    background: oklch(1 0 0 / 0.78);
+    color: var(--text-nav);
+    font-size: 12px;
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.feature-chip:hover {
+    border-color: oklch(0.78 0.08 245);
+    transform: translateY(-2px);
+}
+
+.feature-chip .material-symbols-rounded {
+    color: var(--accent-icon);
     font-size: 18px;
-    font-weight: 600;
 }
 
-.num-btn:active {
-    background: var(--primary-light);
-    transform: scale(0.97);
+/* ─── กรอบสแกน + มาสคอต ────────────────────────────────────────────────── */
+
+.hero-panel {
+    position: relative;
+    display: flex;
+    min-height: 460px;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid var(--border-panel);
+    border-radius: 34px;
+    background: linear-gradient(180deg, oklch(0.97 0.028 240 / 0.9), oklch(1 0 0 / 0.65));
+    box-shadow: 0 40px 80px -60px oklch(0.40 0.10 248 / 0.8);
+    animation: rise 0.8s cubic-bezier(0.2, 0.7, 0.3, 1) 0.12s both;
 }
 
-@media (min-width: 431px) {
-    .home-app {
-        border-inline: 1px solid var(--border-color);
-        box-shadow: 0 26px 70px -42px oklch(0.30 0.03 200 / 0.65);
-    }
-}
-
-@media (max-height: 720px) {
-    .home-hero {
-        padding-top: 17px;
-        padding-bottom: 21px;
-    }
-
-    .home-brand-row {
-        margin-bottom: 13px;
-    }
-
-    .home-content {
-        padding-top: 12px;
-    }
-
-    .home-action {
-        min-height: 78px;
-    }
-}
-
-/* ไอคอนเมนูเป็นไฟล์ SVG แล้ว ไม่ใช่ฟอนต์ material-symbols (fixit ข้อ 7)
- * รูปต้องไม่ยืดเพี้ยนและต้องไม่ถูกลากไปวางทับข้อความเมื่อผู้ใช้ลากนิ้ว */
-img.home-action-icon {
+.mascot {
+    position: relative;
+    display: block;
+    width: min(84%, 400px);
+    height: auto;
+    margin-bottom: 8px;
     object-fit: contain;
-    padding: 8px;
-    pointer-events: none;
+    filter: drop-shadow(0 28px 40px oklch(0.45 0.10 248 / 0.30));
+    animation: bob 6s ease-in-out infinite;
+}
+
+/* การ์ดผล AI — ตัวอย่างนิ่งบนหน้าแรก ไม่ใช่ค่าจริง */
+.ai-card {
+    position: absolute;
+    top: 54px;
+    right: 20px;
+    display: flex;
+    max-width: calc(100% - 40px);
+    flex-direction: column;
+    gap: 5px;
+    padding: 13px 15px;
+    border: 1px solid var(--border-panel);
+    border-radius: 14px;
+    background: oklch(1 0 0 / 0.92);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    box-shadow: 0 14px 34px -22px oklch(0.35 0.08 245 / 0.55);
+    backdrop-filter: blur(10px);
+    animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.3, 1) 0.5s both;
+}
+
+.ai-card-eyebrow {
+    color: var(--primary);
+}
+
+.ai-card-verdict {
+    color: var(--text-hero);
+    font-family: var(--font-prompt);
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: 0;
+}
+
+.ai-card-track {
+    display: block;
+    width: 100%;
+    height: 5px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: oklch(0.93 0.025 240);
+}
+
+.ai-card-fill {
+    display: block;
+    width: 92%;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, oklch(0.62 0.16 248), oklch(0.72 0.14 225));
+    animation: barFill 1.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.7s both;
+}
+
+.ai-card-ticker {
+    animation: ticker 4.2s ease-in-out infinite;
+}
+
+/* ─── แถบโลโก้ผู้สนับสนุน (ต้นแบบ: 21st.dev logo-cloud-15 เขียนใหม่เป็น CSS) ───────── */
+
+.logo-cloud {
+    width: 100%;
+    max-width: var(--site-width);
+    margin: 0 auto;
+    padding: 8px var(--site-gutter) 56px;
+}
+
+.logo-cloud-card {
+    position: relative;
+    overflow: hidden;
+    padding: 26px 0 28px;
+    border: 1px solid oklch(0.92 0.025 240);
+    border-radius: 26px;
+    background: linear-gradient(180deg, oklch(0.99 0.008 240), oklch(0.97 0.02 240));
+    box-shadow: 0 30px 60px -55px oklch(0.40 0.10 248 / 0.9);
+}
+
+.logo-fade {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+}
+
+.logo-track {
+    display: flex;
+    width: max-content;
+    align-items: center;
+    animation: marquee 16s linear infinite;
+    will-change: transform;
+}
+
+/* กลุ่มโลโก้ถูกวางสองชุด ชุดที่สองซ่อนจาก screen reader — เลื่อน -50% จึงต่อกันไม่มีรอยต่อ */
+.logo-group {
+    display: flex;
+    align-items: center;
+    gap: 64px;
+    padding-right: 64px;
+}
+
+.logo-group img {
+    display: block;
+    width: auto;
+    object-fit: contain;
+    opacity: 0.62;
+    filter: grayscale(1);
+    transition: filter 0.3s, opacity 0.3s;
+}
+
+.logo-group img:hover {
+    opacity: 1;
+    filter: none;
+}
+
+/* ความสูงต่อโลโก้จูนด้วยสายตาให้น้ำหนักเท่ากัน */
+.logo-tira { height: 50px; }
+.logo-depa { height: 44px; }
+.logo-kmitl { height: 34px; }
+.logo-acebott { height: 40px; }
+.logo-imagineering { height: 30px; }
+.logo-floaino { height: 26px; }
+
+@media (max-width: 640px) {
+    .hero {
+        padding-top: 32px;
+        gap: 32px;
+    }
+
+    .hero-panel {
+        min-height: 380px;
+    }
+
+    .ai-card {
+        top: 20px;
+        right: 16px;
+    }
+
+    .logo-group {
+        gap: 40px;
+        padding-right: 40px;
+    }
 }

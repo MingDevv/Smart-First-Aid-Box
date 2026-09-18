@@ -3,335 +3,204 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#f7fcf9">
+    <meta name="theme-color" content="#ffffff">
     <title>คำแนะนำปฐมพยาบาล — Smart First Aid Box</title>
     <link rel="stylesheet" href="../css/global.css">
-    <style>
-        .guide-container { display: none; min-height: calc(100dvh - 72px); padding-top: 16px; }
-        .guide-container.is-visible { display: block; }
-        .guide-header-copy { min-width: 0; text-align: left; }
-        .guide-header-title { overflow: hidden; font-family: var(--font-prompt); font-size: 17px; font-weight: 700; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
-        .guide-header-meta { margin-top: 2px; color: var(--text-muted); font-size: 10px; }
-        .eyebrow { margin-bottom: 4px; color: var(--primary); font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
-        .wound-summary h1 { margin-bottom: 3px; font-size: 23px; }
-        .wound-summary p { color: var(--text-muted); font-size: 12px; }
-        .section-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-        .section-heading h2 { font-size: 15px; }
-        .count-pill { padding: 5px 9px; border-radius: 999px; background: var(--primary-light); color: oklch(0.38 0.07 190); font-size: 11px; font-weight: 600; }
-        .supply-list { display: grid; gap: 9px; margin-bottom: 14px; }
-        .supply-card { display: grid; grid-template-columns: 62px 1fr auto; align-items: center; gap: 11px; padding: 10px; border: 1px solid var(--border-color); border-radius: 18px; background: #fff; box-shadow: var(--shadow-sm); }
-        .supply-card img, .supply-placeholder { width: 62px; height: 62px; border-radius: 14px; background: var(--secondary-light); object-fit: cover; }
-        .supply-placeholder { display: grid; place-items: center; color: var(--primary); }
-        .supply-name { margin-bottom: 2px; font-family: var(--font-prompt); font-size: 13px; font-weight: 700; line-height: 1.3; }
-        .supply-desc { color: var(--text-muted); font-size: 11px; line-height: 1.35; }
-        .supply-qty { color: var(--primary); font-family: var(--font-mono); font-size: 11px; font-weight: 600; }
-        .warning-card, .hardware-card { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 13px; padding: 13px 14px; border-radius: 17px; font-size: 12px; line-height: 1.5; }
-        .warning-card { background: var(--accent-light); color: oklch(0.41 0.09 36); }
-        .hardware-card { display: none; background: var(--secondary-light); color: oklch(0.36 0.06 195); }
-        .unlock-button { min-height: 64px; margin: 3px 0 20px; border-radius: 20px; font-size: 17px; }
-        .unlock-view { display: none; width: min(100%, 460px); min-height: 100vh; min-height: 100dvh; margin: 0 auto; flex-direction: column; align-items: center; justify-content: flex-start; gap: 13px; padding: 32px 22px 20px; background: linear-gradient(180deg, oklch(0.42 0.09 165), oklch(0.34 0.07 175)); color: #fff; text-align: center; }
-        .unlock-view.is-visible { display: flex; }
-        .unlock-label { color: oklch(0.94 0.025 180); font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: .1em; }
-        .unlock-orb { display: grid; width: 122px; height: 122px; flex: 0 0 auto; place-items: center; border: 1px solid oklch(1 0 0 / .36); border-radius: 50%; background: oklch(0.79 0.18 145); color: oklch(0.26 0.08 155); box-shadow: 0 0 0 18px oklch(1 0 0 / .08), 0 26px 55px -30px oklch(0.18 0.06 180 / .8); animation: unlockPulse 2s ease-in-out infinite; }
-        .unlock-orb .material-symbols-rounded { font-size: 58px; font-variation-settings: 'FILL' 1; }
-        .unlock-view h1 { color: #fff; font-size: 27px; line-height: 1.22; }
-        .unlock-copy { max-width: 320px; color: oklch(0.93 0.02 185); font-size: 13px; }
-        .unlock-supplies { width: 100%; padding: 13px; border-radius: 20px; background: oklch(1 0 0 / .12); text-align: left; backdrop-filter: blur(10px); }
-        #unlock-items { display: flex; flex-direction: column; gap: 10px; }
-        .unlock-supply-row { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 11px; color: #fff; font-size: 13px; font-weight: 600; }
-        .unlock-supply-row img { width: 42px; height: 42px; border-radius: 12px; object-fit: cover; }
-        .unlock-supply-qty { color: oklch(0.90 0.04 160); font-family: var(--font-mono); font-size: 11px; }
-        .unlock-note { color: oklch(0.89 0.02 185); font-size: 11px; line-height: 1.5; }
-        .unlock-next { min-height: 64px; margin-top: auto; border: 0; border-radius: 20px; background: #fff; color: oklch(0.37 0.075 195); font-size: 17px; }
-        .steps-view { display: none; width: min(100%, 460px); min-height: 100vh; min-height: 100dvh; margin: 0 auto; padding: 0 20px 24px; background: var(--bg-main); }
-        .steps-view.is-visible { display: block; }
-        .steps-header { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; min-height: 66px; margin-inline: -8px; }
-        .steps-counter { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-align: center; text-transform: uppercase; }
-        .step-progress { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 5px; margin: 2px 0 16px; }
-        .step-segment { height: 7px; border-radius: 999px; background: oklch(0.88 0.02 185); }
-        .step-segment.done { background: var(--primary); }
-        .step-image { width: 100%; height: 262px; border-radius: 24px; object-fit: cover; box-shadow: var(--shadow-md); }
-        .step-badge { display: inline-flex; align-items: center; gap: 5px; margin: 16px 0 8px; padding: 6px 10px; border-radius: 999px; background: var(--primary-light); color: oklch(0.38 0.07 190); font-family: var(--font-mono); font-size: 10px; font-weight: 600; letter-spacing: .05em; }
-        .step-title { margin-bottom: 7px; font-size: 25px; }
-        .step-description { color: var(--text-muted); font-size: 14px; line-height: 1.6; }
-        .step-timer { display: flex; align-items: center; gap: 9px; margin: 14px 0; padding: 12px 14px; border-radius: 16px; background: var(--accent-light); color: oklch(0.43 0.10 36); font-size: 12px; }
-        .step-timer-copy { flex: 1; }
-        .step-timer-value { font-family: var(--font-mono); font-size: 18px; font-weight: 500; }
-        .step-nav { display: grid; grid-template-columns: 72px 1fr; gap: 10px; margin-top: 10px; }
-        .step-nav .btn { min-height: 66px; border-radius: 20px; }
-        .error-layout { display: none; min-height: calc(100dvh - 66px); flex-direction: column; align-items: center; justify-content: center; padding: 30px 20px; text-align: center; }
-        .error-icon { display: grid; width: 70px; height: 70px; margin-bottom: 14px; place-items: center; border-radius: 22px; background: var(--accent-light); color: var(--accent); }
-        @keyframes unlockPulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 0 18px oklch(1 0 0 / .08), 0 26px 55px -30px oklch(0.18 0.06 180 / .8); } 50% { transform: scale(1.035); box-shadow: 0 0 0 25px oklch(1 0 0 / .05), 0 26px 55px -30px oklch(0.18 0.06 180 / .8); } }
-
-        /* Dispensing Cooldown & Loading View */
-        .dispensing-view {
-            display: none;
-            position: fixed;
-            inset: 0;
-            z-index: 9999;
-            background: linear-gradient(180deg, oklch(0.35 0.10 180 / 0.98), oklch(0.20 0.08 195 / 0.98));
-            color: #fff;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 24px 20px;
-            text-align: center;
-            backdrop-filter: blur(14px);
-        }
-        .dispensing-view.is-visible { display: flex; }
-        .dispensing-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            max-width: 390px;
-            width: 100%;
-        }
-        .dispensing-ring-wrap {
-            position: relative;
-            width: 154px;
-            height: 154px;
-            margin-bottom: 22px;
-        }
-        .dispensing-svg {
-            width: 100%;
-            height: 100%;
-            transform: rotate(-90deg);
-        }
-        .dispensing-track {
-            fill: none;
-            stroke: oklch(1 0 0 / 0.14);
-            stroke-width: 9;
-        }
-        .dispensing-progress {
-            fill: none;
-            stroke: oklch(0.86 0.18 150);
-            stroke-width: 9;
-            stroke-linecap: round;
-            stroke-dasharray: 440;
-            stroke-dashoffset: 0;
-            transition: stroke-dashoffset 1s linear;
-        }
-        .dispensing-center {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-        .dispensing-icon {
-            font-size: 32px;
-            color: oklch(0.90 0.14 150);
-            animation: motorSpin 2.4s linear infinite;
-        }
-        .dispensing-countdown {
-            font-family: var(--font-mono);
-            font-size: 38px;
-            font-weight: 700;
-            line-height: 1;
-            margin-top: 2px;
-            color: #fff;
-        }
-        .dispensing-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 14px;
-            border-radius: 999px;
-            background: oklch(1 0 0 / 0.14);
-            color: oklch(0.95 0.05 160);
-            font-family: var(--font-mono);
-            font-size: 11px;
-            font-weight: 600;
-            margin-bottom: 12px;
-            border: 1px solid oklch(1 0 0 / 0.18);
-        }
-        .dispensing-title {
-            font-family: var(--font-prompt);
-            font-size: 23px;
-            font-weight: 700;
-            margin-bottom: 6px;
-            color: #fff;
-        }
-        .dispensing-desc {
-            color: oklch(0.92 0.02 185);
-            font-size: 13px;
-            line-height: 1.5;
-            margin-bottom: 22px;
-        }
-        .dispensing-steps-indicator {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            width: 100%;
-            background: oklch(1 0 0 / 0.09);
-            padding: 14px 16px;
-            border-radius: 18px;
-            border: 1px solid oklch(1 0 0 / 0.14);
-            text-align: left;
-            font-size: 12px;
-        }
-        .dispensing-flow-step {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: oklch(0.85 0.02 185);
-        }
-        .dispensing-flow-step.done {
-            color: oklch(0.90 0.16 150);
-            font-weight: 600;
-        }
-        .dispensing-flow-step.active {
-            color: #fff;
-            font-weight: 700;
-        }
-        .dispensing-flow-step .material-symbols-rounded {
-            font-size: 18px;
-        }
-        .dispensing-dot-pulse {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: oklch(0.86 0.18 150);
-            box-shadow: 0 0 0 4px oklch(0.86 0.18 150 / 0.35);
-            animation: pulseDot 1s infinite alternate;
-        }
-        @keyframes motorSpin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-        @keyframes pulseDot {
-            from { transform: scale(0.85); opacity: 0.6; }
-            to { transform: scale(1.15); opacity: 1; }
-        }
-    </style>
-    <link rel="stylesheet" href="../css/student-responsive.css">
+    <link rel="stylesheet" href="../css/site.css">
+    <link rel="stylesheet" href="../css/student.css">
     <link rel="stylesheet" href="../css/auth.css">
     <script src="../js/auth.js" defer></script>
     <script src="../js/auth-ui.js" defer></script>
 </head>
+<!-- คู่มือทำแผล (design handoff 2026-09-17 · Student App › first-aid guide)
+     สามสถานะเรียงตามเวลาจริง ไม่ใช่หน้าเดียวรวมกันแบบต้นแบบ:
+       1. #detail-view — สรุปแผล + เวชภัณฑ์ + ข้อควรระวัง + ปุ่มปลดล็อก
+       2. #dispensing-view — ทับทั้งจอระหว่างรอตู้ตอบ (ACK ≠ ของตกถาด ดูวิกิ)
+       3. #steps-view — การ์ดขั้นตอนทีละขั้น + เวชภัณฑ์ข้างๆ
+     สคริปต์เป็นชุดเดิม id ทุกตัวชื่อเดิม -->
 <body class="guide-body">
-    <header class="app-header" id="detail-header">
-        <button class="header-back" type="button" onclick="history.back()" aria-label="ย้อนกลับ"><span class="material-symbols-rounded">arrow_back</span></button>
-        <div class="guide-header-copy">
-            <h1 class="guide-header-title" id="wound-title-th">รายละเอียดการปฐมพยาบาล</h1>
-            <div class="guide-header-meta" id="wound-title-en">ช่องเก็บยา · ระดับอาการ</div>
-        </div>
-        <span aria-hidden="true"></span>
-    </header>
+    <div class="site site-student">
+        <div class="site-bg-grid" aria-hidden="true"></div>
+        <div class="site-aura site-aura-top" aria-hidden="true"></div>
 
-    <main class="container guide-container animate-slide-up" id="detail-view">
-        <section class="guide-overview" aria-label="สรุปบาดแผล">
-            <img id="guide-wound-image" src="../images/wound_cut_abrasion.webp" width="900" height="900" alt="">
-            <div class="guide-overview-copy">
-                <div class="eyebrow">FIRST AID PLAN</div>
-                <h2 id="guide-overview-title">รายละเอียดการปฐมพยาบาล</h2>
-                <p id="guide-overview-description"></p>
+        <header class="site-header">
+            <div class="site-header-inner">
+                <a class="site-brand" href="/student/" aria-label="กลับหน้าหลักนักเรียน">
+                    <img src="../images/logo_first_aid.webp" width="36" height="36" alt="">
+                    <span class="site-brand-copy">
+                        <span class="site-brand-name">SMART FIRST AID BOX</span>
+                        <span class="site-brand-sub">ฝั่งนักเรียน · โรงเรียนเทศบาล 6</span>
+                    </span>
+                </a>
+                <nav class="site-nav site-tabs" aria-label="เมนูนักเรียน">
+                    <a class="site-tab" href="/student/wound-scan">สแกนแผล AI</a>
+                    <a class="site-tab" href="/student/wound-select">เลือกอาการ</a>
+                    <span class="site-tab active" aria-current="page">คู่มือทำแผล</span>
+                    <a class="site-tab" href="/student/history">ประวัติของฉัน</a>
+                    <a class="site-tab" href="/student/about">เกี่ยวกับ</a>
+                    <span data-auth-slot></span>
+                </nav>
             </div>
-            <div class="guide-drawer-chip"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>ช่องเก็บที่ <span id="guide-drawer-number">1</span></div>
-        </section>
+        </header>
 
-        <div class="section-heading">
-            <h2>เวชภัณฑ์ที่ต้องใช้</h2>
-            <span class="count-pill" id="supply-count">0 ชิ้น</span>
-        </div>
-        <div class="supply-list" id="items-list"></div>
-
-        <div class="warning-card">
-            <span class="material-symbols-rounded" aria-hidden="true">warning</span>
-            <span><strong>ข้อควรระวัง</strong><br><span id="warning-text"></span></span>
-        </div>
-
-        <div class="hardware-card" id="hardware-panel" role="status" aria-live="polite">
-            <span class="material-symbols-rounded" id="hardware-indicator-icon" aria-hidden="true">sync</span>
-            <span><strong id="hardware-status-label">กำลังเชื่อมต่อตู้ยา</strong><br><span id="hardware-log">กำลังเตรียมคำสั่งปลดล็อก...</span></span>
-        </div>
-
-        <!-- เคยติด `data-staff-only` ซึ่ง css/auth.css ซ่อนด้วย display:none ⇒ นักเรียนที่ล็อกอินแล้ว
-             เดินมาจากการสแกน AI เจอหน้าที่ไม่มีปุ่มอะไรให้กดเลย และหน้าไม่ได้บอกด้วยว่าทำไม
-             (Bank เจอกับตัวบนมือถือ 2026-09-15 ทั้งบัญชีนักเรียนและ it@) · ตอนนี้เกตคือ "ล็อกอินหรือยัง"
-             ซึ่ง `data-requires-auth` เด้งกล่องลงชื่อเข้าใช้ให้ตรงจุดที่มือเพิ่งแตะ แทนการซ่อนเงียบๆ -->
-        <button class="btn btn-primary unlock-button" data-requires-auth="เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน จึงจะสั่งเปิดช่องยาได้" id="manual-open-drawer-btn" type="button" onclick="startTreatment()">
-            <span class="material-symbols-rounded" aria-hidden="true">lock_open</span>
-            <span>ปลดล็อกช่อง <span id="drawer-button-number">1</span> &amp; เริ่มทำแผล</span>
-        </button>
-
-        <button class="btn btn-outline" id="demo-guide-btn" type="button" onclick="showInstructionsOnly()" style="width:100%; border-radius:20px; margin:-10px 0 20px; font-size:14px; min-height:48px; border-color:var(--primary); color:var(--primary); background:#fff;">
-            <span class="material-symbols-rounded" aria-hidden="true" style="font-size:20px;">menu_book</span>
-            <span>ดูขั้นตอนทำแผลก่อน (ยังไม่เปิดช่องยา)</span>
-        </button>
-    </main>
-
-    <!-- Dispensing Loading & Cooldown View (ซิงค์เวลากับมอเตอร์จ่ายยา) -->
-    <section class="dispensing-view animate-fade-in" id="dispensing-view" role="status" aria-live="assertive">
-        <div class="dispensing-container">
-            <div class="dispensing-ring-wrap">
-                <svg class="dispensing-svg" viewBox="0 0 160 160">
-                    <circle class="dispensing-track" cx="80" cy="80" r="70"></circle>
-                    <circle class="dispensing-progress" id="dispensing-circle" cx="80" cy="80" r="70"></circle>
-                </svg>
-                <div class="dispensing-center">
-                    <span class="material-symbols-rounded dispensing-icon" aria-hidden="true">settings</span>
-                    <span class="dispensing-countdown" id="dispensing-countdown-num">0</span>
+        <main class="site-main">
+            <div class="page-head" id="detail-header">
+                <div class="page-head-copy">
+                    <span class="eyebrow">STEP 02 · FIRST AID GUIDE</span>
+                    <h1 class="page-title" id="wound-title-th">รายละเอียดการปฐมพยาบาล</h1>
+                    <p class="page-lead" id="wound-title-en">ช่องเก็บยา · ระดับอาการ</p>
+                </div>
+                <div class="chip-row">
+                    <span class="chip"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>ช่องเก็บที่ <span id="guide-drawer-number">1</span></span>
+                    <span class="chip"><span class="material-symbols-rounded" aria-hidden="true">list_alt</span><span id="guide-step-count">0</span> ขั้นตอน</span>
+                    <span class="chip"><span class="material-symbols-rounded" aria-hidden="true">medication</span>เวชภัณฑ์ <span id="supply-count">0</span> รายการ</span>
                 </div>
             </div>
-            <div class="dispensing-badge" id="dispensing-drawer-chip">
-                <span class="material-symbols-rounded" style="font-size:16px;" aria-hidden="true">inventory_2</span>
-                <span>ช่องเก็บที่ <strong id="dispensing-drawer-val">1</strong> · กำลังรอคำยืนยัน</span>
-            </div>
-            <h1 class="dispensing-title" id="dispensing-heading">กำลังจ่ายยาและเวชภัณฑ์...</h1>
-            <p class="dispensing-desc" id="dispensing-subtext">กรุณารอคำยืนยันจากตู้ยา · ตัวเลขแสดงเวลาที่รอ (วินาที)</p>
-            <div class="dispensing-steps-indicator">
-                <div class="dispensing-flow-step"><span class="material-symbols-rounded">sync</span> กำลังตรวจสถานะและส่งคำสั่ง</div>
-                <div class="dispensing-flow-step active" id="dispensing-flow-motor"><span class="dispensing-dot-pulse"></span> รอผลการจ่ายจากตู้ยา...</div>
-                <div class="dispensing-flow-step" id="dispensing-flow-ready"><span class="material-symbols-rounded">medical_services</span> เตรียมไปยังขั้นตอนการทำแผล</div>
-            </div>
-        </div>
-    </section>
 
-    <section class="unlock-view animate-fade-in" id="unlock-view">
-        <div class="unlock-hero">
-            <div class="unlock-label" id="unlock-mode-label">ESP32 · UNLOCK OK</div>
-            <div class="unlock-orb" aria-hidden="true"><span class="material-symbols-rounded">lock_open</span></div>
-            <h1>ปลดล็อกช่องเก็บที่ <span id="unlock-drawer-number">1</span><br>เรียบร้อย</h1>
-            <p class="unlock-copy">หยิบเวชภัณฑ์ตามรายการ แล้วปิดฝากล่องให้สนิท</p>
-        </div>
-        <div class="unlock-panel">
-            <div class="unlock-panel-title">เวชภัณฑ์ที่ต้องหยิบ</div>
-            <div class="unlock-supplies">
-                <div id="unlock-items"></div>
-            </div>
-            <div class="unlock-note">ระบบจะบันทึกประวัติเมื่อทำครบทุกขั้นตอน</div>
-            <button class="btn unlock-next" type="button" onclick="showStepsView()">ไปยังขั้นตอนทำแผล<span class="material-symbols-rounded" aria-hidden="true">arrow_forward</span></button>
-        </div>
-    </section>
+            <section class="guide-container animate-rise" id="detail-view">
+                <div class="guide-grid">
+                    <div class="guide-overview" aria-label="สรุปบาดแผล">
+                        <img id="guide-wound-image" src="../images/wound_cut_abrasion.webp" width="900" height="675" alt="">
+                        <div class="guide-overview-copy">
+                            <span class="eyebrow">FIRST AID PLAN</span>
+                            <h2 id="guide-overview-title">รายละเอียดการปฐมพยาบาล</h2>
+                            <p id="guide-overview-description"></p>
+                        </div>
+                        <!-- คำเตือนอยู่ฝั่งรูป เพราะรูปย่อได้ตามจอ — ฝั่งขวาที่เป็นรายการ+ปุ่มย่อไม่ได้ (จอเดียวจบ) -->
+                        <div class="notice notice-warning">
+                            <span class="material-symbols-rounded" aria-hidden="true">warning</span>
+                            <span><span class="notice-title">ข้อควรระวัง</span><span id="warning-text"></span></span>
+                        </div>
+                    </div>
 
-    <section class="steps-view animate-slide-up" id="steps-view">
-        <header class="steps-header">
-            <button class="icon-button" type="button" onclick="location.href='/student/'" aria-label="กลับหน้าแรก"><span class="material-symbols-rounded">arrow_back</span></button>
-            <div class="steps-counter" id="step-counter-text">แผลถลอก · ขั้นที่ 1/5</div>
-            <button class="icon-button" id="speak-btn" type="button" aria-label="ฟังคำแนะนำ"><span class="material-symbols-rounded">volume_up</span></button>
-        </header>
-        <div class="step-progress" id="step-progress" aria-label="ความก้าวหน้าการทำแผล"></div>
-        <img class="step-image" id="step-image" src="../images/step_wash_hands.webp" alt="">
-        <div class="step-copy-panel">
-            <div class="step-badge"><span id="step-badge-text">ขั้นที่ 1 จาก 5</span></div>
-            <h1 class="step-title" id="step-title">ล้างมือให้สะอาด</h1>
-            <p class="step-description" id="step-description">เตรียมตัวก่อนสัมผัสบาดแผล</p>
-            <div class="step-timer"><span class="material-symbols-rounded" aria-hidden="true">timer</span><span class="step-timer-copy" id="step-timer-text">ล้างมือต่อเนื่องอย่างน้อย 20 วินาที</span><span class="step-timer-value" id="step-timer-value">0:20</span></div>
-            <div class="step-nav">
-                <button class="btn btn-outline" id="prev-step-btn" type="button" onclick="navigateStep(-1)" aria-label="ขั้นตอนก่อนหน้า"><span class="material-symbols-rounded">arrow_back</span></button>
-                <button class="btn btn-primary" id="next-step-btn" type="button" onclick="navigateStep(1)"><span class="material-symbols-rounded">chevron_right</span>ถัดไป</button>
-            </div>
-        </div>
-    </section>
+                    <div class="guide-column">
+                        <div class="supply-panel">
+                            <div class="section-heading">
+                                <h2>เวชภัณฑ์ที่ต้องใช้</h2>
+                                <span class="count-pill" id="supply-count-pill">0 ชิ้น</span>
+                            </div>
+                            <div class="supply-list" id="items-list"></div>
+                        </div>
 
-    <section class="error-layout" id="error-layout">
-        <div class="error-icon"><span class="material-symbols-rounded" style="font-size:34px;">error</span></div>
-        <h1 style="font-size:22px; margin-bottom:6px;">ไม่พบประเภทบาดแผล</h1>
-        <p style="color:var(--text-muted); font-size:13px; margin-bottom:18px;">กลับไปเลือกประเภทแผลใหม่อีกครั้ง</p>
-        <button class="btn btn-primary" type="button" onclick="location.href='/student/wound-select'">เลือกประเภทแผล</button>
-    </section>
+                        <div class="notice notice-info hardware-card" id="hardware-panel" role="status" aria-live="polite">
+                            <span class="material-symbols-rounded" id="hardware-indicator-icon" aria-hidden="true">sync</span>
+                            <span><span class="notice-title" id="hardware-status-label">กำลังเชื่อมต่อตู้ยา</span><span id="hardware-log">กำลังเตรียมคำสั่งปลดล็อก...</span></span>
+                        </div>
+
+                        <!-- เคยติด `data-staff-only` ซึ่ง css/auth.css ซ่อนด้วย display:none ⇒ นักเรียนที่ล็อกอินแล้ว
+                             เดินมาจากการสแกน AI เจอหน้าที่ไม่มีปุ่มอะไรให้กดเลย และหน้าไม่ได้บอกด้วยว่าทำไม
+                             (Bank เจอกับตัวบนมือถือ 2026-09-15 ทั้งบัญชีนักเรียนและ it@) · ตอนนี้เกตคือ "ล็อกอินหรือยัง"
+                             ซึ่ง `data-requires-auth` เด้งกล่องลงชื่อเข้าใช้ให้ตรงจุดที่มือเพิ่งแตะ แทนการซ่อนเงียบๆ -->
+                        <div class="guide-actions">
+                            <button class="btn btn-primary unlock-button" data-requires-auth="เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน จึงจะสั่งเปิดช่องยาได้" id="manual-open-drawer-btn" type="button" onclick="startTreatment()">
+                                <span class="material-symbols-rounded" aria-hidden="true">lock_open</span>
+                                <span>ยืนยันและปลดล็อกช่องเก็บที่ <span id="drawer-button-number">1</span></span>
+                            </button>
+                            <button class="btn btn-outline" id="demo-guide-btn" type="button" onclick="showInstructionsOnly()">
+                                <span class="material-symbols-rounded" aria-hidden="true">menu_book</span>
+                                <span>ดูขั้นตอนก่อน (ยังไม่เปิดช่องยา)</span>
+                            </button>
+                        </div>
+                        <p class="guide-footnote">การกดยืนยันจะบันทึกประวัติถึงครูพยาบาลและแจ้งผ่าน LINE</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- หน้าจอรอตู้จ่ายของ — ตัวเลขคือเวลาที่รอ ไม่ใช่การคาดเดาว่ามอเตอร์จะเสร็จเมื่อไร -->
+            <section class="dispensing-view animate-fade-in" id="dispensing-view" role="status" aria-live="assertive">
+                <div class="dispensing-container">
+                    <div class="dispensing-ring-wrap">
+                        <svg class="dispensing-svg" viewBox="0 0 160 160">
+                            <circle class="dispensing-track" cx="80" cy="80" r="70"></circle>
+                            <circle class="dispensing-progress" id="dispensing-circle" cx="80" cy="80" r="70"></circle>
+                        </svg>
+                        <div class="dispensing-center">
+                            <span class="material-symbols-rounded dispensing-icon" aria-hidden="true">settings</span>
+                            <span class="dispensing-countdown" id="dispensing-countdown-num">0</span>
+                        </div>
+                    </div>
+                    <div class="dispensing-badge" id="dispensing-drawer-chip">
+                        <span class="material-symbols-rounded" style="font-size:16px;" aria-hidden="true">inventory_2</span>
+                        <span>ช่องเก็บที่ <strong id="dispensing-drawer-val">1</strong> · กำลังรอคำยืนยัน</span>
+                    </div>
+                    <h1 class="dispensing-title" id="dispensing-heading">กำลังจ่ายยาและเวชภัณฑ์...</h1>
+                    <p class="dispensing-desc" id="dispensing-subtext">กรุณารอคำยืนยันจากตู้ยา · ตัวเลขแสดงเวลาที่รอ (วินาที)</p>
+                    <div class="dispensing-steps-indicator">
+                        <div class="dispensing-flow-step"><span class="material-symbols-rounded">sync</span> กำลังตรวจสถานะและส่งคำสั่ง</div>
+                        <div class="dispensing-flow-step active" id="dispensing-flow-motor"><span class="dispensing-dot-pulse"></span> รอผลการจ่ายจากตู้ยา...</div>
+                        <div class="dispensing-flow-step" id="dispensing-flow-ready"><span class="material-symbols-rounded">medical_services</span> เตรียมไปยังขั้นตอนการทำแผล</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="unlock-view animate-fade-in" id="unlock-view">
+                <div class="unlock-label" id="unlock-mode-label">UNLOCK OK</div>
+                <div class="unlock-orb" aria-hidden="true"><span class="material-symbols-rounded">lock_open</span></div>
+                <h1 class="page-title">ปลดล็อกช่องเก็บที่ <span id="unlock-drawer-number">1</span> เรียบร้อย</h1>
+                <p class="unlock-copy">หยิบเวชภัณฑ์ตามรายการ แล้วปิดฝากล่องให้สนิท</p>
+                <div class="unlock-panel">
+                    <div class="unlock-panel-title">เวชภัณฑ์ที่ต้องหยิบ</div>
+                    <div id="unlock-items"></div>
+                    <div class="unlock-note">ระบบจะบันทึกประวัติเมื่อทำครบทุกขั้นตอน</div>
+                    <button class="btn btn-primary btn-block unlock-next" type="button" onclick="showStepsView()">ไปยังขั้นตอนทำแผล<span class="material-symbols-rounded" aria-hidden="true">arrow_forward</span></button>
+                </div>
+            </section>
+
+            <section class="steps-view animate-rise" id="steps-view">
+                <div class="steps-head">
+                    <div class="steps-counter" id="step-counter-text">แผลถลอก · ขั้นที่ 1/5</div>
+                    <button class="icon-button" id="speak-btn" type="button" aria-label="ฟังคำแนะนำ"><span class="material-symbols-rounded">volume_up</span></button>
+                </div>
+                <div class="guide-grid">
+                    <div class="step-card">
+                        <div class="step-card-head">
+                            <span class="step-badge" id="step-badge-text">STEP 1 / 5</span>
+                            <div class="step-progress" id="step-progress" aria-label="ความก้าวหน้าการทำแผล"></div>
+                        </div>
+                        <img class="step-image" id="step-image" src="../images/step_wash_hands.webp" width="900" height="675" alt="">
+                        <h1 class="step-title" id="step-title">ล้างมือให้สะอาด</h1>
+                        <p class="step-description" id="step-description">เตรียมตัวก่อนสัมผัสบาดแผล</p>
+                        <div class="step-timer"><span class="material-symbols-rounded" aria-hidden="true">timer</span><span class="step-timer-copy" id="step-timer-text">ล้างมือต่อเนื่องอย่างน้อย 20 วินาที</span><span class="step-timer-value" id="step-timer-value">0:20</span></div>
+                        <div class="step-nav">
+                            <button class="btn btn-outline" id="prev-step-btn" type="button" onclick="navigateStep(-1)" aria-label="ขั้นตอนก่อนหน้า"><span class="material-symbols-rounded">arrow_back</span>ก่อนหน้า</button>
+                            <button class="btn btn-primary" id="next-step-btn" type="button" onclick="navigateStep(1)"><span class="material-symbols-rounded">check</span>ทำเสร็จแล้ว</button>
+                        </div>
+                    </div>
+
+                    <div class="guide-column step-copy-panel">
+                        <div class="supply-panel">
+                            <div class="section-heading">
+                                <h2>เวชภัณฑ์ที่ต้องใช้</h2>
+                            </div>
+                            <div class="supply-list" id="steps-items-list"></div>
+                        </div>
+                        <div class="notice notice-warning">
+                            <span class="material-symbols-rounded" aria-hidden="true">warning</span>
+                            <span><span class="notice-title">ข้อควรระวัง</span><span id="steps-warning-text"></span></span>
+                        </div>
+                        <a class="btn btn-outline" href="/student/"><span class="material-symbols-rounded" aria-hidden="true">home</span>กลับหน้าหลัก</a>
+                    </div>
+                </div>
+            </section>
+
+            <section class="error-layout" id="error-layout">
+                <div class="error-icon"><span class="material-symbols-rounded" style="font-size:34px;">error</span></div>
+                <h1 class="page-title">ไม่พบประเภทบาดแผล</h1>
+                <p class="page-lead">กลับไปเลือกประเภทแผลใหม่อีกครั้ง</p>
+                <a class="btn btn-primary btn-lg" href="/student/wound-select">เลือกประเภทแผล</a>
+            </section>
+        </main>
+
+        <footer class="site-footer">
+            <div class="site-footer-inner">
+                <span class="site-footer-note">พัฒนาโดย CRMS6 Team · โรงเรียนเทศบาล 6 นครเชียงราย</span>
+                <button class="sos-button" id="guide-sos-button" type="button" onclick="triggerGuideSos()">
+                    <span class="material-symbols-rounded" aria-hidden="true">emergency</span>
+                    <span>เรียกครูพยาบาลด่วน</span>
+                </button>
+            </div>
+        </footer>
+    </div>
 
     <script src="../js/wound-data.js"></script>
     <script src="../js/storage.js"></script>
@@ -362,12 +231,15 @@
 
         function renderDetail() {
             document.getElementById('wound-title-th').textContent = wound.name_th;
-            document.getElementById('wound-title-en').textContent = `ช่องเก็บที่ ${wound.drawer || 1} · ${wound.severity}`;
+            document.getElementById('wound-title-en').textContent = `${wound.severity} · เวชภัณฑ์อยู่ในช่องเก็บที่ ${wound.drawer || 1}`;
             document.getElementById('warning-text').textContent = wound.warnings;
-            document.getElementById('supply-count').textContent = `${wound.items.length} ชิ้น`;
-            document.getElementById('drawer-button-number').textContent = wound.drawer || 1;
-            document.getElementById('unlock-drawer-number').textContent = wound.drawer || 1;
-            document.getElementById('guide-drawer-number').textContent = wound.drawer || 1;
+            document.getElementById('steps-warning-text').textContent = wound.warnings;
+            document.getElementById('supply-count').textContent = wound.items.length;
+            document.getElementById('supply-count-pill').textContent = `${wound.items.length} ชิ้น`;
+            document.getElementById('guide-step-count').textContent = wound.steps.length;
+            for (const id of ['drawer-button-number', 'unlock-drawer-number', 'guide-drawer-number']) {
+                document.getElementById(id).textContent = wound.drawer || 1;
+            }
             document.getElementById('guide-overview-title').textContent = wound.name_th;
             document.getElementById('guide-overview-description').textContent = wound.description;
             const guideImage = document.getElementById('guide-wound-image');
@@ -375,13 +247,16 @@
             guideImage.alt = `ภาพตัวอย่าง${wound.name_th}`;
 
             const details = wound.itemDetails || [];
-            document.getElementById('items-list').innerHTML = wound.items.map((item, index) => {
+            const supplies = wound.items.map((item, index) => {
                 const detail = details[index] || {};
                 const media = detail.image
                     ? `<img src="${escapeHtml(detail.image)}" alt="${escapeHtml(item)}">`
                     : '<span class="supply-placeholder"><span class="material-symbols-rounded">medical_services</span></span>';
                 return `<div class="supply-card">${media}<div><div class="supply-name">${escapeHtml(displaySupplyName(detail.name || item))}</div><div class="supply-desc">${escapeHtml(detail.desc || `หยิบจากช่องเก็บที่ ${wound.drawer || 1}`)}</div></div><span class="supply-qty">×1</span></div>`;
             }).join('');
+            // รายการเดียวกันโชว์ทั้งหน้าสรุปและข้างการ์ดขั้นตอน — เด็กต้องเห็นว่าใช้อะไรตอนกำลังทำ
+            document.getElementById('items-list').innerHTML = supplies;
+            document.getElementById('steps-items-list').innerHTML = supplies;
 
             document.getElementById('unlock-items').innerHTML = wound.items.map((item, index) => {
                 const detail = details[index] || {};
@@ -411,6 +286,8 @@
         async function startTreatment() {
             const button = document.getElementById('manual-open-drawer-btn');
             if (button.disabled || drawerOpened) return;
+            // สลับโทนด้วย inline style เหมือนเดิม — tests/guide-command.test.mjs รันฟังก์ชันนี้บน element ปลอม
+            // ที่มีแค่ .style ไม่มี classList
             const panel = document.getElementById('hardware-panel');
             const icon = document.getElementById('hardware-indicator-icon');
             const label = document.getElementById('hardware-status-label');
@@ -420,6 +297,7 @@
             if (allergyMatches.length > 0) {
                 panel.style.display = 'flex';
                 panel.style.background = 'var(--danger-light)';
+                panel.style.borderColor = 'oklch(0.87 0.06 35)';
                 panel.style.color = 'var(--danger)';
                 icon.textContent = 'block';
                 label.textContent = 'ระงับการจ่ายยา';
@@ -431,6 +309,7 @@
             button.disabled = true;
             panel.style.display = 'flex';
             panel.style.background = '';
+            panel.style.borderColor = '';
             panel.style.color = '';
             icon.textContent = 'sync';
             label.textContent = 'กำลังจ่ายยาและเวชภัณฑ์';
@@ -455,8 +334,9 @@
                 hideDispensingView();
                 icon.textContent = 'error';
                 label.textContent = 'การจ่ายยาขัดข้อง';
-                log.innerHTML = `${escapeHtml(error.message)}<br><button type="button" onclick="showInstructionsOnly()" style="margin-top:10px; width:100%; padding:10px; border-radius:12px; border:1px solid var(--primary); background:#fff; color:var(--primary); font-weight:700; font-family:var(--font-sarabun); cursor:pointer;">ดูวิธีทำแผลก่อน (ตู้ยังไม่เปิดช่องยา)</button>`;
+                log.innerHTML = `${escapeHtml(error.message)}<br><button type="button" class="btn btn-outline" style="margin-top:10px;" onclick="showInstructionsOnly()">ดูวิธีทำแผลก่อน (ตู้ยังไม่เปิดช่องยา)</button>`;
                 panel.style.background = 'var(--danger-light)';
+                panel.style.borderColor = 'oklch(0.87 0.06 35)';
                 panel.style.color = 'var(--danger)';
                 button.disabled = !retrySafe;
                 NotificationService.showToast(error.message || 'การเปิดตู้ยาขัดข้อง', 'danger');
@@ -532,7 +412,7 @@
             const total = wound.steps.length;
             const woundLabel = wound.name_th.split('/').pop().trim();
             document.getElementById('step-counter-text').textContent = `${woundLabel} · ขั้นที่ ${currentStepIndex + 1}/${total}`;
-            document.getElementById('step-badge-text').textContent = `ขั้นที่ ${currentStepIndex + 1} จาก ${total}`;
+            document.getElementById('step-badge-text').textContent = `STEP ${currentStepIndex + 1} / ${total}`;
             document.getElementById('step-title').textContent = detail.title || `ขั้นตอนที่ ${currentStepIndex + 1}`;
             document.getElementById('step-description').textContent = detail.desc || wound.steps[currentStepIndex];
             document.getElementById('step-image').src = detail.image || wound.image;
@@ -544,7 +424,8 @@
                     ? 'ล้างต่อเนื่อง 20 วินาที — แตะเพื่อจับเวลา'
                     : 'ทำอย่างเบามือ ใช้เวลาประมาณ 1 นาที';
             document.getElementById('step-timer-value').textContent = usesTwentySecondTimer ? '0:20' : '1:00';
-            document.getElementById('step-progress').innerHTML = Array.from({ length: total }, (_, index) => `<span class="step-segment${index <= currentStepIndex ? ' done' : ''}"></span>`).join('');
+            document.getElementById('step-progress').innerHTML = Array.from({ length: total }, (_, index) =>
+                `<span class="step-segment${index < currentStepIndex ? ' done' : index === currentStepIndex ? ' current' : ''}"></span>`).join('');
             document.getElementById('prev-step-btn').disabled = currentStepIndex === 0;
             const nextButton = document.getElementById('next-step-btn');
             if (currentStepIndex === total - 1) {
@@ -584,6 +465,22 @@
             if (synth) synth.cancel();
             NotificationService.showToast('จบขั้นตอนดูแลแผล หากอาการไม่ดีขึ้นให้ติดต่อครูพยาบาล', 'info');
             location.href = '/student/wound-select';
+        }
+
+        async function triggerGuideSos() {
+            if (!confirm('ต้องการส่งสัญญาณเรียกครูพยาบาลด่วนใช่หรือไม่?')) return;
+            const button = document.getElementById('guide-sos-button');
+            button.disabled = true;
+            try {
+                const student = StorageService.getCurrentStudent();
+                const studentName = student ? `${student.name} (${student.class})` : 'นักเรียนทั่วไป';
+                await NotificationService.sendSos(NotificationService.buildSosFlexMessage(studentName));
+            } catch (error) {
+                console.error('[Guide] SOS failed:', error);
+                NotificationService.showToast('ส่ง SOS ไม่สำเร็จ กรุณาเรียกครูใกล้ที่สุด', 'danger');
+            } finally {
+                button.disabled = false;
+            }
         }
     </script>
 </body>

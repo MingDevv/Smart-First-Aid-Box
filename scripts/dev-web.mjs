@@ -10,7 +10,9 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 export async function createWebServer() {
     const routing = JSON.parse(await readFile(join(root, 'vercel.json')));
     const routes = new Map(routing.rewrites.map(r => [r.source, r.destination]));
-    const apis = new Set(['firebase-config', 'me', 'command', 'notify', 'history', 'ingest', 'sync']);
+    // เส้นทางที่ Vercel มีต้องมีที่นี่ด้วย ไม่งั้นหน้าที่เรียกมันได้ 404 ตัวเปล่าแล้วพังด้วยข้อความ JSON
+    // (students/roles/photo ใช้แค่ Firebase admin ⇒ ทำงานกับ emulator ได้ · analyze ต้องใช้คีย์ Gemini จึงไม่ใส่)
+    const apis = new Set(['firebase-config', 'me', 'command', 'notify', 'history', 'ingest', 'sync', 'students', 'roles', 'photo']);
     return createServer(async (req, res) => {
         res.setHeader('Cache-Control', 'no-store');
         try {
@@ -39,7 +41,7 @@ export async function createWebServer() {
             }
             const file = await realpath(join(root, route));
             if (!file.startsWith(root)) { res.writeHead(404).end(); return; }
-            const types = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.woff2':'font/woff2', '.webp':'image/webp', '.png':'image/png' };
+            const types = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.woff2':'font/woff2', '.webp':'image/webp', '.png':'image/png', '.svg':'image/svg+xml' };
             const data = await readFile(file);
             res.setHeader('Content-Type', types[extname(file)] || 'application/octet-stream');
             res.end(data);

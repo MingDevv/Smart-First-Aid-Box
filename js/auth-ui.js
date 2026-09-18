@@ -47,7 +47,12 @@
             + '<div id="auth-menu" role="menu" hidden>'
             + '<p class="auth-menu-name"></p><p class="auth-menu-email"></p><p class="auth-menu-role"></p>'
             + '<button id="google-sign-out" type="button" role="menuitem">ออกจากระบบ</button></div>';
-        document.body.appendChild(chip);
+        // หน้าที่มีช่อง `data-auth-slot` (ส่วนหัวของดีไซน์ 2026-09-17) รับชิปเข้าไปอยู่ในสายเลย์เอาต์
+        // เป็นเม็ดยา "เข้าสู่ระบบ" ของหน้านั้นเลย · หน้าที่ไม่มีช่องยังได้ชิปลอยมุมขวาบนเหมือนเดิม
+        // `querySelector?.` เพราะเทสสร้าง document ปลอมที่ไม่มีเมธอดนี้
+        const slot = document.querySelector?.('[data-auth-slot]');
+        (slot || document.body).appendChild(chip);
+        if (slot) document.body.dataset.authSlotted = 'true';
 
         // ชิปลอยทับปุ่มของหน้า เพราะหน้าไม่มีทางรู้ว่ามันมีอยู่
         //
