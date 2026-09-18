@@ -226,6 +226,12 @@
     will-change: transform;
 }
 
+/* เอาเมาส์วางบนแถบแล้วหยุดเลื่อน — โลโก้ที่วิ่งลอดใต้เมาส์ที่นิ่งอยู่ไม่ถูกนับว่า hover จนกว่าเมาส์จะขยับ
+ * (Safari ถึงขั้นไม่ repaint filter ของลูกในเลเยอร์ที่กำลัง transform จนกว่าจะกด) ⇒ หยุดก่อนแล้ว hover ถึงติด */
+.logo-cloud-card:hover .logo-track {
+    animation-play-state: paused;
+}
+
 /* กลุ่มโลโก้ถูกวางสองชุด ชุดที่สองซ่อนจาก screen reader — เลื่อน -50% จึงต่อกันไม่มีรอยต่อ */
 .logo-group {
     display: flex;
@@ -246,6 +252,15 @@
 .logo-group img:hover {
     opacity: 1;
     filter: none;
+}
+
+/* ระหว่างที่แถบหยุด โลโก้ที่เหลือสว่างขึ้นครึ่งทาง ให้รู้ว่าแถบตอบสนองแล้วแม้ยังไม่ชี้โดนโลโก้พอดี */
+.logo-cloud-card:hover .logo-group img {
+    opacity: 0.85;
+}
+
+.logo-cloud-card:hover .logo-group img:hover {
+    opacity: 1;
 }
 
 /* ความสูงต่อโลโก้จูนด้วยสายตาให้น้ำหนักเท่ากัน */
