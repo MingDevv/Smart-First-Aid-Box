@@ -77,7 +77,8 @@
 .scan-copy {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    justify-content: center;
+    gap: 14px;
 }
 
 .scan-copy .page-lead {
@@ -121,7 +122,11 @@
 .scan-stage {
     position: relative;
     display: flex;
+    width: 100%;
+    max-height: 100%;
+    min-height: 240px;
     aspect-ratio: 4 / 3;
+    align-self: center;
     align-items: center;
     justify-content: center;
     overflow: hidden;
@@ -333,12 +338,20 @@
 }
 
 .result-container.is-visible {
-    display: block;
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+}
+
+.result-container .split {
+    min-height: 0;
+    flex: 1;
 }
 
 .result-media {
     position: relative;
-    aspect-ratio: 4 / 3;
+    min-height: 240px;
     overflow: hidden;
     border: 1px solid var(--border-panel);
     border-radius: 28px;
@@ -379,8 +392,11 @@
 
 .result-content {
     display: flex;
+    min-height: 0;
     flex-direction: column;
-    gap: 12px;
+    justify-content: center;
+    gap: 10px;
+    overflow-y: auto;
 }
 
 .result-chips {
@@ -416,15 +432,20 @@
 
 /* ─── เลือกอาการ ──────────────────────────────────────────────────────── */
 
+/* การ์ดอาการเรียงแถวเดียวบนจอกว้าง (5 ใบที่ 1120px) และยืดเต็มความสูงที่เหลือ */
 .wound-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
-    gap: 16px;
-    margin-bottom: 22px;
+    min-height: 0;
+    flex: 1;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+    gap: 14px;
+    margin-bottom: 14px;
 }
 
 .wound-card {
     display: flex;
+    min-height: 0;
     flex-direction: column;
     overflow: hidden;
     padding: 0;
@@ -447,7 +468,8 @@
 .wound-photo-wrap {
     position: relative;
     display: block;
-    height: 152px;
+    min-height: 72px;
+    flex: 1;
     overflow: hidden;
     background: oklch(0.95 0.02 240);
 }
@@ -467,10 +489,12 @@
 
 .wound-copy {
     display: grid;
+    min-height: 86px;   /* ชื่อที่ตัดสองบรรทัดกับบรรทัดเดียวต้องได้การ์ดสูงเท่ากัน ไม่งั้นขอบรูปไม่ตรงกัน */
+    flex: none;
     grid-template-columns: minmax(0, 1fr) 24px;
     align-items: center;
     gap: 10px;
-    padding: 14px 16px 16px;
+    padding: 10px 14px 12px;
 }
 
 .wound-copy > span:first-child {
@@ -483,8 +507,9 @@
 .wound-name {
     color: var(--text-hero);
     font-family: var(--font-prompt);
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 700;
+    line-height: 1.25;
 }
 
 .wound-meta {
@@ -546,8 +571,14 @@
 }
 
 .picker-help {
+    flex: none;
     justify-content: space-between;
     gap: 14px;
+    padding: 10px 16px;
+}
+
+.picker-help .btn {
+    min-height: 44px;
 }
 
 .picker-help > span {
@@ -565,84 +596,102 @@
 }
 
 .guide-container.is-visible,
-.steps-view.is-visible,
+.steps-view.is-visible {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+}
+
 .unlock-view.is-visible {
     display: block;
 }
 
 .guide-grid {
     display: grid;
+    min-height: 0;
+    flex: 1;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-    gap: 20px;
-    align-items: start;
+    grid-auto-rows: minmax(0, 1fr);
+    gap: 16px 20px;
+    align-items: stretch;
 }
 
 .guide-grid > * {
     min-width: 0;
+    min-height: 0;
 }
 
+/* คอลัมน์ขวา (เวชภัณฑ์ · คำเตือน · ปุ่ม) สูงตามเนื้อหา ถ้าจอเตี้ยเกินค่อยเลื่อนในคอลัมน์ */
 .guide-column {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 10px;
+    overflow-y: auto;
+}
+
+.guide-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.guide-actions .unlock-button {
+    flex: 1 1 260px;
 }
 
 .guide-overview {
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    padding: 18px;
+    gap: 12px;
+    padding: 16px;
     border: 1px solid var(--border-panel);
     border-radius: 24px;
     background: oklch(1 0 0 / 0.85);
     box-shadow: var(--shadow-md);
 }
 
+/* รูปกินความสูงที่เหลือของการ์ด (ย่อ/ยืดตามจอ) — height:auto ทับแอตทริบิวต์ height ในแท็ก */
 .guide-overview img,
 .step-image {
     display: block;
     width: 100%;
-    height: auto;   /* ทับแอตทริบิวต์ height ในแท็ก ไม่งั้น aspect-ratio ไม่ทำงาน */
-    aspect-ratio: 4 / 3;
+    height: auto;
+    min-height: 120px;
+    flex: 1;
     border-radius: 18px;
     background: oklch(0.95 0.02 240);
     object-fit: cover;
 }
 
+.guide-overview-copy,
+.guide-overview .notice {
+    flex: none;
+}
+
+.guide-overview .notice {
+    padding: 12px 14px;
+    font-size: 12.5px;
+}
+
+
 .guide-overview-copy h2 {
-    font-size: 21px;
+    font-size: 19px;
 }
 
 .guide-overview-copy p {
-    margin-top: 6px;
+    margin-top: 4px;
     color: var(--text-body);
-    font-size: 14px;
-    line-height: 1.7;
-}
-
-.guide-drawer-chip {
-    display: inline-flex;
-    align-self: flex-start;
-    align-items: center;
-    gap: 7px;
-    padding: 9px 13px;
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    background: var(--surface-soft);
-    color: oklch(0.40 0.035 240);
-    font-size: 12px;
-}
-
-.guide-drawer-chip .material-symbols-rounded {
-    color: var(--accent-icon);
-    font-size: 18px;
+    font-size: 13.5px;
+    line-height: 1.6;
 }
 
 .supply-panel {
     display: flex;
+    flex: none;
     flex-direction: column;
-    gap: 10px;
-    padding: 18px;
+    gap: 8px;
+    padding: 12px 14px;
     border: 1px solid var(--border-panel);
     border-radius: 22px;
     background: oklch(1 0 0 / 0.85);
@@ -670,15 +719,15 @@
 
 .supply-list {
     display: grid;
-    gap: 9px;
+    gap: 7px;
 }
 
 .supply-card {
     display: grid;
-    grid-template-columns: 52px minmax(0, 1fr) auto;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
     align-items: center;
-    gap: 12px;
-    padding: 10px;
+    gap: 10px;
+    padding: 7px 8px;
     border: 1px solid oklch(0.94 0.015 240);
     border-radius: 14px;
     background: oklch(0.99 0.008 240);
@@ -686,9 +735,9 @@
 
 .supply-card img,
 .supply-placeholder {
-    width: 52px;
-    height: 52px;
-    border-radius: 12px;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
     background: oklch(0.95 0.02 240);
     object-fit: cover;
 }
@@ -726,9 +775,9 @@
 }
 
 .unlock-button {
-    min-height: 56px;
-    border-radius: 18px;
-    font-size: 16px;
+    min-height: 52px;
+    border-radius: 16px;
+    font-size: 15.5px;
 }
 
 .unlock-button .material-symbols-rounded {
@@ -836,10 +885,11 @@
 /* ขั้นตอนทำแผล */
 .steps-head {
     display: flex;
+    flex: none;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 18px;
+    margin-bottom: 10px;
 }
 
 .steps-counter {
@@ -853,9 +903,10 @@
 
 .step-card {
     display: flex;
+    min-height: 0;
     flex-direction: column;
-    gap: 14px;
-    padding: 18px;
+    gap: 10px;
+    padding: 16px;
     border: 1px solid var(--border-panel);
     border-radius: 24px;
     background: oklch(1 0 0 / 0.85);
@@ -900,21 +951,34 @@
     background: oklch(0.72 0.12 248);
 }
 
+/* รูปขั้นตอนเป็นอินโฟกราฟิกมีตัวหนังสือ — ห้ามครอป ให้ย่อทั้งใบแทน */
+.step-image {
+    object-fit: contain;
+}
+
+.step-card-head,
+.step-title,
+.step-description,
+.step-timer,
+.step-nav {
+    flex: none;
+}
+
 .step-title {
-    font-size: 21px;
+    font-size: 19px;
 }
 
 .step-description {
     color: oklch(0.45 0.03 240);
-    font-size: 14px;
-    line-height: 1.7;
+    font-size: 13.5px;
+    line-height: 1.6;
 }
 
 .step-timer {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 12px 14px;
+    padding: 10px 12px;
     border: 1px solid var(--border-color);
     border-radius: 14px;
     background: var(--surface-soft);
@@ -1128,7 +1192,19 @@
 /* ─── ประวัติ ─────────────────────────────────────────────────────────── */
 
 .history-stats {
-    margin-bottom: 20px;
+    flex: none;
+    margin-bottom: 14px;
+}
+
+.history-body .data-table-wrap {
+    min-height: 0;
+    flex: 1;
+    overflow: auto;
+}
+
+.history-body #table-container + button {
+    flex: none;
+    align-self: flex-start;
 }
 
 .empty-history {
@@ -1164,14 +1240,18 @@
 
 .about-intro {
     display: grid;
+    min-height: 0;
+    flex: 1;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
-    gap: 28px;
+    grid-auto-rows: minmax(0, 1fr);
+    gap: 20px 28px;
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 14px;
 }
 
 .about-intro > * {
     min-width: 0;
+    min-height: 0;
 }
 
 .about-copy {
@@ -1225,8 +1305,11 @@
 
 .about-photo-wrap {
     display: flex;
+    height: 100%;
+    align-items: center;
     justify-content: center;
-    padding: 24px;
+    overflow: hidden;
+    padding: 18px;
     border: 1px solid var(--border-panel);
     border-radius: 28px;
     background: linear-gradient(180deg, oklch(0.97 0.028 240 / 0.9), oklch(1 0 0 / 0.7));
@@ -1234,24 +1317,26 @@
 
 .about-photo {
     display: block;
-    width: 100%;
-    max-width: 360px;
+    width: auto;
+    max-width: min(100%, 360px);
     height: auto;
+    max-height: 100%;
     object-fit: contain;
 }
 
 .about-grid {
     display: grid;
+    flex: none;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
-    gap: 14px;
-    margin-bottom: 14px;
+    gap: 12px;
+    margin-bottom: 12px;
 }
 
 .about-card {
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    padding: 18px;
+    gap: 2px;
+    padding: 14px 16px;
     border: 1px solid var(--border-panel);
     border-radius: 18px;
     background: oklch(1 0 0 / 0.85);
@@ -1274,6 +1359,37 @@
 }
 
 @media (max-width: 640px) {
+    /* จอแคบ: ซ้อนเป็นคอลัมน์เดียว แถวสูงตามเนื้อหา แล้วเลื่อนใน .site-main */
+    .wound-grid,
+    .guide-grid,
+    .about-intro {
+        grid-auto-rows: auto;
+        flex: none;
+    }
+
+    .wound-photo-wrap {
+        height: 140px;
+        flex: none;
+    }
+
+    .guide-overview img,
+    .step-image {
+        aspect-ratio: 4 / 3;
+        flex: none;
+    }
+
+    .scan-stage {
+        max-height: none;
+    }
+
+    .result-media {
+        aspect-ratio: 4 / 3;
+    }
+
+    .about-photo-wrap {
+        height: auto;
+    }
+
     .preview-actions {
         grid-template-columns: 1fr 1fr;
     }

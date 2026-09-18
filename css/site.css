@@ -263,15 +263,59 @@
     padding: 36px var(--site-gutter) 56px;
 }
 
+/* ฝั่งนักเรียนเป็น app-shell: สูงเท่าจอพอดี header/footer ตายตัว เนื้อหาจบในจอเดียว (Bank 2026-09-18)
+ * .site-main เป็น flex column ที่มีความสูงแน่นอน ⇒ ลูกที่ตั้ง flex:1 + min-height:0 จะย่อ/ยืดตามจอ
+ * ถ้าจอเตี้ยจนของไม่พอจริงๆ (< ~640px) ค่อยเลื่อนในตัวเนื้อหา ไม่ใช่เลื่อนทั้งหน้า */
+.site-student {
+    height: 100vh;
+    height: 100dvh;
+}
+
 .site-student .site-main {
     --site-width: 1120px;
     --site-gutter: 24px;
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 18px var(--site-gutter) 16px;
 }
 
 .site-student .site-header-inner,
 .site-student .site-footer-inner {
     max-width: 1120px;
     padding-inline: 24px;
+}
+
+.site-student .site-header-inner {
+    min-height: 62px;
+    padding-block: 6px;
+}
+
+.site-student .site-footer-inner {
+    padding-block: 9px;
+}
+
+.site-student .sos-button {
+    min-height: 44px;
+}
+
+.site-student .page-head {
+    margin-bottom: 14px;
+}
+
+.site-student .page-title {
+    font-size: clamp(22px, 2.4vw, 30px);
+}
+
+.site-student .page-lead {
+    font-size: 13.5px;
+}
+
+/* ส่วนที่ต้องกินความสูงที่เหลือของจอ (ใช้คู่กับ .split หรือ grid ของหน้า) */
+.fill {
+    min-height: 0;
+    flex: 1;
 }
 
 /* หัวเรื่องของหน้า: eyebrow · h1 · คำอธิบาย · ชิปด้านขวา */
@@ -682,12 +726,14 @@
 .split {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
-    gap: 32px;
-    align-items: start;
+    grid-auto-rows: minmax(0, 1fr);   /* แถวย่อได้ ไม่งั้นรูปดันความสูงเกินจอ */
+    gap: 24px 32px;
+    align-items: stretch;
 }
 
 .split > * {
     min-width: 0;
+    min-height: 0;
 }
 
 @media (max-width: 640px) {
@@ -702,7 +748,12 @@
 
     .site-student .site-main {
         --site-gutter: 18px;
-        padding-top: 24px;
+        padding-top: 16px;
+    }
+
+    /* จอแคบ: คอลัมน์ซ้อนกัน ให้แถวสูงตามเนื้อหาแล้วเลื่อนใน .site-main แทน */
+    .split {
+        grid-auto-rows: auto;
     }
 
     .site-brand-sub {

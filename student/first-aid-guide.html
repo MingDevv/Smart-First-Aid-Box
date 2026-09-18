@@ -66,7 +66,11 @@
                             <h2 id="guide-overview-title">รายละเอียดการปฐมพยาบาล</h2>
                             <p id="guide-overview-description"></p>
                         </div>
-                        <div class="guide-drawer-chip"><span class="material-symbols-rounded" aria-hidden="true">inventory_2</span>เวชภัณฑ์อยู่ในช่องเก็บที่ <span id="drawer-chip-number">1</span> — ตู้จะปลดล็อกให้เมื่อกดยืนยัน</div>
+                        <!-- คำเตือนอยู่ฝั่งรูป เพราะรูปย่อได้ตามจอ — ฝั่งขวาที่เป็นรายการ+ปุ่มย่อไม่ได้ (จอเดียวจบ) -->
+                        <div class="notice notice-warning">
+                            <span class="material-symbols-rounded" aria-hidden="true">warning</span>
+                            <span><span class="notice-title">ข้อควรระวัง</span><span id="warning-text"></span></span>
+                        </div>
                     </div>
 
                     <div class="guide-column">
@@ -78,11 +82,6 @@
                             <div class="supply-list" id="items-list"></div>
                         </div>
 
-                        <div class="notice notice-warning">
-                            <span class="material-symbols-rounded" aria-hidden="true">warning</span>
-                            <span><span class="notice-title">ข้อควรระวัง</span><span id="warning-text"></span></span>
-                        </div>
-
                         <div class="notice notice-info hardware-card" id="hardware-panel" role="status" aria-live="polite">
                             <span class="material-symbols-rounded" id="hardware-indicator-icon" aria-hidden="true">sync</span>
                             <span><span class="notice-title" id="hardware-status-label">กำลังเชื่อมต่อตู้ยา</span><span id="hardware-log">กำลังเตรียมคำสั่งปลดล็อก...</span></span>
@@ -92,16 +91,17 @@
                              เดินมาจากการสแกน AI เจอหน้าที่ไม่มีปุ่มอะไรให้กดเลย และหน้าไม่ได้บอกด้วยว่าทำไม
                              (Bank เจอกับตัวบนมือถือ 2026-09-15 ทั้งบัญชีนักเรียนและ it@) · ตอนนี้เกตคือ "ล็อกอินหรือยัง"
                              ซึ่ง `data-requires-auth` เด้งกล่องลงชื่อเข้าใช้ให้ตรงจุดที่มือเพิ่งแตะ แทนการซ่อนเงียบๆ -->
-                        <button class="btn btn-primary btn-block unlock-button" data-requires-auth="เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน จึงจะสั่งเปิดช่องยาได้" id="manual-open-drawer-btn" type="button" onclick="startTreatment()">
-                            <span class="material-symbols-rounded" aria-hidden="true">lock_open</span>
-                            <span>ยืนยันและปลดล็อกช่องเก็บที่ <span id="drawer-button-number">1</span></span>
-                        </button>
+                        <div class="guide-actions">
+                            <button class="btn btn-primary unlock-button" data-requires-auth="เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน จึงจะสั่งเปิดช่องยาได้" id="manual-open-drawer-btn" type="button" onclick="startTreatment()">
+                                <span class="material-symbols-rounded" aria-hidden="true">lock_open</span>
+                                <span>ยืนยันและปลดล็อกช่องเก็บที่ <span id="drawer-button-number">1</span></span>
+                            </button>
+                            <button class="btn btn-outline" id="demo-guide-btn" type="button" onclick="showInstructionsOnly()">
+                                <span class="material-symbols-rounded" aria-hidden="true">menu_book</span>
+                                <span>ดูขั้นตอนก่อน (ยังไม่เปิดช่องยา)</span>
+                            </button>
+                        </div>
                         <p class="guide-footnote">การกดยืนยันจะบันทึกประวัติถึงครูพยาบาลและแจ้งผ่าน LINE</p>
-
-                        <button class="btn btn-outline btn-block" id="demo-guide-btn" type="button" onclick="showInstructionsOnly()">
-                            <span class="material-symbols-rounded" aria-hidden="true">menu_book</span>
-                            <span>ดูขั้นตอนทำแผลก่อน (ยังไม่เปิดช่องยา)</span>
-                        </button>
                     </div>
                 </div>
             </section>
@@ -231,17 +231,17 @@
 
         function renderDetail() {
             document.getElementById('wound-title-th').textContent = wound.name_th;
-            document.getElementById('wound-title-en').textContent = wound.description;
+            document.getElementById('wound-title-en').textContent = `${wound.severity} · เวชภัณฑ์อยู่ในช่องเก็บที่ ${wound.drawer || 1}`;
             document.getElementById('warning-text').textContent = wound.warnings;
             document.getElementById('steps-warning-text').textContent = wound.warnings;
             document.getElementById('supply-count').textContent = wound.items.length;
             document.getElementById('supply-count-pill').textContent = `${wound.items.length} ชิ้น`;
             document.getElementById('guide-step-count').textContent = wound.steps.length;
-            for (const id of ['drawer-button-number', 'unlock-drawer-number', 'guide-drawer-number', 'drawer-chip-number']) {
+            for (const id of ['drawer-button-number', 'unlock-drawer-number', 'guide-drawer-number']) {
                 document.getElementById(id).textContent = wound.drawer || 1;
             }
             document.getElementById('guide-overview-title').textContent = wound.name_th;
-            document.getElementById('guide-overview-description').textContent = `${wound.severity} · ${wound.description}`;
+            document.getElementById('guide-overview-description').textContent = wound.description;
             const guideImage = document.getElementById('guide-wound-image');
             guideImage.src = wound.image;
             guideImage.alt = `ภาพตัวอย่าง${wound.name_th}`;
