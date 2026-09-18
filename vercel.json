@@ -65,10 +65,6 @@
       "destination": "/student/about.html"
     },
     {
-      "source": "/student/history",
-      "destination": "/student/history.html"
-    },
-    {
       "source": "/kiosk",
       "destination": "/kiosk/index.html"
     },
@@ -87,10 +83,6 @@
     {
       "source": "/about",
       "destination": "/student/about.html"
-    },
-    {
-      "source": "/history",
-      "destination": "/student/history.html"
     }
   ],
   "headers": [
