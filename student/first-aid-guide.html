@@ -33,6 +33,7 @@
                     </span>
                 </a>
                 <nav class="site-nav site-tabs" aria-label="เมนูนักเรียน">
+                    <a class="site-tab" href="/">หน้าแรก</a>
                     <a class="site-tab" href="/student/wound-scan">สแกนแผล AI</a>
                     <a class="site-tab" href="/student/wound-select">เลือกอาการ</a>
                     <span class="site-tab active" aria-current="page">คู่มือทำแผล</span>
@@ -65,25 +66,25 @@
                             <h2 id="guide-overview-title">รายละเอียดการปฐมพยาบาล</h2>
                             <p id="guide-overview-description"></p>
                         </div>
-                        <!-- คำเตือนอยู่ฝั่งรูป เพราะรูปย่อได้ตามจอ — ฝั่งขวาที่เป็นรายการ+ปุ่มย่อไม่ได้ (จอเดียวจบ) -->
+                        <!-- ข้อควรระวังอยู่คู่กับสรุปแผล ไม่เบียดรายการเวชภัณฑ์ -->
                         <div class="notice notice-warning">
                             <span class="material-symbols-rounded" aria-hidden="true">warning</span>
                             <span><span class="notice-title">ข้อควรระวัง</span><span id="warning-text"></span></span>
                         </div>
                     </div>
 
-                    <div class="guide-column">
-                        <div class="supply-panel">
-                            <div class="section-heading">
-                                <h2>เวชภัณฑ์ที่ต้องใช้</h2>
-                                <span class="count-pill" id="supply-count-pill">0 ชิ้น</span>
-                            </div>
-                            <div class="supply-list" id="items-list"></div>
+                    <div class="supply-panel">
+                        <div class="section-heading">
+                            <h2>เวชภัณฑ์ที่ต้องใช้</h2>
+                            <span class="count-pill" id="supply-count-pill">0 ชิ้น</span>
                         </div>
+                        <div class="supply-list" id="items-list"></div>
+                    </div>
+                </div>
 
-                        <!-- เกตคัดกรองก่อนปลดล็อก — ต้องอยู่เหนือปุ่ม เพราะเด็กต้องเห็นคำถามก่อนตัดสินใจกด
-                             ไม่ใช่เจอเป็นด่านหลังกดไปแล้ว · ปุ่มยังกดได้เสมอและเป็นคนบอกเหตุผลเอง
-                             (ห้ามซ่อนปุ่มด้วย CSS — ของที่กดไม่ได้แล้วไม่บอกอะไร คือบั๊กที่เจอมาแล้ว 09-15) -->
+                <div class="guide-decision">
+                    <div class="guide-screening">
+                        <!-- แสดงคำถามและเหตุผลไว้เสมอ เปิดปุ่มปลดล็อกเมื่อคำตอบผ่านการคัดกรองเท่านั้น -->
                         <div class="triage-panel" id="triage-panel" data-answered="none">
                             <div class="triage-question" id="triage-question"></div>
                             <div class="triage-choices" id="triage-choices" role="group" aria-labelledby="triage-question"></div>
@@ -94,12 +95,14 @@
                             <span><span class="notice-title" id="hardware-status-label">กำลังเชื่อมต่อตู้ยา</span><span id="hardware-log">กำลังเตรียมคำสั่งปลดล็อก...</span></span>
                         </div>
 
+                    </div>
+                    <div class="guide-confirmation">
                         <!-- เคยติด `data-staff-only` ซึ่ง css/auth.css ซ่อนด้วย display:none ⇒ นักเรียนที่ล็อกอินแล้ว
                              เดินมาจากการสแกน AI เจอหน้าที่ไม่มีปุ่มอะไรให้กดเลย และหน้าไม่ได้บอกด้วยว่าทำไม
                              (Bank เจอกับตัวบนมือถือ 2026-09-15 ทั้งบัญชีนักเรียนและ it@) · ตอนนี้เกตคือ "ล็อกอินหรือยัง"
                              ซึ่ง `data-requires-auth` เด้งกล่องลงชื่อเข้าใช้ให้ตรงจุดที่มือเพิ่งแตะ แทนการซ่อนเงียบๆ -->
                         <div class="guide-actions">
-                            <button class="btn btn-primary unlock-button" data-requires-auth="เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน จึงจะสั่งเปิดช่องยาได้" id="manual-open-drawer-btn" type="button" onclick="startTreatment()">
+                            <button class="btn btn-primary unlock-button" data-requires-auth="เข้าสู่ระบบด้วยบัญชีโรงเรียนก่อน จึงจะสั่งเปิดช่องยาได้" id="manual-open-drawer-btn" type="button" onclick="startTreatment()" aria-describedby="unlock-hint" disabled>
                                 <span class="material-symbols-rounded" aria-hidden="true">lock_open</span>
                                 <span>ยืนยันและปลดล็อกช่องเก็บที่ <span id="drawer-button-number">1</span></span>
                             </button>
@@ -108,7 +111,7 @@
                                 <span>ดูขั้นตอนก่อน (ยังไม่เปิดช่องยา)</span>
                             </button>
                         </div>
-                        <p class="guide-footnote">การกดยืนยันจะบันทึกประวัติถึงครูพยาบาลและแจ้งผ่าน LINE</p>
+                        <p class="guide-footnote" id="unlock-hint">ตอบคำถามคัดกรองก่อน จึงจะปลดล็อกช่องยาได้</p>
                     </div>
                 </div>
             </section>
@@ -218,6 +221,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const wound = WOUND_DATA[urlParams.get('wound')];
         let drawerOpened = false;
+        let dispatchLocked = false;
         let currentStepIndex = 0;
         const synth = window.speechSynthesis;
 
@@ -296,7 +300,9 @@
 
         function renderTriage() {
             const triage = woundTriageFor(wound.id);
-            document.getElementById('triage-question').textContent = triage.question;
+            document.getElementById('triage-question').textContent = triage === WOUND_TRIAGE_DEFAULT
+                ? 'เคยแพ้ยาหรืออุปกรณ์ทำแผลในรายการด้านบนไหม?'
+                : triage.question;
             const choices = document.getElementById('triage-choices');
             // สร้างปุ่มตามประเภทแผล ไม่ใช่ซ่อนของที่ไม่ใช้ ⇒ ไม่มีปุ่มของแผลประเภทอื่นค้างให้กดโดน
             choices.replaceChildren(...triage.options.map(item => {
@@ -313,14 +319,22 @@
             // ตอบแล้วและปลอดภัย = เขียว · ตอบแล้วและต้องให้ครูดู = แดง · ยังไม่ตอบ = เหลือง
             document.getElementById('triage-panel').dataset.answered =
                 !chosen ? 'none' : chosen.safe ? 'no' : 'yes';
+            document.getElementById('manual-open-drawer-btn').disabled =
+                dispatchLocked || drawerOpened || !chosen?.safe;
+            document.getElementById('unlock-hint').textContent = !chosen
+                ? 'ตอบคำถามคัดกรองก่อน จึงจะปลดล็อกช่องยาได้'
+                : !chosen.safe ? 'ยังปลดล็อกไม่ได้ กรุณาขอความช่วยเหลือจากครูพยาบาล'
+                : 'การกดยืนยันจะบันทึกประวัติถึงครูพยาบาลและแจ้งผ่าน LINE';
         }
 
         function answerTriage(option) {
+            // เปลี่ยนคำตอบต้องไม่ปลดล็อกคำสั่งที่กำลังรอหรือยังไม่รู้ผลจากตู้
+            if (dispatchLocked || drawerOpened) return;
             triageAnswer = option.value;
             renderTriage();
             const blocked = woundTriageBlockReason(wound.id, triageAnswer);
             if (!blocked) {
-                setHardwarePanel('info', 'check_circle', 'ตอบคำถามแล้ว', 'กดปุ่มด้านล่างเพื่อปลดล็อกช่องเก็บได้เลย');
+                setHardwarePanel('info', 'check_circle', 'ตอบคำถามแล้ว', 'กดปุ่มยืนยันเพื่อปลดล็อกช่องเก็บได้เลย');
                 return;
             }
             setHardwarePanel('danger', 'block', 'ยังจ่ายของให้ไม่ได้', blocked);
@@ -358,7 +372,7 @@
 
         async function startTreatment() {
             const button = document.getElementById('manual-open-drawer-btn');
-            if (button.disabled || drawerOpened) return;
+            if (button.disabled || dispatchLocked || drawerOpened) return;
             // สลับโทนด้วย inline style เหมือนเดิม — tests/guide-command.test.mjs รันฟังก์ชันนี้บน element ปลอม
             // ที่มีแค่ .style ไม่มี classList
             const panel = document.getElementById('hardware-panel');
@@ -394,6 +408,7 @@
                 return;
             }
 
+            dispatchLocked = true;
             button.disabled = true;
             panel.style.display = 'flex';
             panel.style.background = '';
@@ -426,7 +441,8 @@
                 panel.style.background = 'var(--danger-light)';
                 panel.style.borderColor = 'oklch(0.87 0.06 35)';
                 panel.style.color = 'var(--danger)';
-                button.disabled = !retrySafe;
+                dispatchLocked = !retrySafe;
+                button.disabled = dispatchLocked;
                 NotificationService.showToast(error.message || 'การเปิดตู้ยาขัดข้อง', 'danger');
             } finally { stopTimer(); }
         }
