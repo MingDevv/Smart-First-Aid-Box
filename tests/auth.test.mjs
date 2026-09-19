@@ -4,7 +4,7 @@ import { createAuthorizer, isSchoolIdentity } from '../lib/auth.js';
 import { firebaseEnvironment } from '../lib/firebase-admin.js';
 import firebaseConfig from '../api/firebase-config.js';
 import { createCommandHandler, mqttClientStatsForTests, resetRateLimitForTests } from '../api/command.js';
-import { createNotifyHandler, sendSchoolSos } from '../api/notify.js';
+import { createNotifyHandler } from '../api/notify.js';
 
 const school = { uid: 'test-student', email: 'student@tesaban6.ac.th', email_verified: true, name: 'First Surname',
     iat: Math.floor(Date.now()/1000), exp: Math.floor(Date.now()/1000)+3600 };
@@ -112,34 +112,28 @@ test('student SOS only accepts its event and forwards exclusively verified ident
     assert.equal((await invoke(failed,request({event:'sos'}))).status,503);
 });
 
-test('LINE sends minimal plain text to a configured group and preserves transport failure', async () => {
-    const oldFetch=globalThis.fetch;
-    const oldToken=process.env.LINE_CHANNEL_ACCESS_TOKEN,oldGroup=process.env.LINE_GROUP_ID;
-    process.env.LINE_CHANNEL_ACCESS_TOKEN='synthetic-line-token'; process.env.LINE_GROUP_ID='synthetic-group';
-    try {
-        let body;
-        globalThis.fetch=async(url,options)=>{ assert.equal(url,'https://api.line.me/v2/bot/message/push');body=JSON.parse(options.body);return{ok:true}; };
-        assert.equal((await sendSchoolSos(school)).success,true);
-        assert.equal(body.to,'synthetic-group');
-        // SOS จากเว็บใช้การ์ด Flex ภาษาไทยชุดเดียวกับฝั่งตู้ ⇒ ครูเห็นหน้าตาเดียวกันทั้งสองทาง
-        assert.equal(body.messages[0].type,'flex');
-        const rendered = JSON.stringify(body.messages[0]);
-        // ชื่อต้นอย่างเดียว ไม่เอานามสกุล — ข้อจำกัดเดิมที่ต้องอยู่ต่อแม้เปลี่ยนรูปแบบข้อความ
-        assert.match(rendered,/First/);assert.doesNotMatch(rendered,/Surname/);
-        assert.match(body.messages[0].altText,/เรียกครูพยาบาล/);
-        assert.match(rendered,/กดจากเว็บ/,'ครูต้องรู้ว่ากดมาจากเว็บ ไม่ใช่ที่หน้าตู้');
-        globalThis.fetch=async()=>({ok:false});assert.equal((await sendSchoolSos(school)).success,false);
-        delete process.env.LINE_GROUP_ID;
-        let calls = 0;
-        globalThis.fetch=async()=>{calls++;return {ok:false};};
-        assert.equal((await sendSchoolSos(school)).success,false);
-        assert.equal(calls,0,'missing group must not contact LINE or broadcast');
-    } finally {
-        globalThis.fetch=oldFetch;
-        for (const [key,value] of [['LINE_CHANNEL_ACCESS_TOKEN',oldToken],['LINE_GROUP_ID',oldGroup]]) {
-            if(value===undefined)delete process.env[key];else process.env[key]=value;
-        }
-    }
+// เดิมเทสนี้เรียก `sendSchoolSos()` ซึ่งปั้นการ์ด Flex ถูกต้อง แต่โปรดักชันไม่เคยเรียกมันเลย
+// ⇒ เทสเขียวอยู่บนทางที่ไม่มีใครเดิน ขณะที่ของจริงส่งข้อความอังกฤษล้วนหาครู (แก้ 2026-09-19)
+// ฟังก์ชันนั้นถูกลบแล้ว · การตรวจว่าการ์ดเป็น Flex ไทยจริงย้ายไป tests/firebase-sync.test.mjs
+// ซึ่งเดินเส้นทางจริง notify → createWebSosSender → deliverEvent → pushLine
+test('the notify endpoint forwards only the screening symptom, never the raw request body', async () => {
+    const seen = [];
+    const handler = createNotifyHandler({ authorizeRequest: createAuthorizer(services()),
+        send: async (token, options) => { seen.push([token, options]); return { success: true }; } });
+
+    assert.equal((await invoke(handler, request({ event: 'sos', symptom: 'chest_tightness' }))).status, 200);
+    assert.equal(seen.at(-1)[1].symptom, 'chest_tightness', 'อาการต้องเดินทางถึงตัวที่เขียนเหตุการณ์');
+
+    // ค่าที่ไม่อยู่ใน enum ถูกส่งต่อให้ lib/web-sos.js เป็นคนปัด ไม่ปัดสองที่ให้สับสนว่าใครรับผิดชอบ
+    // สิ่งที่ห้ามคือ **ทั้งก้อน** ของคำขอหลุดไป — ชื่อกับ uid ต้องมาจาก token ที่ตรวจแล้วเท่านั้น
+    const forged = { event: 'sos', symptom: 'free text to the teachers group',
+        uid: 'admin', name: 'forged', flexMessage: { type: 'text', text: 'forged' } };
+    assert.equal((await invoke(handler, { ...request(forged), headers: {} })).status, 200);
+    const [token, options] = seen.at(-1);
+    assert.equal(token, null, 'ตัวตนที่ปลอมมาในเนื้อคำขอต้องไม่ถูกใช้');
+    assert.deepEqual(Object.keys(options).sort(), ['dedupeKey', 'symptom'],
+        'ห้ามมีฟิลด์อื่นจากเนื้อคำขอรอดไปถึงตัวส่ง');
+    assert.equal(JSON.stringify(options).includes('forged'), false);
 });
 
 

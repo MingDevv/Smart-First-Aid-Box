@@ -1,32 +1,12 @@
 import { authorize, apiHeaders } from '../lib/auth.js';
 import { persistSchoolSos } from '../lib/web-sos.js';
-import { lineMessage } from '../lib/line-flex.js';
-import { publicOrigin } from '../lib/cabinet-line.js';
 
-export async function sendSchoolSos(token) {
-    const channel = process.env.LINE_CHANNEL_ACCESS_TOKEN?.trim();
-    const group = process.env.LINE_GROUP_ID?.trim();
-    if (!channel || !group) return { success: false };
-    // token เป็น null ได้ — การเรียกครูไม่บังคับล็อกอิน · ถ้าล็อกอินอยู่ก็บอกชื่อให้
-    // ถ้าไม่ได้ล็อกอินก็ยังส่ง แต่บอกตามตรงว่าไม่รู้ว่าใคร ครูจะได้รู้ว่าต้องไปดูที่ตู้เอง
-    // ชื่อมาจาก token ที่ตรวจแล้วเท่านั้น ไม่เคยมาจากเนื้อคำขอ · ตัดอักขระควบคุมออกกันปลอมบรรทัด
-    const firstName = (typeof token?.name === 'string' ? token.name : '')
-        .trim().split(/\s+/)[0].replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 60);
-    const student = firstName ? { name: firstName } : null;
-    // เหตุการณ์สังเคราะห์ให้ตัวสร้างข้อความใช้ร่วมกับฝั่งตู้ ⇒ ครูเห็นหน้าตาเดียวกันทั้งสองทาง
-    // `cabinetId: 'web'` ทำให้การ์ดบอกตรงๆ ว่ากดมาจากเว็บ ไม่ใช่กดที่หน้าตู้ ซึ่งเปลี่ยนสิ่งที่ครูต้องทำ
-    const event = { kind: 'sos', cabinetId: 'web', ts: new Date().toISOString(),
-        buzzerAck: null, clockTrust: 'ntp' };
-    const message = lineMessage(event, { student, origin: publicOrigin() });
-    try {
-        const response = await fetch('https://api.line.me/v2/bot/message/push', {
-            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${channel}` },
-            body: JSON.stringify({ to: group, messages: [message] }),
-            signal: AbortSignal.timeout(8000), redirect: 'error'
-        });
-        return { success: response.ok };
-    } catch { return { success: false }; }
-}
+// เคยมี `sendSchoolSos()` อยู่ตรงนี้ ซึ่งปั้นการ์ด Flex ไทยถูกต้องทุกอย่าง — แต่ **ไม่มีใครเรียก**
+// ในโปรดักชันเลย เพราะ handler ข้างล่างใช้ `persistSchoolSos` เป็นค่าเริ่มต้น
+// มีแต่ tests/auth.test.mjs ที่เรียก ⇒ เทสเขียวอยู่บนฟังก์ชันที่ผู้ใช้ไม่เคยเจอ
+// ขณะที่ของจริงส่งข้อความอังกฤษล้วนหาครูมาตลอด
+// ลบทิ้ง 2026-09-19 แล้วย้ายการปั้นการ์ดไปอยู่เส้นทางเดียวกับฝั่งตู้ที่ lib/web-sos.js
+// **บทเรียน**: ทางที่ถูกซึ่งไม่มีใครเดิน ไม่ต่างจากไม่มี และมันทำให้เทสโกหกแทนที่จะเตือน
 
 const DEDUPE_WINDOW_MS = 120000;
 const GLOBAL_WINDOW_MS = 60000;
@@ -64,7 +44,11 @@ export function createNotifyHandler({ authorizeRequest = authorize, send = persi
             delivery = { until: time + DEDUPE_WINDOW_MS, settled: false };
             // จองที่ไว้ก่อนเริ่มส่ง LINE คำขอที่เข้ามาพร้อมกันจะได้ใช้ผลเดียวกัน
             deliveries.set(uid, delivery);
-            delivery.result = Promise.resolve().then(() => send(identity?.token ?? null, { dedupeKey: uid }))
+            // ส่ง `symptom` ต่อให้ตัวเขียนเหตุการณ์ด้วย — ของเดิมอ่านแค่ `event` แล้วทิ้งที่เหลือ
+            // ⇒ จอเว็บถามว่า "แน่นหน้าอกไหม" แล้วครูไม่มีวันเห็นคำตอบ (แก้ 2026-09-19)
+            // ไม่กรองค่าที่นี่โดยตั้งใจ ให้ lib/web-sos.js เป็นคนตรวจกับ enum ที่เดียว
+            delivery.result = Promise.resolve().then(() => send(identity?.token ?? null,
+                { dedupeKey: uid, symptom: req.body?.symptom ?? null }))
                 .then(result => result?.success === true, () => false)
                 .then(success => {
                     delivery.settled = true;
