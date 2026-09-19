@@ -52,18 +52,38 @@ test('the card reports what the child said, it does not diagnose', () => {
         assert.doesNotMatch(rendered, claim, 'ตู้ไม่มีสิทธิ์บอกว่าเด็กเป็นอะไร');
 });
 
-test('the cabinet screen asks about symptoms for insect bites and about allergies otherwise', async () => {
-    const source = await readFile(new URL('../js/kiosk-app.js', import.meta.url), 'utf8');
-    assert.match(source, /TRIAGE\s*=\s*\{[\s\S]*insect:/, 'หมวดแมลงกัดต่อยต้องมีชุดคำถามของตัวเอง');
+// ชุดคำถามย้ายไป js/wound-data.js แล้ว (2026-09-19) เพราะหน้าเว็บนักเรียนต้องถามชุดเดียวกัน
+// เทสจึงตรวจที่ไฟล์นั้น แล้วตรวจแยกว่าทั้งสองจอ *ใช้* ตัวเดียวกันจริง ไม่ได้ถือสำเนาของตัวเอง
+test('one screening table serves both screens, and insect bites get their own questions', async () => {
+    const source = await readFile(new URL('../js/wound-data.js', import.meta.url), 'utf8');
+    assert.match(source, /WOUND_TRIAGE\s*=\s*\{[\s\S]*insect:/, 'หมวดแมลงกัดต่อยต้องมีชุดคำถามของตัวเอง');
     for (const label of ['บวมบริเวณแผล', 'แน่นหน้าอก', 'ไม่มี'])
         assert.ok(source.includes(`'${label}'`), `ต้องมีตัวเลือก "${label}"`);
     assert.match(source, /ตอนนี้มีอาการแบบนี้ไหม/);
     assert.match(source, /เคยแพ้สิ่งที่แสดงนี้ไหม/, 'แผลทั่วไปยังถามเรื่องแพ้ยาเหมือนเดิม');
 
-    // สองอาการแรกต้องบล็อกการจ่าย และต้องเรียกครูเองโดยไม่รอให้เด็กหาปุ่มเจอ
+    // สองอาการแรกต้องบล็อกการจ่าย และข้อความบอกว่าเรียกครูให้แล้ว
     assert.match(source, /symptom === 'swelling'[\s\S]{0,120}ตู้เรียกครูให้แล้ว/);
     assert.match(source, /symptom === 'chest_tightness'[\s\S]{0,120}ตู้เรียกครูให้แล้ว/);
-    assert.match(source, /chosen\?\.symptom[\s\S]{0,80}sendSos\(\{ symptom: chosen\.symptom, auto: true \}\)/);
+
+    // ไม่มีสำเนาที่สอง — เกตความปลอดภัยที่มีสองก๊อปปี้จะเพี้ยนจากกันโดยไม่มีใครรู้
+    for (const file of ['../js/kiosk-app.js', '../student/first-aid-guide.html']) {
+        const consumer = await readFile(new URL(file, import.meta.url), 'utf8');
+        assert.doesNotMatch(consumer, /ตอนนี้มีอาการแบบนี้ไหม/,
+            `${file} ถือสำเนาคำถามของตัวเอง — ต้องอ่านจาก js/wound-data.js เท่านั้น`);
+        assert.match(consumer, /woundTriage(For|BlockReason)\(/,
+            `${file} ต้องเรียกตัวช่วยคัดกรองจาก js/wound-data.js`);
+    }
+});
+
+// ทั้งสองจอต้องเรียกครูเองเมื่อเด็กตอบว่าบวม/แน่นหน้าอก ไม่ใช่รอให้เด็กหาปุ่มเจอ
+test('both screens call the teacher themselves on a severe-allergy answer', async () => {
+    const kiosk = await readFile(new URL('../js/kiosk-app.js', import.meta.url), 'utf8');
+    assert.match(kiosk, /chosen\?\.symptom[\s\S]{0,80}sendSos\(\{ symptom: chosen\.symptom, auto: true \}\)/);
+    const web = await readFile(new URL('../student/first-aid-guide.html', import.meta.url), 'utf8');
+    assert.match(web, /option\.symptom[\s\S]{0,80}autoCallTeacher\(option\.symptom\)/);
+    assert.match(web, /sendSos\([\s\S]{0,80}\{ symptom \}\)/,
+        'ต้องส่ง symptom ต่อไปถึงการ์ด LINE ของครู ไม่ใช่เรียกเฉยๆ');
 });
 
 // ถ้าจอตู้ส่งค่าที่ไม่รู้จักมา ตู้ต้องไม่ทิ้งการเรียกครู แค่ทิ้งเหตุผล

@@ -47,29 +47,11 @@
 
     // คำถามคัดกรองก่อนจ่ายของ — ต่างกันตามประเภทแผล
     //
-    // แผลทั่วไปถามเรื่องแพ้ยา เพราะของที่จ่ายคือยาทา · แต่ "แมลงกัดต่อย" คำถามที่สำคัญกว่า
-    // คือเด็กกำลังแพ้อยู่ตอนนี้หรือเปล่า · บวมกับแน่นหน้าอกเป็นสัญญาณของการแพ้รุนแรง
-    // ซึ่งยาทาไม่ช่วย และการยืนรอตู้จ่ายของคือการเสียเวลาที่ควรใช้ตามครู
-    // ⇒ สองอาการนี้ตู้ไม่จ่าย แต่เรียกครูให้ทันทีพร้อมบอกว่าเรียกเพราะอะไร
-    const TRIAGE_DEFAULT = {
-        question: 'เคยแพ้สิ่งที่แสดงนี้ไหม',
-        options: [
-            { value: 'yes', label: 'เคยแพ้' },
-            { value: 'unsure', label: 'ไม่แน่ใจ' },
-            { value: 'no', label: 'ไม่เคยแพ้', safe: true }
-        ]
-    };
-    const TRIAGE = {
-        insect: {
-            question: 'ตอนนี้มีอาการแบบนี้ไหม',
-            options: [
-                { value: 'swelling', label: 'บวมบริเวณแผล', symptom: 'swelling' },
-                { value: 'chest_tightness', label: 'แน่นหน้าอก', symptom: 'chest_tightness' },
-                { value: 'none', label: 'ไม่มี', safe: true }
-            ]
-        }
-    };
-    const triageFor = wound => TRIAGE[wound?.id] || TRIAGE_DEFAULT;
+    // ตัวคำถามย้ายไปอยู่ js/wound-data.js แล้ว (2026-09-19) เพราะหน้าเว็บนักเรียนต้องถามชุดเดียวกัน
+    // และเกตความปลอดภัยที่มีสองสำเนาจะเพี้ยนจากกันโดยไม่มีใครรู้ ⇒ จอหนึ่งจ่ายของที่อีกจอปฏิเสธ
+    // เหตุผลว่าทำไมแมลงกัดต่อยถามคนละคำถาม อยู่ในคอมเมนต์ที่ไฟล์นั้น
+    const TRIAGE_DEFAULT = WOUND_TRIAGE_DEFAULT;
+    const triageFor = wound => woundTriageFor(wound?.id);
     const triageOption = wound => triageFor(wound).options.find(item => item.value === allergyAnswer) || null;
 
     // ── อ้างอิง DOM ─────────────────────────────────────────────────────

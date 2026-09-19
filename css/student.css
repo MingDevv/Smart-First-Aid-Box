@@ -686,9 +686,13 @@
     line-height: 1.6;
 }
 
+/* กล่องเวชภัณฑ์เป็นตัวที่ยอมย่อในคอลัมน์ขวา — คำถามคัดกรองกับปุ่มปลดล็อกย่อไม่ได้
+   ถ้าไม่ระบุ ทั้งคอลัมน์จะเลื่อนพร้อมกัน แล้วปุ่มปลดล็อกจะถูกตัดครึ่งที่จอ 1024×650
+   (เห็นจริงตอนเพิ่มคำถาม 2026-09-19 — รายการเวชภัณฑ์คือส่วนที่ซ้ำได้ จึงให้มันเลื่อนแทน) */
 .supply-panel {
     display: flex;
-    flex: none;
+    flex: 1 1 auto;
+    min-height: 0;
     flex-direction: column;
     gap: 8px;
     padding: 12px 14px;
@@ -717,9 +721,63 @@
     font-weight: 600;
 }
 
+/* พื้นขั้นต่ำ ~1 การ์ด — ถ้าปล่อยให้ย่อได้ถึง 0 จอเตี้ยจะเหลือแต่หัวข้อ "เวชภัณฑ์ที่ต้องใช้"
+   โดยไม่มีของสักชิ้นให้เห็น ซึ่งแย่กว่าการต้องเลื่อนดูรายการที่เหลือ */
 .supply-list {
     display: grid;
+    min-height: 56px;
     gap: 7px;
+    overflow-y: auto;
+}
+
+/* เกตคัดกรองก่อนปลดล็อก — สีขอบบอกสถานะ ไม่ใช่ซ่อนปุ่มที่กดไม่ได้
+   เหลือง = ยังไม่ตอบ · เขียว = ตอบแล้วจ่ายได้ · แดง = ตอบแล้วต้องให้ครูดูก่อน */
+.triage-panel {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    border: 1px solid var(--warning-border);
+    border-radius: 22px;
+    background: var(--warning-bg);
+}
+
+.triage-panel[data-answered="no"] {
+    border-color: var(--success);
+    background: var(--success-light);
+}
+
+.triage-panel[data-answered="yes"] {
+    border-color: oklch(0.87 0.06 35);
+    background: var(--danger-light);
+}
+
+.triage-question {
+    color: var(--text-main);
+    font-size: 14.5px;
+    font-weight: 600;
+}
+
+.triage-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.triage-choice {
+    flex: 1 1 auto;
+    padding: 8px 14px;
+    background: oklch(1 0 0 / 0.9);
+    font-size: 13.5px;
+}
+
+/* ปุ่มที่ถูกเลือกต้องต่างจากปุ่มอื่นด้วยมากกว่าสี — เด็กบางคนแยกสีไม่ออก */
+.triage-choice[aria-pressed="true"] {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: oklch(1 0 0);
+    font-weight: 700;
 }
 
 .supply-card {
