@@ -193,3 +193,37 @@ test('anonymous web SOS persists without identity; heartbeat retries share one L
     assert.equal(JSON.stringify(bodies).includes('forged'),false);
     assert.equal(JSON.stringify(bodies).includes('192.0.2.99'),false);
 });
+
+// เส้นทางจริงของ SOS จากเว็บ: notify → createWebSosSender → deliverEvent → pushLine
+// เดิมเส้นนี้ส่ง `{type:'text'}` ภาษาอังกฤษ ขณะที่การ์ด Flex ไทยถูกทดสอบผ่านฟังก์ชันที่ไม่มีใครเรียก
+// ⇒ เทสต้องอยู่บนเส้นที่ผู้ใช้เดินจริง ไม่ใช่เส้นที่อ่านแล้วสบายใจ (แก้ 2026-09-19)
+test('a web SOS reaches the teacher as the same Thai Flex card the cabinet sends, carrying the symptom', async () => {
+    const { createWebSosSender } = await import('../lib/web-sos.js');
+    const { createNotifyHandler } = await import('../api/notify.js');
+    const bodies = [];
+    const send = async body => { bodies.push(body); return true; };
+    const notify = createNotifyHandler({ authorizeRequest: async () => { throw new Error('anonymous'); },
+        send: createWebSosSender({ env, send }) });
+
+    assert.equal((await invoke(notify, { body: { event: 'sos', symptom: 'chest_tightness' },
+        headers: { 'x-forwarded-for': '192.0.2.77' } })).status, 200);
+
+    const message = bodies.at(-1).messages[0];
+    assert.equal(message.type, 'flex', 'ต้องเป็นการ์ด ไม่ใช่ข้อความเปล่า');
+    const rendered = JSON.stringify(message);
+    assert.match(message.altText, /เรียกครูพยาบาล/, 'ครูต้องอ่านออกจากแถบแจ้งเตือนโดยไม่ต้องเปิดการ์ด');
+    assert.match(rendered, /กดจากเว็บ/, 'ครูต้องรู้ว่ากดมาจากเว็บ ไม่ใช่ที่หน้าตู้ เพราะสิ่งที่ต้องทำต่างกัน');
+    assert.match(rendered, /แน่นหน้าอก/, 'อาการที่เด็กตอบต้องไปถึงครู');
+    assert.doesNotMatch(rendered, /chest_tightness/, 'ค่าดิบต้องไม่โผล่ให้ครูเห็น');
+    // ภาษาอังกฤษของเดิมต้องไม่หลงเหลือบนเส้นทางนี้อีก
+    for (const leftover of [/Please contact the student/, /not signed in/, /School user/])
+        assert.doesNotMatch(rendered, leftover, 'ยังมีข้อความอังกฤษของเดิมหลงเหลืออยู่');
+
+    // อาการที่ไม่อยู่ใน enum ต้องถูกปัดทิ้ง แต่การเรียกครูต้องไม่หาย — เหตุผลหายได้ ความช่วยเหลือห้ามหาย
+    assert.equal((await invoke(notify, { body: { event: 'sos', symptom: 'ข้อความอิสระถึงกลุ่มครู' },
+        headers: { 'x-forwarded-for': '192.0.2.78' } })).status, 200);
+    const freeform = JSON.stringify(bodies.at(-1).messages[0]);
+    assert.equal(freeform.includes('ข้อความอิสระถึงกลุ่มครู'), false,
+        'ข้อความอิสระต้องไม่เดินทางเข้ากลุ่ม LINE ของครู');
+    assert.match(JSON.parse(freeform).altText, /เรียกครูพยาบาล/);
+});
