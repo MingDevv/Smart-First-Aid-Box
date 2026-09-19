@@ -8,7 +8,7 @@ import vm from 'node:vm';
 // ทำแบบนี้เพื่อให้เทสวัดของที่ส่งขึ้นเว็บจริง ไม่ใช่สำเนาที่เทสเขียนเอง
 const woundData = vm.createContext({});
 vm.runInContext(await readFile(new URL('../js/wound-data.js', import.meta.url), 'utf8'), woundData);
-const { woundTriageBlockReason } = woundData;
+const { woundTriageBlockReason, woundTriageFor } = woundData;
 assert.equal(typeof woundTriageBlockReason, 'function',
     'หา woundTriageBlockReason ใน js/wound-data.js ไม่เจอ — เกตคัดกรองหายไปจากไฟล์ที่เว็บโหลดจริง');
 
@@ -22,6 +22,7 @@ const dispatchEnd = html.indexOf('\n        let ', dispatchStart);
 assert.ok(dispatchStart > -1 && dispatchEnd > dispatchStart,
     'หา startTreatment ในหน้า guide ไม่เจอ — ตัวตัดโค้ดของเทสตกยุคแล้ว ไม่ใช่โค้ดพัง');
 const dispatch = html.slice(dispatchStart, dispatchEnd);
+const screening = html.slice(html.indexOf('        function renderTriage()'), dispatchStart);
 assert.doesNotMatch(dispatch, /<\/script>/, 'ตัดโค้ดเลยขอบ <script> ไปแล้ว');
 const timer = html.slice(html.indexOf('        function startDispensingTimer()'), html.indexOf('\n        function ', html.indexOf('        function startDispensingTimer()') + 10));
 // ค่าเริ่มต้นคือ "ตอบแล้วว่าไม่เคยแพ้" เพราะเทสสองใบเดิมวัดเรื่องการรอตู้ ไม่ใช่เรื่องเกต
@@ -31,8 +32,10 @@ function page(openCompartment, { woundId = 'cut_abrasion', triageAnswer = 'no' }
     let stopped = false;
     let now = 0;
     const context = vm.createContext({
-        document: { getElementById(id) {
-            if (!elements.has(id)) elements.set(id, { disabled: false, style: {}, textContent: '', innerHTML: '' });
+        document: { createElement() {
+            return { dataset: {}, setAttribute() {}, addEventListener() {} };
+        }, getElementById(id) {
+            if (!elements.has(id)) elements.set(id, { disabled: false, style: {}, dataset: {}, textContent: '', innerHTML: '', replaceChildren() {} });
             return elements.get(id);
         } },
         Date: { now: () => now },
@@ -43,12 +46,13 @@ function page(openCompartment, { woundId = 'cut_abrasion', triageAnswer = 'no' }
         showStepsView() { context.stepsShown = true; }, escapeHtml: s => s,
         // ใช้ตัวจริงจาก js/wound-data.js ไม่ใช่ stub — เกตนี้คือสิ่งที่กันไม่ให้เด็กที่แพ้ได้ยา
         // ถ้า stub ไว้ เทสจะเขียวต่อไปแม้เกตถูกลบออกจากหน้าเว็บ
-        woundTriageBlockReason,
-        drawerOpened: false, wound: { id: woundId }, triageAnswer
+        woundTriageBlockReason, woundTriageFor,
+        WOUND_TRIAGE_DEFAULT: vm.runInContext('WOUND_TRIAGE_DEFAULT', woundData),
+        drawerOpened: false, dispatchLocked: false, wound: { id: woundId }, triageAnswer
     });
     // ต้องมี \n คั่น — ถ้าชิ้นแรกจบด้วยบรรทัดคอมเมนต์ `//` การต่อตรงๆ จะกลืนทั้งฟังก์ชันถัดไป
     // เข้าไปในคอมเมนต์ แล้วพังเป็น "Illegal return statement" ที่ชี้ไปคนละที่กับต้นเหตุ
-    vm.runInContext(`${dispatch}\n${timer}`, context);
+    vm.runInContext(`${screening}\n${dispatch}\n${timer}`, context);
     return { context, elements, elapsed(ms) { now = ms; ticks(); }, stopped: () => stopped };
 }
 
@@ -108,6 +112,28 @@ test('uncertain failures remain disabled, while explicitly unsent commands can b
         assert.equal(p.context.drawerOpened, false);
         assert.notEqual(p.context.stepsShown, true);
         assert.equal(p.elements.get('manual-open-drawer-btn').disabled, retrySafe !== true);
+        p.context.answerTriage({ value: 'no' });
+        assert.equal(p.elements.get('manual-open-drawer-btn').disabled, retrySafe !== true,
+            'Changing the answer must not release an uncertain command');
         assert.equal(p.stopped(), true);
+    }
+});
+
+test('unlock stays disabled until a safe answer and disables again when that answer changes', () => {
+    for (const [woundId, safeAnswer, blockedAnswer] of [
+        ['cut_abrasion', 'no', 'unsure'], ['insect', 'none', 'swelling']
+    ]) {
+        const p = page(() => assert.fail('Rendering screening must not send a command'), { woundId, triageAnswer: null });
+        const button = p.context.document.getElementById('manual-open-drawer-btn');
+        p.context.renderTriage();
+        assert.equal(button.disabled, true, 'Unanswered screening must disable unlock');
+        assert.match(p.elements.get('unlock-hint').textContent, /ตอบคำถาม/);
+        p.context.triageAnswer = safeAnswer;
+        p.context.renderTriage();
+        assert.equal(button.disabled, false, 'A safe answer enables unlock');
+        p.context.triageAnswer = blockedAnswer;
+        p.context.renderTriage();
+        assert.equal(button.disabled, true, 'An unsafe answer disables unlock again');
+        assert.match(p.elements.get('unlock-hint').textContent, /ครูพยาบาล/);
     }
 });

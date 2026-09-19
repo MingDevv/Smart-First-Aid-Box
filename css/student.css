@@ -622,12 +622,127 @@
     min-height: 0;
 }
 
-/* คอลัมน์ขวา (เวชภัณฑ์ · คำเตือน · ปุ่ม) สูงตามเนื้อหา ถ้าจอเตี้ยเกินค่อยเลื่อนในคอลัมน์ */
+/* คอลัมน์เวชภัณฑ์ในหน้าขั้นตอน */
 .guide-column {
     display: flex;
     flex-direction: column;
     gap: 10px;
     overflow-y: auto;
+}
+
+/* แยกรายการของออกจากคำตอบที่เปลี่ยนความสูงได้ ไม่ให้ flex บีบรายการจนทับคำถาม */
+#detail-view {
+    gap: 12px;
+}
+
+#detail-view .guide-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    min-height: min-content;
+}
+
+#detail-view .guide-overview {
+    display: grid;
+    grid-template-columns: clamp(96px, 12vw, 150px) minmax(0, 1fr);
+    grid-template-rows: minmax(96px, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+}
+
+#detail-view .guide-overview img {
+    height: 100%;
+    min-height: 0;
+    max-height: 220px;
+}
+
+#detail-view .guide-overview .notice {
+    grid-column: 1 / -1;
+    padding: 10px 12px;
+}
+
+#detail-view .supply-panel {
+    min-height: min-content;
+    padding: 10px 14px;
+}
+
+#detail-view .section-heading {
+    flex: none;
+}
+
+#detail-view .supply-list {
+    min-height: min-content;
+    overflow: visible;
+    align-content: start;
+    gap: 6px;
+}
+
+#detail-view .supply-card {
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    padding: 6px 8px;
+}
+
+#detail-view .supply-card img,
+#detail-view .supply-placeholder {
+    width: 36px;
+    height: 36px;
+}
+
+.guide-decision {
+    display: grid;
+    flex: none;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.guide-screening,
+.guide-confirmation {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.guide-screening .triage-panel {
+    padding: 10px 12px;
+}
+
+.guide-screening .triage-choice {
+    min-height: 44px;
+    padding: 8px 10px;
+}
+
+.guide-screening .hardware-card {
+    flex: none;
+    padding: 8px 12px;
+    font-size: 12.5px;
+}
+
+.guide-screening .hardware-card .notice-title {
+    display: inline;
+    margin-right: 8px;
+}
+
+.guide-confirmation .guide-actions {
+    flex-direction: column;
+}
+
+.guide-confirmation .guide-actions .unlock-button {
+    flex: none;
+}
+
+@media (max-width: 720px) {
+    #detail-view .guide-grid,
+    .guide-decision {
+        grid-template-columns: minmax(0, 1fr);
+        grid-auto-rows: auto;
+        flex: none;
+        gap: 12px;
+    }
+
+    #detail-view .guide-overview img {
+        aspect-ratio: auto;
+    }
 }
 
 .guide-actions {
