@@ -131,6 +131,66 @@ const WOUND_DATA = {
     }
 };
 
+// ── คำถามคัดกรองก่อนจ่ายของ ────────────────────────────────────────────
+//
+// อยู่ไฟล์นี้เพราะทั้งจอตู้ (js/kiosk-app.js) และหน้าเว็บนักเรียน
+// (student/first-aid-guide.html) โหลดไฟล์นี้อยู่แล้ว และคำถามนี้เป็นเกตความปลอดภัย
+// ⇒ มีสองสำเนาเมื่อไหร่ มันจะเพี้ยนจากกันโดยไม่มีใครรู้ ตอนนั้นจอหนึ่งจะจ่ายของที่อีกจอปฏิเสธ
+//
+// แผลทั่วไปถามเรื่องแพ้ยา เพราะของที่จ่ายคือยาทา · แต่ "แมลงกัดต่อย" คำถามที่สำคัญกว่า
+// คือเด็กกำลังแพ้อยู่ตอนนี้หรือเปล่า · บวมกับแน่นหน้าอกเป็นสัญญาณของการแพ้รุนแรง
+// ซึ่งยาทาไม่ช่วย และการยืนรอตู้จ่ายของคือการเสียเวลาที่ควรใช้ตามครู
+// ⇒ สองอาการนี้ไม่จ่าย แต่เรียกครูให้ทันทีพร้อมบอกว่าเรียกเพราะอะไร
+//
+// ค่าใน `symptom` ต้องตรงกับ SOS_SYMPTOMS ใน lib/cabinet-events.js เท่านั้น
+// เพราะมันเดินทางไปโผล่ในกลุ่ม LINE ของครู — ห้ามเปิดให้เป็นข้อความอิสระ
+const WOUND_TRIAGE_DEFAULT = {
+    question: 'เคยแพ้สิ่งที่แสดงนี้ไหม',
+    options: [
+        { value: 'yes', label: 'เคยแพ้' },
+        { value: 'unsure', label: 'ไม่แน่ใจ' },
+        { value: 'no', label: 'ไม่เคยแพ้', safe: true }
+    ]
+};
+
+const WOUND_TRIAGE = {
+    insect: {
+        question: 'ตอนนี้มีอาการแบบนี้ไหม',
+        options: [
+            { value: 'swelling', label: 'บวมบริเวณแผล', symptom: 'swelling' },
+            { value: 'chest_tightness', label: 'แน่นหน้าอก', symptom: 'chest_tightness' },
+            { value: 'none', label: 'ไม่มี', safe: true }
+        ]
+    }
+};
+
+// รับ id ของแผล ไม่ใช่ทั้งก้อน เพราะสองฝั่งเก็บ "แผลที่เลือกอยู่" คนละรูปแบบ
+function woundTriageFor(woundId) {
+    return WOUND_TRIAGE[woundId] || WOUND_TRIAGE_DEFAULT;
+}
+
+// เหตุผลที่ห้ามจ่ายจากคำตอบคัดกรอง — คืน null ถ้าคำตอบนี้จ่ายได้
+// ข้อความชุดเดียวกันทั้งจอตู้และเว็บ เด็กคนเดียวกันจะได้ไม่เจอคำอธิบายคนละแบบ
+function woundTriageBlockReason(woundId, answerValue) {
+    const triage = woundTriageFor(woundId);
+    const answer = triage.options.find(item => item.value === answerValue) || null;
+    if (!answer) {
+        return triage === WOUND_TRIAGE_DEFAULT
+            ? 'ตอบคำถามเรื่องแพ้ยาก่อน ตู้จะได้รู้ว่าจ่ายให้ได้ไหม'
+            : 'ตอบคำถามเรื่องอาการก่อน ตู้จะได้รู้ว่าจ่ายให้ได้ไหม';
+    }
+    if (answer.symptom === 'swelling') return 'บวมแบบนี้ต้องให้ครูดูก่อน ตู้เรียกครูให้แล้ว รออยู่ตรงนี้';
+    if (answer.symptom === 'chest_tightness') return 'แน่นหน้าอกเป็นอาการที่ต้องรีบ ตู้เรียกครูให้แล้ว รออยู่ตรงนี้';
+    if (answer.value === 'yes') return 'เคยแพ้ของพวกนี้ — ตู้จะไม่จ่ายให้ กดเรียกครูเลย';
+    if (answer.value === 'unsure') return 'ไม่แน่ใจว่าแพ้หรือเปล่า — ให้ครูดูก่อนปลอดภัยกว่า กดเรียกครู';
+    return null;
+}
+
+// ⚠️ บล็อกนี้ไม่เคยทำงาน และคงไว้เพราะยังไม่ได้ตัดสินใจว่าจะลบ — package.json มี
+// `"type": "module"` ⇒ ไฟล์ .js ในเรพนี้เป็น ESM สำหรับ Node ตัวแปร `module` จึงไม่มี
+// (ยืนยัน 2026-09-19: `require('./js/wound-data.js')` คืนออบเจ็กต์ว่าง ไม่ throw ด้วย)
+// เทสที่ต้องใช้ค่าในไฟล์นี้ให้รันไฟล์ใน vm แบบเดียวกับที่เบราว์เซอร์โหลด — ดู
+// tests/guide-command.test.mjs · อย่าเพิ่ม export ตรงนี้แล้วเชื่อว่ามันส่งออกจริง
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = WOUND_DATA;
 }

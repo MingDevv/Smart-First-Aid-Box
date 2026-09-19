@@ -81,6 +81,14 @@
                             <div class="supply-list" id="items-list"></div>
                         </div>
 
+                        <!-- เกตคัดกรองก่อนปลดล็อก — ต้องอยู่เหนือปุ่ม เพราะเด็กต้องเห็นคำถามก่อนตัดสินใจกด
+                             ไม่ใช่เจอเป็นด่านหลังกดไปแล้ว · ปุ่มยังกดได้เสมอและเป็นคนบอกเหตุผลเอง
+                             (ห้ามซ่อนปุ่มด้วย CSS — ของที่กดไม่ได้แล้วไม่บอกอะไร คือบั๊กที่เจอมาแล้ว 09-15) -->
+                        <div class="triage-panel" id="triage-panel" data-answered="none">
+                            <div class="triage-question" id="triage-question"></div>
+                            <div class="triage-choices" id="triage-choices" role="group" aria-labelledby="triage-question"></div>
+                        </div>
+
                         <div class="notice notice-info hardware-card" id="hardware-panel" role="status" aria-live="polite">
                             <span class="material-symbols-rounded" id="hardware-indicator-icon" aria-hidden="true">sync</span>
                             <span><span class="notice-title" id="hardware-status-label">กำลังเชื่อมต่อตู้ยา</span><span id="hardware-log">กำลังเตรียมคำสั่งปลดล็อก...</span></span>
@@ -162,7 +170,7 @@
                         <div class="step-timer"><span class="material-symbols-rounded" aria-hidden="true">timer</span><span class="step-timer-copy" id="step-timer-text">ล้างมือต่อเนื่องอย่างน้อย 20 วินาที</span><span class="step-timer-value" id="step-timer-value">0:20</span></div>
                         <div class="step-nav">
                             <button class="btn btn-outline" id="prev-step-btn" type="button" onclick="navigateStep(-1)" aria-label="ขั้นตอนก่อนหน้า"><span class="material-symbols-rounded">arrow_back</span>ก่อนหน้า</button>
-                            <button class="btn btn-primary" id="next-step-btn" type="button" onclick="navigateStep(1)"><span class="material-symbols-rounded">check</span>ทำเสร็จแล้ว</button>
+                            <button class="btn btn-primary" id="next-step-btn" type="button" onclick="navigateStep(1)"><span class="material-symbols-rounded">arrow_forward</span>ถัดไป</button>
                         </div>
                     </div>
 
@@ -220,6 +228,7 @@
                 return;
             }
             renderDetail();
+            renderTriage();
             document.getElementById('detail-view').classList.add('is-visible');
             document.getElementById('speak-btn').addEventListener('click', speakCurrentStep);
         });
@@ -282,6 +291,71 @@
             return [...matches];
         }
 
+        // คำตอบคัดกรองของรอบนี้ — null = ยังไม่ตอบ
+        let triageAnswer = null;
+
+        function renderTriage() {
+            const triage = woundTriageFor(wound.id);
+            document.getElementById('triage-question').textContent = triage.question;
+            const choices = document.getElementById('triage-choices');
+            // สร้างปุ่มตามประเภทแผล ไม่ใช่ซ่อนของที่ไม่ใช้ ⇒ ไม่มีปุ่มของแผลประเภทอื่นค้างให้กดโดน
+            choices.replaceChildren(...triage.options.map(item => {
+                const button = document.createElement('button');
+                button.className = 'btn btn-outline triage-choice';
+                button.type = 'button';
+                button.dataset.answer = item.value;
+                button.textContent = item.label;
+                button.setAttribute('aria-pressed', String(item.value === triageAnswer));
+                button.addEventListener('click', () => answerTriage(item));
+                return button;
+            }));
+            const chosen = triage.options.find(item => item.value === triageAnswer) || null;
+            // ตอบแล้วและปลอดภัย = เขียว · ตอบแล้วและต้องให้ครูดู = แดง · ยังไม่ตอบ = เหลือง
+            document.getElementById('triage-panel').dataset.answered =
+                !chosen ? 'none' : chosen.safe ? 'no' : 'yes';
+        }
+
+        function answerTriage(option) {
+            triageAnswer = option.value;
+            renderTriage();
+            const blocked = woundTriageBlockReason(wound.id, triageAnswer);
+            if (!blocked) {
+                setHardwarePanel('info', 'check_circle', 'ตอบคำถามแล้ว', 'กดปุ่มด้านล่างเพื่อปลดล็อกช่องเก็บได้เลย');
+                return;
+            }
+            setHardwarePanel('danger', 'block', 'ยังจ่ายของให้ไม่ได้', blocked);
+            // อาการแพ้รุนแรงไม่รอให้เด็กหาปุ่มเรียกครูเจอ — เรียกให้เองพร้อมบอกเหตุผล
+            // ถ้าส่งไม่สำเร็จ ปุ่มเรียกครูมุมขวาล่างยังอยู่ตรงนั้นและกดได้เหมือนเดิม
+            if (option.symptom) void autoCallTeacher(option.symptom);
+        }
+
+        // แถบสถานะใช้ inline style เหมือนเดิม — tests/guide-command.test.mjs รันบน element ปลอม
+        // ที่มีแค่ .style ไม่มี classList
+        function setHardwarePanel(tone, icon, label, message) {
+            const panel = document.getElementById('hardware-panel');
+            panel.style.display = 'flex';
+            panel.style.background = tone === 'danger' ? 'var(--danger-light)' : '';
+            panel.style.borderColor = tone === 'danger' ? 'oklch(0.87 0.06 35)' : '';
+            panel.style.color = tone === 'danger' ? 'var(--danger)' : '';
+            document.getElementById('hardware-indicator-icon').textContent = icon;
+            document.getElementById('hardware-status-label').textContent = label;
+            document.getElementById('hardware-log').textContent = message;
+        }
+
+        async function autoCallTeacher(symptom) {
+            try {
+                const student = StorageService.getCurrentStudent();
+                const studentName = student ? `${student.name} (${student.class})` : 'นักเรียนทั่วไป';
+                // ไม่ขึ้น toast ว่า "เรียกครูแล้ว" เอง — sendSos ขึ้นของมันเองตามผลจริงของแต่ละช่องทาง
+                // (LINE กับออดแยกกัน) การเติมข้อความสำเร็จทับ คือการบอกว่าครูถูกเรียกแล้วทั้งที่อาจยัง
+                await NotificationService.sendSos(NotificationService.buildSosFlexMessage(studentName), { symptom });
+            } catch (error) {
+                console.error('[Guide] Auto SOS failed:', error);
+                // ห้ามเงียบ — เด็กต้องรู้ว่ายังไม่มีใครถูกเรียก จะได้ไปตามครูเอง
+                NotificationService.showToast('เรียกครูอัตโนมัติไม่สำเร็จ กดปุ่มเรียกครูพยาบาลด่วนที่มุมขวาล่าง', 'danger');
+            }
+        }
+
         async function startTreatment() {
             const button = document.getElementById('manual-open-drawer-btn');
             if (button.disabled || drawerOpened) return;
@@ -302,6 +376,21 @@
                 label.textContent = 'ระงับการจ่ายยา';
                 log.textContent = `พบประวัติแพ้ยา ${allergyMatches.join(', ')} กรุณาติดต่อครูพยาบาล`;
                 NotificationService.showToast(`ระงับการเปิดตู้: พบประวัติแพ้ยา ${allergyMatches.join(', ')}`, 'danger');
+                return;
+            }
+
+            // ตรวจซ้ำตรงนี้ ไม่เชื่อว่าปุ่มถูกปิดไว้แล้ว — หน้านี้เปิดค้างได้นาน และคำตอบถูกล้าง
+            // ทุกครั้งที่เปลี่ยนประเภทแผล ⇒ สถานะบนจอไม่ใช่หลักฐานว่าเด็กตอบคำถามของแผลนี้จริง
+            const triageBlocked = woundTriageBlockReason(wound.id, triageAnswer);
+            if (triageBlocked) {
+                panel.style.display = 'flex';
+                panel.style.background = 'var(--danger-light)';
+                panel.style.borderColor = 'oklch(0.87 0.06 35)';
+                panel.style.color = 'var(--danger)';
+                icon.textContent = 'block';
+                label.textContent = 'ยังจ่ายของให้ไม่ได้';
+                log.textContent = triageBlocked;
+                NotificationService.showToast(triageBlocked, 'danger');
                 return;
             }
 
@@ -430,7 +519,7 @@
             if (currentStepIndex === total - 1) {
                 nextButton.innerHTML = '<span class="material-symbols-rounded">check_circle</span><span>เสร็จสิ้นและบันทึก</span>';
             } else {
-                nextButton.innerHTML = '<span class="material-symbols-rounded">check</span><span>ทำเสร็จแล้ว</span>';
+                nextButton.innerHTML = '<span class="material-symbols-rounded">arrow_forward</span><span>ถัดไป</span>';
             }
         }
 
